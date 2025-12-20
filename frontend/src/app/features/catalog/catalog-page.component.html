@@ -96,6 +96,10 @@
             </div>
 
             <div class="object-actions" (click)="$event.stopPropagation()">
+              <a [routerLink]="['/learn']" [queryParams]="{ objectId: obj.id }" class="action-btn retrain">
+                <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
+                {{ 'catalog.actions.retrain' | translate }}
+              </a>
               <button class="action-btn" (click)="toggleObjectStatus(obj)">
                 {{ (obj.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
               </button>
@@ -151,6 +155,10 @@
         </div>
 
         <div class="detail-actions">
+          <a [routerLink]="['/learn']" [queryParams]="{ objectId: selectedObject()!.id }" class="btn-primary">
+            <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
+            {{ 'catalog.actions.retrain' | translate }}
+          </a>
           <button class="btn-secondary" (click)="toggleObjectStatus(selectedObject()!)">
             {{ (selectedObject()!.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
           </button>

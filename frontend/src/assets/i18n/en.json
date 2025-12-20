@@ -150,7 +150,19 @@
     "trainModel": "Train Model",
     "trainingProgress": "Training Progress",
     "trainingComplete": "Training Complete",
-    "addMoreImages": "Add more images for better accuracy"
+    "addMoreImages": "Add more images for better accuracy",
+    "retrain": {
+      "title": "Retrain Object",
+      "subtitle": "Adding new images to \"{{name}}\"",
+      "trainingTitle": "Adding Images",
+      "trainingDescription": "Adding new training images to \"{{name}}\"",
+      "newImages": "New Images",
+      "existingImages": "Existing Images",
+      "addImages": "Add Images",
+      "addMore": "Add More Images",
+      "completeTitle": "Images Added!",
+      "completeDescription": "{{count}} new images have been added to \"{{name}}\""
+    }
   },
   "catalog": {
     "title": "Object Catalog",
@@ -201,7 +213,8 @@
     "actions": {
       "activate": "Activate",
       "deactivate": "Deactivate",
-      "delete": "Delete"
+      "delete": "Delete",
+      "retrain": "Retrain"
     }
   },
   "admin": {

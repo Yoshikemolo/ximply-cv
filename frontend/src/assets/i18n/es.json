@@ -150,7 +150,19 @@
     "trainModel": "Entrenar Modelo",
     "trainingProgress": "Progreso del Entrenamiento",
     "trainingComplete": "Entrenamiento Completado",
-    "addMoreImages": "Añade más imágenes para mejor precisión"
+    "addMoreImages": "Añade más imágenes para mejor precisión",
+    "retrain": {
+      "title": "Reentrenar Objeto",
+      "subtitle": "Añadiendo nuevas imágenes a \"{{name}}\"",
+      "trainingTitle": "Añadiendo Imágenes",
+      "trainingDescription": "Añadiendo nuevas imágenes de entrenamiento a \"{{name}}\"",
+      "newImages": "Nuevas Imágenes",
+      "existingImages": "Imágenes Existentes",
+      "addImages": "Añadir Imágenes",
+      "addMore": "Añadir Más Imágenes",
+      "completeTitle": "¡Imágenes Añadidas!",
+      "completeDescription": "Se han añadido {{count}} nuevas imágenes a \"{{name}}\""
+    }
   },
   "catalog": {
     "title": "Catálogo de Objetos",
@@ -201,7 +213,8 @@
     "actions": {
       "activate": "Activar",
       "deactivate": "Desactivar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "retrain": "Reentrenar"
     }
   },
   "admin": {

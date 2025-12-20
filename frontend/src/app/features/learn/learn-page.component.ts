@@ -1,10 +1,10 @@
-import { Component, OnDestroy, inject, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal, ElementRef, ViewChild, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { DetectionService, DetectionResult } from '@core/services/detection.service';
-import { CatalogService } from '@core/services/catalog.service';
+import { ObjectsService, CatalogObject } from '@core/services/objects.service';
 import { Subscription } from 'rxjs';
 
 // Color palette for different detection classes
@@ -20,7 +20,7 @@ const DETECTION_COLORS = [
   templateUrl: './learn-page.component.html',
   styleUrl: './learn-page.component.scss',
 })
-export class LearnPageComponent implements OnDestroy {
+export class LearnPageComponent implements OnInit, OnDestroy {
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('annotationCanvas') annotationCanvas!: ElementRef<HTMLCanvasElement>;
@@ -28,18 +28,40 @@ export class LearnPageComponent implements OnDestroy {
   @ViewChild('imageReel') imageReel!: ElementRef<HTMLDivElement>;
 
   private readonly detectionService = inject(DetectionService);
-  private readonly catalogService = inject(CatalogService);
+  private readonly objectsService = inject(ObjectsService);
+  private readonly route = inject(ActivatedRoute);
 
   // Learning mode: 'images' for static upload, 'camera' for live capture
   learningMode = signal<'images' | 'camera'>('images');
+
+  // Retrain mode - when editing an existing object
+  isRetrainMode = signal(false);
+  retrainObject = signal<CatalogObject | null>(null);
 
   currentStep = signal<'upload' | 'annotate' | 'train' | 'complete'>('upload');
   uploadedImages = signal<UploadedImage[]>([]);
   selectedImage = signal<UploadedImage | null>(null);
   objectName = signal('');
+  objectDescription = signal('');
   isTraining = signal(false);
   trainingProgress = signal(0);
+  trainingMessage = signal('');
   errorMessage = signal<string | null>(null);
+
+  constructor() {
+    // Watch training progress from service
+    effect(() => {
+      const progress = this.objectsService.trainingProgress();
+      if (progress) {
+        this.trainingProgress.set(progress.progress);
+        this.trainingMessage.set(progress.message || '');
+        if (progress.status === 'error') {
+          this.errorMessage.set(progress.message || 'Training failed');
+          this.isTraining.set(false);
+        }
+      }
+    });
+  }
 
   // Annotation state
   isDrawing = signal(false);
@@ -68,8 +90,33 @@ export class LearnPageComponent implements OnDestroy {
   private currentSubscription: Subscription | null = null;
   private annotationAnimationId: number | null = null;
 
+  ngOnInit(): void {
+    // Check for retrain mode via query params
+    this.route.queryParams.subscribe(params => {
+      const objectId = params['objectId'];
+      if (objectId) {
+        this.loadObjectForRetrain(objectId);
+      }
+    });
+  }
+
   ngOnDestroy(): void {
     this.stopCamera();
+  }
+
+  private async loadObjectForRetrain(objectId: string): Promise<void> {
+    try {
+      const object = await this.objectsService.getObject(objectId).toPromise();
+      if (object) {
+        this.isRetrainMode.set(true);
+        this.retrainObject.set(object);
+        this.objectName.set(object.name);
+        this.objectDescription.set(object.description || '');
+      }
+    } catch (error) {
+      console.error('Failed to load object for retrain:', error);
+      this.errorMessage.set('Failed to load object');
+    }
   }
 
   setLearningMode(mode: 'images' | 'camera'): void {
@@ -950,45 +997,79 @@ export class LearnPageComponent implements OnDestroy {
   async startTraining(): Promise<void> {
     this.isTraining.set(true);
     this.trainingProgress.set(0);
+    this.trainingMessage.set('Preparing images...');
+    this.errorMessage.set(null);
 
-    // Get thumbnail from first image
-    let thumbnailUrl = '';
+    try {
+      // Prepare images with annotations/bboxes
+      const images = this.prepareTrainingImages();
+
+      if (images.length === 0) {
+        throw new Error('No images to train with');
+      }
+
+      if (this.isRetrainMode() && this.retrainObject()) {
+        // Add images to existing object
+        const objectId = this.retrainObject()!.id;
+        await this.objectsService.addTrainingImages(objectId, images);
+      } else {
+        // Create new object and train
+        const description = this.objectDescription() || `Trained with ${images.length} images`;
+        await this.objectsService.trainObject(
+          this.objectName(),
+          description,
+          images
+        );
+      }
+
+      this.isTraining.set(false);
+      this.nextStep();
+
+    } catch (error: any) {
+      console.error('Training failed:', error);
+      this.errorMessage.set(error.message || 'Training failed');
+      this.isTraining.set(false);
+    }
+  }
+
+  private prepareTrainingImages(): Array<{ data: string; bbox?: { x: number; y: number; width: number; height: number } }> {
+    const images: Array<{ data: string; bbox?: { x: number; y: number; width: number; height: number } }> = [];
+
     if (this.learningMode() === 'camera') {
+      // Camera mode: captured images already have bboxes
       const captured = this.capturedImages();
-      if (captured.length > 0) {
-        thumbnailUrl = captured[0].preview;
+      for (const img of captured) {
+        images.push({
+          data: img.fullFrame || img.preview,
+          bbox: img.bbox,
+        });
       }
     } else {
+      // Image upload mode: use annotations as bboxes
       const uploaded = this.uploadedImages();
-      if (uploaded.length > 0) {
-        thumbnailUrl = uploaded[0].preview;
+      for (const img of uploaded) {
+        if (img.annotations.length > 0) {
+          // Use first annotation as primary bbox
+          const annotation = img.annotations[0];
+          images.push({
+            data: img.preview,
+            bbox: {
+              x: annotation.x,
+              y: annotation.y,
+              width: annotation.width,
+              height: annotation.height,
+            },
+          });
+        } else {
+          // No annotation - use full image
+          images.push({
+            data: img.preview,
+          });
+        }
       }
     }
 
-    // Simulate training progress
-    const interval = setInterval(() => {
-      this.trainingProgress.update(p => {
-        const newProgress = p + Math.random() * 10;
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          this.isTraining.set(false);
-
-          // Add trained object to catalog
-          this.catalogService.addObject({
-            name: this.objectName(),
-            description: `Trained with ${this.getImageCount()} images`,
-            category: 'trained',
-            imageUrl: thumbnailUrl,
-            thumbnailUrl: thumbnailUrl,
-            trainingImages: this.getImageCount(),
-          });
-
-          this.nextStep();
-          return 100;
-        }
-        return newProgress;
-      });
-    }, 500);
+    return images;
   }
 
   resetWizard(): void {

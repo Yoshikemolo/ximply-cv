@@ -19,6 +19,62 @@
   }
 }
 
+// Retrain Banner
+.retrain-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--accent-alpha-10);
+  border: 2px solid var(--brand-primary);
+  border-radius: 12px;
+
+  .icon-mask {
+    color: var(--brand-primary);
+    flex-shrink: 0;
+  }
+
+  .retrain-info {
+    flex: 1;
+
+    h1 {
+      font-size: 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+    }
+  }
+
+  .btn-secondary {
+    flex-shrink: 0;
+  }
+}
+
+// Object name display (retrain mode)
+.object-name-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-default);
+  border-radius: 10px;
+  max-width: 480px;
+
+  .icon-mask {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  span {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+}
+
 // Mode Selector
 .mode-selector {
   display: grid;

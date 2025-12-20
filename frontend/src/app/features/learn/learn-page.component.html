@@ -1,7 +1,20 @@
 <div class="learn-container">
   <div class="learn-header">
-    <h1>{{ 'learn.title' | translate }}</h1>
-    <p class="subtitle">{{ 'learn.subtitle' | translate }}</p>
+    @if (isRetrainMode() && retrainObject()) {
+      <div class="retrain-banner">
+        <span class="icon-mask icon-mask--refresh icon-mask--lg"></span>
+        <div class="retrain-info">
+          <h1>{{ 'learn.retrain.title' | translate }}</h1>
+          <p class="subtitle">{{ 'learn.retrain.subtitle' | translate: { name: retrainObject()!.name } }}</p>
+        </div>
+        <a routerLink="/catalog" class="btn-secondary btn-small">
+          {{ 'common.cancel' | translate }}
+        </a>
+      </div>
+    } @else {
+      <h1>{{ 'learn.title' | translate }}</h1>
+      <p class="subtitle">{{ 'learn.subtitle' | translate }}</p>
+    }
   </div>
 
   <!-- Learning Mode Selector -->
@@ -66,12 +79,19 @@
             <span class="icon-mask icon-mask--tag icon-mask--sm"></span>
             {{ 'learn.objectName' | translate }}
           </label>
-          <input
-            type="text"
-            id="objectName"
-            [(ngModel)]="objectName"
-            [placeholder]="'learn.objectNamePlaceholder' | translate"
-          />
+          @if (isRetrainMode()) {
+            <div class="object-name-display">
+              <span class="icon-mask icon-mask--lock icon-mask--sm"></span>
+              <span>{{ objectName() }}</span>
+            </div>
+          } @else {
+            <input
+              type="text"
+              id="objectName"
+              [(ngModel)]="objectName"
+              [placeholder]="'learn.objectNamePlaceholder' | translate"
+            />
+          }
         </div>
 
         @if (learningMode() === 'images') {
@@ -371,18 +391,29 @@
         <div class="train-step">
           <div class="train-card">
             <span class="icon-mask icon-mask--brain icon-mask--xxl train-icon"></span>
-            <h2>{{ 'learn.trainingTitle' | translate }}</h2>
-            <p>{{ 'learn.trainingDescription' | translate }}</p>
+            @if (isRetrainMode()) {
+              <h2>{{ 'learn.retrain.trainingTitle' | translate }}</h2>
+              <p>{{ 'learn.retrain.trainingDescription' | translate: { name: objectName() } }}</p>
+            } @else {
+              <h2>{{ 'learn.trainingTitle' | translate }}</h2>
+              <p>{{ 'learn.trainingDescription' | translate }}</p>
+            }
 
             <div class="training-summary">
               <div class="summary-item">
                 <span class="summary-value">{{ getImageCount() }}</span>
-                <span class="summary-label">{{ 'learn.images' | translate }}</span>
+                <span class="summary-label">{{ (isRetrainMode() ? 'learn.retrain.newImages' : 'learn.images') | translate }}</span>
               </div>
               <div class="summary-item">
                 <span class="summary-value">{{ objectName() }}</span>
                 <span class="summary-label">{{ 'learn.objectName' | translate }}</span>
               </div>
+              @if (isRetrainMode() && retrainObject()) {
+                <div class="summary-item">
+                  <span class="summary-value">{{ retrainObject()!.training_samples }}</span>
+                  <span class="summary-label">{{ 'learn.retrain.existingImages' | translate }}</span>
+                </div>
+              }
             </div>
 
             @if (isTraining()) {
@@ -395,10 +426,16 @@
                 </div>
                 <span class="progress-text">{{ trainingProgress().toFixed(0) }}%</span>
               </div>
-              <p class="training-status">{{ 'learn.trainingInProgress' | translate }}</p>
+              <p class="training-status">
+                @if (trainingMessage()) {
+                  {{ trainingMessage() }}
+                } @else {
+                  {{ 'learn.trainingInProgress' | translate }}
+                }
+              </p>
             } @else {
               <button class="btn-primary btn-large" (click)="startTraining()">
-                {{ 'learn.startTraining' | translate }}
+                {{ (isRetrainMode() ? 'learn.retrain.addImages' : 'learn.startTraining') | translate }}
               </button>
             }
           </div>
@@ -409,12 +446,17 @@
         <div class="complete-step">
           <div class="complete-card">
             <span class="icon-mask icon-mask--check icon-mask--xxl success-icon"></span>
-            <h2>{{ 'learn.completeTitle' | translate }}</h2>
-            <p>{{ 'learn.completeDescription' | translate: { name: objectName() } }}</p>
+            @if (isRetrainMode()) {
+              <h2>{{ 'learn.retrain.completeTitle' | translate }}</h2>
+              <p>{{ 'learn.retrain.completeDescription' | translate: { name: objectName(), count: getImageCount() } }}</p>
+            } @else {
+              <h2>{{ 'learn.completeTitle' | translate }}</h2>
+              <p>{{ 'learn.completeDescription' | translate: { name: objectName() } }}</p>
+            }
 
             <div class="complete-actions">
               <button class="btn-secondary" (click)="resetWizard()">
-                {{ 'learn.trainAnother' | translate }}
+                {{ (isRetrainMode() ? 'learn.retrain.addMore' : 'learn.trainAnother') | translate }}
               </button>
               <a routerLink="/catalog" class="btn-primary">
                 {{ 'learn.viewCatalog' | translate }}

@@ -249,4 +249,14 @@
     mask-image: url('/assets/icons/square.svg');
     -webkit-mask-image: url('/assets/icons/square.svg');
   }
+
+  &--refresh {
+    mask-image: url('/assets/icons/refresh.svg');
+    -webkit-mask-image: url('/assets/icons/refresh.svg');
+  }
+
+  &--lock {
+    mask-image: url('/assets/icons/lock.svg');
+    -webkit-mask-image: url('/assets/icons/lock.svg');
+  }
 }
