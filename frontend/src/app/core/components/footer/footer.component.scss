@@ -1,0 +1,31 @@
+@use '../../../../styles/variables' as *;
+@use '../../../../styles/mixins' as *;
+
+.footer {
+  height: $footer-height;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-default);
+
+  &__container {
+    @include flex-between;
+    height: 100%;
+    max-width: $content-max-width;
+    margin: 0 auto;
+    padding: 0 $space-4;
+
+    @include breakpoint-up(lg) {
+      padding: 0 $space-8;
+    }
+  }
+
+  &__copyright {
+    font-size: $font-size-xs;
+    color: var(--text-tertiary);
+  }
+
+  &__version {
+    font-size: $font-size-xs;
+    color: var(--text-tertiary);
+    font-family: $font-family-mono;
+  }
+}

@@ -1,0 +1,21 @@
+<div class="app-container">
+  <!-- Header -->
+  <app-header
+    (menuToggle)="toggleSideMenu()"
+    [isSideMenuOpen]="isSideMenuOpen"
+  ></app-header>
+
+  <!-- Side Menu (Mobile) -->
+  <app-side-menu
+    [isOpen]="isSideMenuOpen"
+    (closed)="closeSideMenu()"
+  ></app-side-menu>
+
+  <!-- Main Content -->
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Footer (Desktop only, mobile footer is in side menu) -->
+  <app-footer class="hide-mobile"></app-footer>
+</div>

@@ -1,0 +1,90 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div class="header-content">
+      <h1>{{ 'admin.roles.title' | translate }}</h1>
+      <p class="subtitle">{{ 'admin.roles.subtitle' | translate }}</p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>{{ 'common.loading' | translate }}</p>
+    </div>
+  } @else {
+    <div class="roles-layout">
+      <!-- Roles List -->
+      <div class="roles-list">
+        @for (role of roles(); track role.id) {
+          <div
+            class="role-card"
+            [class.selected]="selectedRole()?.id === role.id"
+            (click)="selectRole(role)"
+          >
+            <div class="role-header">
+              <h3>{{ role.name }}</h3>
+              @if (role.isSystem) {
+                <span class="system-badge">{{ 'admin.roles.system' | translate }}</span>
+              }
+            </div>
+            <p class="role-description">{{ role.description }}</p>
+            <div class="role-meta">
+              <span class="permission-count">
+                {{ role.permissions.length }} {{ 'admin.roles.permissions' | translate }}
+              </span>
+              <span class="user-count">
+                {{ role.userCount }} {{ 'admin.roles.users' | translate }}
+              </span>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Role Details -->
+      <div class="role-details">
+        @if (selectedRole()) {
+          <div class="details-card">
+            <div class="details-header">
+              <h2>{{ selectedRole()!.name }}</h2>
+              @if (selectedRole()!.isSystem) {
+                <span class="system-badge">{{ 'admin.roles.system' | translate }}</span>
+              }
+            </div>
+
+            <p class="details-description">{{ selectedRole()!.description }}</p>
+
+            <div class="permissions-section">
+              <h4>{{ 'admin.roles.permissionsList' | translate }}</h4>
+
+              @for (entry of groupPermissions(selectedRole()!.permissions) | keyvalue; track entry.key) {
+                <div class="permission-group">
+                  <h5 class="group-name">{{ entry.key | titlecase }}</h5>
+                  <div class="permission-tags">
+                    @for (permission of entry.value; track permission) {
+                      <span class="permission-tag">
+                        {{ getPermissionAction(permission) }}
+                      </span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="details-footer">
+              <p class="user-info">
+                <strong>{{ selectedRole()!.userCount }}</strong>
+                {{ 'admin.roles.usersWithRole' | translate }}
+              </p>
+            </div>
+          </div>
+        } @else {
+          <div class="no-selection">
+            <span class="icon">👥</span>
+            <p>{{ 'admin.roles.selectRole' | translate }}</p>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

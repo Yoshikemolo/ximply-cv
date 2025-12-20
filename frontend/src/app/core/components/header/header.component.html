@@ -1,0 +1,88 @@
+<header class="header">
+  <div class="header__container">
+    <!-- Logo and Brand -->
+    <div class="header__brand">
+      <a routerLink="/" class="header__logo">
+        <img
+          [src]="logoPath()"
+          alt="XIMPLY Vision"
+          class="header__logo-image"
+        />
+        <span class="header__logo-text">XIMPLY Vision</span>
+      </a>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <nav class="header__nav hide-mobile">
+      @for (item of visibleNavItems; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="header__nav-link--active"
+          class="header__nav-link"
+        >
+          {{ item.labelKey | translate }}
+        </a>
+      }
+    </nav>
+
+    <!-- Actions -->
+    <div class="header__actions">
+      <!-- Theme Toggle -->
+      <button
+        type="button"
+        class="header__action-btn"
+        (click)="toggleTheme()"
+        [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+      >
+        <span
+          class="icon-mask"
+          [class.icon-mask--sun]="isDarkMode()"
+          [class.icon-mask--moon]="!isDarkMode()"
+        ></span>
+      </button>
+
+      <!-- Language Selector (Desktop) -->
+      <div class="header__language hide-mobile">
+        <select
+          [value]="currentLanguage()"
+          (change)="setLanguage($any($event.target).value)"
+          class="header__language-select"
+        >
+          @for (lang of languages; track lang.code) {
+            <option [value]="lang.code">{{ lang.nativeName }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- User Menu (Desktop) -->
+      @if (isAuthenticated()) {
+        <div class="header__user hide-mobile">
+          <span class="header__user-name">{{ user()?.fullName }}</span>
+          <button
+            type="button"
+            class="header__action-btn"
+            (click)="logout()"
+            aria-label="Logout"
+          >
+            <span class="icon-mask icon-mask--logout"></span>
+          </button>
+        </div>
+      }
+
+      <!-- Mobile Menu Toggle -->
+      <button
+        type="button"
+        class="header__menu-btn hide-desktop"
+        (click)="onMenuToggle()"
+        [attr.aria-expanded]="isSideMenuOpen"
+        aria-label="Toggle menu"
+      >
+        <span
+          class="icon-mask icon-mask--lg"
+          [class.icon-mask--close]="isSideMenuOpen"
+          [class.icon-mask--menu]="!isSideMenuOpen"
+        ></span>
+      </button>
+    </div>
+  </div>
+</header>

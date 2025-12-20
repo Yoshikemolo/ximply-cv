@@ -1,0 +1,171 @@
+<div class="admin-page">
+  <div class="page-header">
+    <div class="header-content">
+      <h1>{{ 'admin.users.title' | translate }}</h1>
+      <p class="subtitle">{{ 'admin.users.subtitle' | translate }}</p>
+    </div>
+    <button class="btn-primary" (click)="openAddUser()">
+      <span>+</span>
+      {{ 'admin.users.addUser' | translate }}
+    </button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input
+      type="text"
+      [placeholder]="'admin.users.searchPlaceholder' | translate"
+      [(ngModel)]="searchQuery"
+    />
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>{{ 'common.loading' | translate }}</p>
+    </div>
+  } @else {
+    <!-- Users Table -->
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ 'admin.users.table.name' | translate }}</th>
+            <th>{{ 'admin.users.table.email' | translate }}</th>
+            <th>{{ 'admin.users.table.role' | translate }}</th>
+            <th>{{ 'admin.users.table.status' | translate }}</th>
+            <th>{{ 'admin.users.table.lastLogin' | translate }}</th>
+            <th>{{ 'admin.users.table.actions' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of filteredUsers; track user.id) {
+            <tr [class.inactive]="!user.isActive">
+              <td class="user-name">
+                <div class="avatar">{{ user.name.charAt(0).toUpperCase() }}</div>
+                <span>{{ user.name }}</span>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>
+                <span class="role-badge" [class]="getRoleBadgeClass(user.role)">
+                  {{ 'admin.roles.' + user.role | translate }}
+                </span>
+              </td>
+              <td>
+                <span class="status-badge" [class.active]="user.isActive">
+                  {{ (user.isActive ? 'admin.status.active' : 'admin.status.inactive') | translate }}
+                </span>
+              </td>
+              <td>
+                @if (user.lastLogin) {
+                  {{ user.lastLogin | date:'short' }}
+                } @else {
+                  <span class="text-muted">{{ 'admin.users.never' | translate }}</span>
+                }
+              </td>
+              <td class="actions">
+                <button class="icon-btn" (click)="openEditUser(user)" title="Edit">
+                  ✏️
+                </button>
+                <button class="icon-btn" (click)="toggleUserStatus(user)" [title]="user.isActive ? 'Deactivate' : 'Activate'">
+                  {{ user.isActive ? '🔒' : '🔓' }}
+                </button>
+                <button class="icon-btn danger" (click)="confirmDelete(user)" title="Delete">
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-row">
+                {{ 'admin.users.noUsers' | translate }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- User Modal -->
+  @if (showUserModal()) {
+    <div class="modal-overlay" (click)="closeUserModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <button class="modal-close" (click)="closeUserModal()">×</button>
+
+        <h2>{{ (editingUser() ? 'admin.users.editUser' : 'admin.users.addUser') | translate }}</h2>
+
+        <form #userForm="ngForm" (ngSubmit)="saveUser(userForm.value)">
+          <div class="form-group">
+            <label for="name">{{ 'admin.users.form.name' | translate }}</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              [ngModel]="editingUser()?.name"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="email">{{ 'admin.users.form.email' | translate }}</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              [ngModel]="editingUser()?.email"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="role">{{ 'admin.users.form.role' | translate }}</label>
+            <select id="role" name="role" [ngModel]="editingUser()?.role || 'viewer'">
+              <option value="admin">{{ 'admin.roles.admin' | translate }}</option>
+              <option value="operator">{{ 'admin.roles.operator' | translate }}</option>
+              <option value="viewer">{{ 'admin.roles.viewer' | translate }}</option>
+            </select>
+          </div>
+
+          @if (!editingUser()) {
+            <div class="form-group">
+              <label for="password">{{ 'admin.users.form.password' | translate }}</label>
+              <input type="password" id="password" name="password" required />
+            </div>
+          }
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="closeUserModal()">
+              {{ 'common.cancel' | translate }}
+            </button>
+            <button type="submit" class="btn-primary" [disabled]="userForm.invalid">
+              {{ 'common.save' | translate }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- Delete Confirmation Modal -->
+  @if (showDeleteModal()) {
+    <div class="modal-overlay" (click)="cancelDelete()">
+      <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+        <div class="modal-icon danger">⚠️</div>
+        <h2>{{ 'admin.users.delete.title' | translate }}</h2>
+        <p>{{ 'admin.users.delete.message' | translate: { name: userToDelete()?.name } }}</p>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" (click)="cancelDelete()">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button class="btn-danger" (click)="deleteUser()">
+            {{ 'common.delete' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

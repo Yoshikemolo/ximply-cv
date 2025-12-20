@@ -1,0 +1,571 @@
+"""
+Detection API routes.
+
+Provides endpoints for real-time object detection and streaming.
+"""
+
+import asyncio
+import base64
+from datetime import datetime, timezone
+from io import BytesIO
+from typing import AsyncGenerator, List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi.responses import StreamingResponse
+from PIL import Image
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette.sse import EventSourceResponse
+from uuid_extensions import uuid7
+
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_permissions
+from app.core.logging import get_logger
+from app.core.minio_client import upload_file, get_presigned_url
+from app.core.security import TokenData
+from app.models.entities import ObjectEntity, ObjectImageEntity
+from app.models.enums import Permission
+from app.models.schemas import DetectionResponse, DetectionResult, BoundingBox, ObjectResponse
+from app.services.detection_service import get_detection_service
+from app.services.feature_matching_service import get_feature_matching_service
+
+logger = get_logger(__name__)
+router = APIRouter(prefix="/detection", tags=["Detection"])
+
+
+class DetectRequest(BaseModel):
+    """Request body for detection endpoint."""
+
+    image: str  # Base64 encoded image
+    confidenceThreshold: Optional[float] = None
+    iouThreshold: Optional[float] = None
+
+
+class CaptureDetectionRequest(BaseModel):
+    """Request body for capturing a detection and adding to catalog."""
+
+    image: str  # Base64 encoded full frame image
+    bbox: BoundingBox  # Bounding box of the object to capture
+    name: str = Field(min_length=1, max_length=255)  # Name for the new object
+    description: Optional[str] = None
+    category_id: Optional[UUID] = None
+
+
+async def generate_detection_events(
+    user_id: str,
+) -> AsyncGenerator[dict, None]:
+    """
+    Generate SSE events for real-time detection streaming.
+
+    This is a placeholder that would be connected to the actual
+    detection service in production.
+
+    Args:
+        user_id: User ID for the stream.
+
+    Yields:
+        dict: SSE event data.
+    """
+    # Placeholder for actual camera detection stream
+    # In production, this would:
+    # 1. Connect to camera feed
+    # 2. Run detection model on frames
+    # 3. Yield detection results
+
+    while True:
+        # Simulate detection results (replace with actual detection)
+        detection = DetectionResponse(
+            detections=[
+                DetectionResult(
+                    label="placeholder",
+                    confidence=0.0,
+                    bbox=BoundingBox(x=0, y=0, width=0, height=0),
+                    object_id=None,
+                    object_name=None,
+                )
+            ],
+            frame_width=settings.camera_resolution_width,
+            frame_height=settings.camera_resolution_height,
+            processing_time_ms=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+        yield {
+            "event": "detection",
+            "data": detection.model_dump_json(),
+        }
+
+        await asyncio.sleep(1.0 / settings.camera_frame_rate)
+
+
+@router.get("/stream")
+async def stream_detections(
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
+) -> EventSourceResponse:
+    """
+    Stream real-time object detections via Server-Sent Events.
+
+    Opens a persistent connection that streams detection results
+    as objects are detected in the camera feed.
+
+    Args:
+        current_user: Authenticated user.
+
+    Returns:
+        EventSourceResponse: SSE stream of detection events.
+    """
+    logger.info(f"Detection stream started for user: {current_user.sub}")
+
+    return EventSourceResponse(
+        generate_detection_events(current_user.sub),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/start")
+async def start_detection(
+    camera_id: str = "default",
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
+) -> dict:
+    """
+    Start detection on a specific camera.
+
+    Args:
+        camera_id: Camera identifier.
+        current_user: Authenticated user.
+
+    Returns:
+        dict: Detection session information.
+    """
+    # Placeholder for starting detection
+    # In production, this would:
+    # 1. Validate camera access
+    # 2. Initialize detection service
+    # 3. Return session ID
+
+    logger.info(f"Detection started on camera {camera_id} by user {current_user.sub}")
+
+    return {
+        "status": "started",
+        "camera_id": camera_id,
+        "user_id": current_user.sub,
+        "message": "Detection session started. Use /detection/stream to receive events.",
+    }
+
+
+@router.post("/stop")
+async def stop_detection(
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
+) -> dict:
+    """
+    Stop the current detection session.
+
+    Args:
+        current_user: Authenticated user.
+
+    Returns:
+        dict: Stop confirmation.
+    """
+    logger.info(f"Detection stopped by user {current_user.sub}")
+
+    return {
+        "status": "stopped",
+        "user_id": current_user.sub,
+        "message": "Detection session stopped.",
+    }
+
+
+@router.post("/detect")
+async def detect_objects(
+    request: DetectRequest,
+    current_user: TokenData = Depends(get_current_user),
+) -> DetectionResponse:
+    """
+    Detect objects in a single image.
+
+    Accepts a base64 encoded image and returns detection results.
+
+    Args:
+        request: Detection request with base64 image.
+        current_user: Authenticated user.
+
+    Returns:
+        DetectionResponse: Detected objects with bounding boxes.
+    """
+    try:
+        service = get_detection_service()
+
+        detections, processing_time, (width, height) = service.detect_from_base64(
+            request.image,
+            confidence_threshold=request.confidenceThreshold,
+            iou_threshold=request.iouThreshold,
+        )
+
+        # Convert to response format
+        detection_results = [
+            DetectionResult(
+                label=d.label,
+                confidence=d.confidence,
+                bbox=BoundingBox(
+                    x=d.x,
+                    y=d.y,
+                    width=d.width,
+                    height=d.height,
+                ),
+                class_id=d.class_id,
+                object_id=d.object_id,
+                object_name=d.object_name,
+            )
+            for d in detections
+        ]
+
+        return DetectionResponse(
+            detections=detection_results,
+            frame_width=width,
+            frame_height=height,
+            processing_time_ms=processing_time,
+            timestamp=datetime.now(timezone.utc),
+        )
+
+    except RuntimeError as e:
+        logger.error(f"Detection failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Detection service not available",
+        )
+    except Exception as e:
+        logger.error(f"Detection error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Detection failed: {str(e)}",
+        )
+
+
+@router.post("/capture")
+async def capture_detection(
+    request: CaptureDetectionRequest,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ObjectResponse:
+    """
+    Capture a detected object and add it to the catalog.
+
+    Takes the current frame, crops the region specified by the bounding box,
+    and creates a new catalog object with the given name.
+
+    Args:
+        request: Capture request with image, bounding box, and object name.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        ObjectResponse: The created catalog object.
+    """
+    try:
+        # Decode base64 image
+        image_data = request.image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+
+        image_bytes = base64.b64decode(image_data)
+        image = Image.open(BytesIO(image_bytes))
+
+        # Crop the bounding box region with some padding
+        bbox = request.bbox
+        padding = 10  # pixels of padding around the detection
+
+        left = max(0, bbox.x - padding)
+        top = max(0, bbox.y - padding)
+        right = min(image.width, bbox.x + bbox.width + padding)
+        bottom = min(image.height, bbox.y + bbox.height + padding)
+
+        cropped = image.crop((left, top, right, bottom))
+
+        # Create object entity
+        object_id = uuid7()
+        obj = ObjectEntity(
+            id=object_id,
+            name=request.name,
+            description=request.description,
+            category_id=request.category_id,
+            owner_id=UUID(current_user.sub),
+            status="draft",
+            training_samples=1,
+        )
+
+        # Save cropped image to MinIO
+        image_id = uuid7()
+        file_path = f"objects/{object_id}/images/{image_id}.jpg"
+
+        # Convert to JPEG bytes
+        buffer = BytesIO()
+        cropped.convert("RGB").save(buffer, format="JPEG", quality=90)
+        buffer.seek(0)
+
+        if not upload_file(buffer, file_path, "image/jpeg"):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save object image",
+            )
+
+        # Create image entity
+        buffer.seek(0, 2)
+        file_size = buffer.tell()
+
+        image_entity = ObjectImageEntity(
+            id=image_id,
+            object_id=object_id,
+            file_path=file_path,
+            file_name=f"{request.name.replace(' ', '_')}.jpg",
+            file_size=file_size,
+            mime_type="image/jpeg",
+            width=cropped.width,
+            height=cropped.height,
+            is_primary=True,
+            bbox_x=bbox.x,
+            bbox_y=bbox.y,
+            bbox_width=bbox.width,
+            bbox_height=bbox.height,
+        )
+
+        # Set thumbnail
+        obj.thumbnail_path = file_path
+
+        # Save to database
+        db.add(obj)
+        db.add(image_entity)
+        await db.commit()
+        await db.refresh(obj, ["images"])
+
+        logger.info(
+            f"Object captured: {obj.id} '{request.name}' by user {current_user.sub}"
+        )
+
+        return ObjectResponse.model_validate(obj)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to capture detection: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to capture detection: {str(e)}",
+        )
+
+
+@router.get("/status")
+async def get_detection_status(
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
+) -> dict:
+    """
+    Get current detection session status.
+
+    Args:
+        current_user: Authenticated user.
+
+    Returns:
+        dict: Current detection status.
+    """
+    # Placeholder for status check
+    return {
+        "active": False,
+        "camera_id": None,
+        "user_id": current_user.sub,
+        "model": settings.detection_model,
+        "confidence_threshold": settings.detection_confidence_threshold,
+    }
+
+
+@router.get("/config")
+async def get_detection_config(
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_CONFIGURE])),
+) -> dict:
+    """
+    Get detection configuration settings.
+
+    Args:
+        current_user: Authenticated user.
+
+    Returns:
+        dict: Current detection configuration.
+    """
+    return {
+        "model": settings.detection_model,
+        "confidence_threshold": settings.detection_confidence_threshold,
+        "iou_threshold": settings.detection_iou_threshold,
+        "camera": {
+            "frame_rate": settings.camera_frame_rate,
+            "resolution": {
+                "width": settings.camera_resolution_width,
+                "height": settings.camera_resolution_height,
+            },
+        },
+    }
+
+
+@router.put("/config")
+async def update_detection_config(
+    confidence_threshold: float = None,
+    iou_threshold: float = None,
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_CONFIGURE])),
+) -> dict:
+    """
+    Update detection configuration.
+
+    Note: This updates runtime settings only. Permanent changes
+    require updating environment variables.
+
+    Args:
+        confidence_threshold: New confidence threshold.
+        iou_threshold: New IOU threshold.
+        current_user: Authenticated user.
+
+    Returns:
+        dict: Updated configuration.
+    """
+    # Placeholder for configuration update
+    # In production, this would update the detection service config
+
+    logger.info(f"Detection config updated by user {current_user.sub}")
+
+    return {
+        "status": "updated",
+        "confidence_threshold": confidence_threshold or settings.detection_confidence_threshold,
+        "iou_threshold": iou_threshold or settings.detection_iou_threshold,
+    }
+
+
+@router.post("/catalog/load")
+async def load_catalog_features(
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Load catalog object features for custom object recognition.
+
+    Loads features from all catalog objects with at least one image
+    into the feature matching cache. This enables the detection service
+    to recognize custom objects added to the catalog.
+
+    Args:
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        dict: Status and number of objects loaded.
+    """
+    try:
+        from sqlalchemy.orm import selectinload
+
+        # Get all objects with images for this user
+        result = await db.execute(
+            select(ObjectEntity)
+            .options(selectinload(ObjectEntity.images))
+            .where(
+                ObjectEntity.owner_id == current_user.sub,
+                ObjectEntity.training_samples > 0,
+            )
+        )
+        objects = result.scalars().all()
+
+        feature_service = get_feature_matching_service()
+        feature_service.clear_cache()
+
+        loaded_count = 0
+        for obj in objects:
+            if obj.images:
+                image_paths = [img.file_path for img in obj.images]
+                if feature_service.load_object_features(
+                    object_id=obj.id,
+                    object_name=obj.name,
+                    image_paths=image_paths,
+                ):
+                    loaded_count += 1
+
+        logger.info(
+            f"Loaded features for {loaded_count} catalog objects for user {current_user.sub}"
+        )
+
+        return {
+            "status": "loaded",
+            "objects_loaded": loaded_count,
+            "total_objects": len(objects),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to load catalog features: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load catalog features: {str(e)}",
+        )
+
+
+@router.post("/catalog/refresh/{object_id}")
+async def refresh_object_features(
+    object_id: UUID,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Refresh features for a specific catalog object.
+
+    Call this after adding new images to an object.
+
+    Args:
+        object_id: Object UUID to refresh.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        dict: Status of the refresh operation.
+    """
+    try:
+        from sqlalchemy.orm import selectinload
+
+        result = await db.execute(
+            select(ObjectEntity)
+            .options(selectinload(ObjectEntity.images))
+            .where(
+                ObjectEntity.id == object_id,
+                ObjectEntity.owner_id == current_user.sub,
+            )
+        )
+        obj = result.scalar_one_or_none()
+
+        if obj is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Object not found",
+            )
+
+        feature_service = get_feature_matching_service()
+
+        if obj.images:
+            image_paths = [img.file_path for img in obj.images]
+            success = feature_service.load_object_features(
+                object_id=obj.id,
+                object_name=obj.name,
+                image_paths=image_paths,
+            )
+        else:
+            feature_service.remove_object(object_id)
+            success = True
+
+        return {
+            "status": "refreshed" if success else "failed",
+            "object_id": str(object_id),
+            "object_name": obj.name,
+            "image_count": len(obj.images),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to refresh object features: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refresh object features: {str(e)}",
+        )

@@ -1,0 +1,191 @@
+<div class="learn-container">
+  <div class="learn-header">
+    <h1>{{ 'learn.title' | translate }}</h1>
+    <p class="subtitle">{{ 'learn.subtitle' | translate }}</p>
+  </div>
+
+  <!-- Progress Steps -->
+  <div class="progress-steps">
+    <div class="step" [class.active]="currentStep() === 'upload'" [class.completed]="['annotate', 'train', 'complete'].includes(currentStep())">
+      <div class="step-number">1</div>
+      <span class="step-label">{{ 'learn.steps.upload' | translate }}</span>
+    </div>
+    <div class="step-connector" [class.completed]="['annotate', 'train', 'complete'].includes(currentStep())"></div>
+    <div class="step" [class.active]="currentStep() === 'annotate'" [class.completed]="['train', 'complete'].includes(currentStep())">
+      <div class="step-number">2</div>
+      <span class="step-label">{{ 'learn.steps.annotate' | translate }}</span>
+    </div>
+    <div class="step-connector" [class.completed]="['train', 'complete'].includes(currentStep())"></div>
+    <div class="step" [class.active]="currentStep() === 'train'" [class.completed]="currentStep() === 'complete'">
+      <div class="step-number">3</div>
+      <span class="step-label">{{ 'learn.steps.train' | translate }}</span>
+    </div>
+    <div class="step-connector" [class.completed]="currentStep() === 'complete'"></div>
+    <div class="step" [class.active]="currentStep() === 'complete'">
+      <div class="step-number">4</div>
+      <span class="step-label">{{ 'learn.steps.complete' | translate }}</span>
+    </div>
+  </div>
+
+  @if (errorMessage(); as msg) {
+    <div class="error-banner">
+      <span class="icon-mask icon-mask--warning error-icon"></span>
+      <span>{{ msg | translate }}</span>
+    </div>
+  }
+
+  <!-- Step Content -->
+  <div class="step-content">
+    @switch (currentStep()) {
+      @case ('upload') {
+        <div class="upload-step">
+          <div class="form-group">
+            <label for="objectName">{{ 'learn.objectName' | translate }}</label>
+            <input
+              type="text"
+              id="objectName"
+              [(ngModel)]="objectName"
+              [placeholder]="'learn.objectNamePlaceholder' | translate"
+            />
+          </div>
+
+          <div class="upload-zone" (click)="fileInput.click()">
+            <input
+              #fileInput
+              type="file"
+              accept="image/*"
+              multiple
+              (change)="onFilesSelected($event)"
+              hidden
+            />
+            <span class="icon-mask icon-mask--upload icon-mask--xxl upload-icon"></span>
+            <p class="upload-text">{{ 'learn.uploadText' | translate }}</p>
+            <p class="upload-hint">{{ 'learn.uploadHint' | translate }}</p>
+          </div>
+
+          @if (uploadedImages().length > 0) {
+            <div class="uploaded-images">
+              <h3>{{ 'learn.uploadedImages' | translate }} ({{ uploadedImages().length }})</h3>
+              <div class="image-grid">
+                @for (image of uploadedImages(); track image.id) {
+                  <div class="image-card">
+                    <img [src]="image.preview" [alt]="image.file.name" />
+                    <button class="remove-btn" (click)="removeImage(image.id)">×</button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <p class="min-images-hint">
+            {{ 'learn.minImagesHint' | translate }}
+          </p>
+        </div>
+      }
+
+      @case ('annotate') {
+        <div class="annotate-step">
+          <div class="annotate-layout">
+            <div class="image-list">
+              <h3>{{ 'learn.images' | translate }}</h3>
+              @for (image of uploadedImages(); track image.id) {
+                <div
+                  class="image-thumb"
+                  [class.selected]="selectedImage()?.id === image.id"
+                  [class.annotated]="image.annotations.length > 0"
+                  (click)="selectImage(image)"
+                >
+                  <img [src]="image.preview" [alt]="image.file.name" />
+                  @if (image.annotations.length > 0) {
+                    <span class="annotation-badge">{{ image.annotations.length }}</span>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="annotation-canvas">
+              @if (selectedImage()) {
+                <div class="canvas-wrapper">
+                  <img [src]="selectedImage()!.preview" alt="Selected image" />
+                  <p class="annotation-hint">{{ 'learn.annotationHint' | translate }}</p>
+                </div>
+              } @else {
+                <div class="no-selection">
+                  <span class="icon-mask icon-mask--camera icon-mask--xxl"></span>
+                  <p>{{ 'learn.selectImageToAnnotate' | translate }}</p>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @case ('train') {
+        <div class="train-step">
+          <div class="train-card">
+            <span class="icon-mask icon-mask--brain icon-mask--xxl train-icon"></span>
+            <h2>{{ 'learn.trainingTitle' | translate }}</h2>
+            <p>{{ 'learn.trainingDescription' | translate }}</p>
+
+            @if (isTraining()) {
+              <div class="progress-container">
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    [style.width.%]="trainingProgress()"
+                  ></div>
+                </div>
+                <span class="progress-text">{{ trainingProgress().toFixed(0) }}%</span>
+              </div>
+              <p class="training-status">{{ 'learn.trainingInProgress' | translate }}</p>
+            } @else {
+              <button class="btn-primary btn-large" (click)="startTraining()">
+                {{ 'learn.startTraining' | translate }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      @case ('complete') {
+        <div class="complete-step">
+          <div class="complete-card">
+            <span class="icon-mask icon-mask--check icon-mask--xxl success-icon"></span>
+            <h2>{{ 'learn.completeTitle' | translate }}</h2>
+            <p>{{ 'learn.completeDescription' | translate: { name: objectName() } }}</p>
+
+            <div class="complete-actions">
+              <button class="btn-secondary" (click)="resetWizard()">
+                {{ 'learn.trainAnother' | translate }}
+              </button>
+              <a routerLink="/catalog" class="btn-primary">
+                {{ 'learn.viewCatalog' | translate }}
+              </a>
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- Navigation Buttons -->
+  @if (currentStep() !== 'complete') {
+    <div class="step-navigation">
+      @if (currentStep() !== 'upload') {
+        <button class="btn-secondary" (click)="previousStep()">
+          {{ 'common.previous' | translate }}
+        </button>
+      }
+
+      @if (currentStep() !== 'train') {
+        <button
+          class="btn-primary"
+          [disabled]="!canProceed()"
+          (click)="nextStep()"
+        >
+          {{ 'common.next' | translate }}
+        </button>
+      }
+    </div>
+  }
+</div>

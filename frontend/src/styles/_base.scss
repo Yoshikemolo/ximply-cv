@@ -1,0 +1,156 @@
+/**
+ * Base styles and CSS reset.
+ */
+
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// Reset
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+// HTML and body
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  font-weight: $font-weight-normal;
+  line-height: $line-height-normal;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  @include custom-scrollbar;
+}
+
+// Typography
+h1, h2, h3, h4, h5, h6 {
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-tight;
+  color: var(--text-primary);
+}
+
+h1 { font-size: $font-size-4xl; }
+h2 { font-size: $font-size-3xl; }
+h3 { font-size: $font-size-2xl; }
+h4 { font-size: $font-size-xl; }
+h5 { font-size: $font-size-lg; }
+h6 { font-size: $font-size-base; }
+
+p {
+  margin-bottom: $space-4;
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--brand-primary);
+  text-decoration: none;
+  transition: color $transition-fast;
+
+  &:hover {
+    color: var(--brand-primary-dark);
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: $radius-sm;
+  }
+}
+
+// Lists
+ul, ol {
+  list-style: none;
+}
+
+// Images
+img, svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+// Forms
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+// Code
+code, pre {
+  font-family: $font-family-mono;
+  font-size: $font-size-sm;
+}
+
+code {
+  padding: $space-1 $space-2;
+  background-color: var(--bg-tertiary);
+  border-radius: $radius-sm;
+}
+
+pre {
+  padding: $space-4;
+  background-color: var(--bg-tertiary);
+  border-radius: $radius-md;
+  overflow-x: auto;
+
+  code {
+    padding: 0;
+    background: none;
+  }
+}
+
+// Tables
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: $space-3;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+
+th {
+  font-weight: $font-weight-semibold;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}
+
+// Selection
+::selection {
+  background-color: var(--accent-alpha-20);
+  color: var(--text-primary);
+}
+
+// Focus visible
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+// Disable outline for mouse users
+:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}

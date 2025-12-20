@@ -1,0 +1,277 @@
+{
+  "app": {
+    "name": "XIMPLY Vision",
+    "tagline": "Detección de Objetos por Visión Artificial"
+  },
+  "nav": {
+    "view": "Ver",
+    "learn": "Aprender",
+    "catalog": "Catálogo",
+    "admin": "Admin"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenido",
+      "subtitle": "Inicia sesión para continuar",
+      "email": "Correo electrónico",
+      "emailPlaceholder": "Introduce tu correo",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Introduce tu contraseña",
+      "rememberMe": "Recordarme",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar Sesión",
+      "noAccount": "¿No tienes cuenta? Contacta con tu administrador."
+    },
+    "logout": "Cerrar Sesión",
+    "register": "Registrarse",
+    "errors": {
+      "emailRequired": "El correo es obligatorio",
+      "emailInvalid": "Introduce un correo válido",
+      "passwordRequired": "La contraseña es obligatoria",
+      "passwordMinLength": "La contraseña debe tener al menos 6 caracteres",
+      "loginFailed": "Error al iniciar sesión. Comprueba tus credenciales."
+    }
+  },
+  "theme": {
+    "light": "Modo Claro",
+    "dark": "Modo Oscuro",
+    "system": "Sistema"
+  },
+  "settings": {
+    "language": "Idioma",
+    "theme": "Tema",
+    "notifications": "Notificaciones"
+  },
+  "footer": {
+    "allRightsReserved": "Todos los derechos reservados"
+  },
+  "view": {
+    "title": "Detección de Objetos",
+    "subtitle": "Reconocimiento de objetos en tiempo real con tu cámara",
+    "startCamera": "Iniciar Cámara",
+    "stopCamera": "Detener Cámara",
+    "noStream": "La cámara no está activa",
+    "noCamera": "No se detectó cámara",
+    "permissionDenied": "Permiso de cámara denegado",
+    "detecting": "Detectando objetos...",
+    "noObjects": "No se detectaron objetos",
+    "detections": "detecciones",
+    "noDetections": "Aún no se han detectado objetos",
+    "confidence": "Confianza",
+    "matchedObject": "Objeto Coincidente",
+    "detectedObjects": "Objetos Detectados",
+    "clickToSave": "Haz clic en un objeto para guardarlo en el catálogo",
+    "controls": {
+      "camera": "Controles de Cámara",
+      "selectCamera": "Seleccionar Cámara",
+      "confidence": "Umbral de Confianza"
+    },
+    "capture": {
+      "title": "Guardar Objeto en Catálogo",
+      "name": "Nombre del Objeto",
+      "namePlaceholder": "Introduce un nombre para este objeto",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Descripción opcional...",
+      "save": "Guardar en Catálogo"
+    },
+    "errors": {
+      "cameraPermission": "Permiso de cámara denegado",
+      "streamFailed": "Error al iniciar la cámara",
+      "saveFailed": "Error al guardar el objeto en el catálogo"
+    }
+  },
+  "learn": {
+    "title": "Aprender Nuevo Objeto",
+    "subtitle": "Entrena el sistema para reconocer nuevos objetos",
+    "steps": {
+      "upload": "Subir",
+      "annotate": "Anotar",
+      "train": "Entrenar",
+      "complete": "Completado"
+    },
+    "objectName": "Nombre del Objeto",
+    "objectNamePlaceholder": "Introduce el nombre del objeto",
+    "uploadText": "Haz clic o arrastra imágenes aquí",
+    "uploadHint": "Sube al menos 10 imágenes para mejores resultados",
+    "uploadedImages": "Imágenes Subidas",
+    "minImagesHint": "Se requieren mínimo 10 imágenes para el entrenamiento",
+    "images": "Imágenes",
+    "annotationHint": "Haz clic y arrastra para dibujar cuadros delimitadores alrededor del objeto",
+    "selectImageToAnnotate": "Selecciona una imagen para anotar",
+    "trainingTitle": "Entrenando Modelo",
+    "trainingDescription": "El modelo de IA está aprendiendo a reconocer tu objeto",
+    "trainingInProgress": "Entrenamiento en progreso...",
+    "startTraining": "Iniciar Entrenamiento",
+    "completeTitle": "¡Entrenamiento Completado!",
+    "completeDescription": "Tu objeto \"{{name}}\" ha sido entrenado correctamente",
+    "trainAnother": "Entrenar Otro Objeto",
+    "viewCatalog": "Ver en Catálogo",
+    "uploadImages": "Subir Imágenes",
+    "captureFromCamera": "Capturar desde Cámara",
+    "objectDetails": "Detalles del Objeto",
+    "name": "Nombre",
+    "description": "Descripción",
+    "reference": "Código de Referencia",
+    "weight": "Peso",
+    "dimensions": "Dimensiones",
+    "width": "Ancho",
+    "height": "Alto",
+    "depth": "Profundidad",
+    "price": "Precio",
+    "color": "Color",
+    "materials": "Materiales",
+    "category": "Categoría",
+    "saveObject": "Guardar Objeto",
+    "trainModel": "Entrenar Modelo",
+    "trainingProgress": "Progreso del Entrenamiento",
+    "trainingComplete": "Entrenamiento Completado",
+    "addMoreImages": "Añade más imágenes para mejor precisión"
+  },
+  "catalog": {
+    "title": "Catálogo de Objetos",
+    "subtitle": "Explora y gestiona todos los objetos entrenados",
+    "search": "Buscar objetos...",
+    "searchPlaceholder": "Buscar objetos...",
+    "filter": "Filtrar",
+    "sort": "Ordenar",
+    "addObject": "Añadir Objeto",
+    "addNew": "Añadir Nuevo",
+    "editObject": "Editar Objeto",
+    "deleteObject": "Eliminar Objeto",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este objeto?",
+    "noObjects": "No hay objetos en el catálogo",
+    "objectDetails": "Detalles del Objeto",
+    "images": "Imágenes",
+    "metadata": "Metadatos",
+    "trainingData": "Datos de Entrenamiento",
+    "accuracy": "Precisión",
+    "trainingImages": "Imágenes de Entrenamiento",
+    "createdAt": "Creado",
+    "categories": {
+      "all": "Todos",
+      "products": "Productos",
+      "tools": "Herramientas",
+      "parts": "Piezas",
+      "custom": "Personalizado"
+    },
+    "status": {
+      "draft": "Borrador",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "archived": "Archivado",
+      "training": "Entrenando"
+    },
+    "empty": {
+      "title": "No hay objetos aún",
+      "description": "Comienza añadiendo tu primer objeto al catálogo",
+      "action": "Añadir Primer Objeto"
+    },
+    "delete": {
+      "title": "Eliminar Objeto",
+      "message": "¿Estás seguro de que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+    },
+    "actions": {
+      "activate": "Activar",
+      "deactivate": "Desactivar",
+      "delete": "Eliminar"
+    }
+  },
+  "admin": {
+    "title": "Administración",
+    "subtitle": "Gestiona usuarios, roles y configuración del sistema",
+    "users": {
+      "title": "Usuarios",
+      "subtitle": "Gestiona cuentas de usuario y permisos",
+      "add": "Añadir Usuario",
+      "edit": "Editar Usuario",
+      "delete": "Eliminar Usuario",
+      "details": "Detalles del Usuario",
+      "name": "Nombre",
+      "email": "Correo",
+      "role": "Rol",
+      "status": "Estado",
+      "lastLogin": "Último Acceso",
+      "createdAt": "Fecha de Creación"
+    },
+    "roles": {
+      "title": "Roles",
+      "subtitle": "Configura roles y sus permisos",
+      "add": "Añadir Rol",
+      "edit": "Editar Rol",
+      "delete": "Eliminar Rol",
+      "details": "Detalles del Rol",
+      "name": "Nombre",
+      "description": "Descripción",
+      "permissions": "Permisos",
+      "usersCount": "Usuarios"
+    },
+    "settings": {
+      "title": "Configuración",
+      "subtitle": "Configura los ajustes del sistema",
+      "general": "General",
+      "security": "Seguridad",
+      "storage": "Almacenamiento",
+      "notifications": "Notificaciones"
+    },
+    "permissions": "Permisos",
+    "addUser": "Añadir Usuario",
+    "editUser": "Editar Usuario",
+    "deleteUser": "Eliminar Usuario",
+    "addRole": "Añadir Rol",
+    "editRole": "Editar Rol",
+    "deleteRole": "Eliminar Rol",
+    "assignRoles": "Asignar Roles",
+    "assignPermissions": "Asignar Permisos",
+    "userDetails": "Detalles del Usuario",
+    "roleDetails": "Detalles del Rol",
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "suspended": "Suspendido"
+    }
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Añadir",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "warning": "Advertencia",
+    "info": "Información",
+    "yes": "Sí",
+    "no": "No",
+    "all": "Todos",
+    "none": "Ninguno",
+    "select": "Seleccionar",
+    "upload": "Subir",
+    "download": "Descargar",
+    "close": "Cerrar",
+    "actions": "Acciones",
+    "created": "Creado",
+    "updated": "Actualizado",
+    "noResults": "No se encontraron resultados"
+  },
+  "errors": {
+    "required": "Este campo es obligatorio",
+    "invalidEmail": "Dirección de correo inválida",
+    "minLength": "La longitud mínima es {{min}} caracteres",
+    "maxLength": "La longitud máxima es {{max}} caracteres",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "weakPassword": "La contraseña debe contener mayúsculas, minúsculas y números",
+    "serverError": "Error del servidor. Inténtalo de nuevo más tarde.",
+    "networkError": "Error de red. Comprueba tu conexión.",
+    "unauthorized": "Sesión expirada. Por favor inicia sesión de nuevo.",
+    "forbidden": "No tienes permiso para esta acción.",
+    "notFound": "Recurso no encontrado."
+  }
+}

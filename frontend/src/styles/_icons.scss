@@ -1,0 +1,237 @@
+/**
+ * Icon styles and definitions.
+ * SVG icons are stored in /assets/icons/
+ */
+
+@use 'variables' as *;
+
+// Icon base class
+.icon {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+  vertical-align: middle;
+
+  &--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  &--lg {
+    width: 32px;
+    height: 32px;
+  }
+
+  &--xl {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+// Icon button wrapper
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background-color: var(--accent-alpha-10);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &--sm {
+    width: 32px;
+    height: 32px;
+  }
+
+  .icon {
+    color: var(--text-secondary);
+  }
+}
+
+// Icon with text
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+
+  .icon {
+    flex-shrink: 0;
+  }
+}
+
+// Rotating icon (for loading states)
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// =============================================================================
+// Mask-based SVG icons (for line icons from /assets/icons/)
+// =============================================================================
+
+.icon-mask {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+
+  &--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  &--lg {
+    width: 32px;
+    height: 32px;
+  }
+
+  &--xl {
+    width: 48px;
+    height: 48px;
+  }
+
+  &--xxl {
+    width: 64px;
+    height: 64px;
+  }
+
+  // Icon definitions
+  &--camera {
+    mask-image: url('/assets/icons/camera.svg');
+    -webkit-mask-image: url('/assets/icons/camera.svg');
+  }
+
+  &--camera-2 {
+    mask-image: url('/assets/icons/camera-2.svg');
+    -webkit-mask-image: url('/assets/icons/camera-2.svg');
+  }
+
+  &--eye {
+    mask-image: url('/assets/icons/eye.svg');
+    -webkit-mask-image: url('/assets/icons/eye.svg');
+  }
+
+  &--play {
+    mask-image: url('/assets/icons/play.svg');
+    -webkit-mask-image: url('/assets/icons/play.svg');
+  }
+
+  &--stop {
+    mask-image: url('/assets/icons/stop.svg');
+    -webkit-mask-image: url('/assets/icons/stop.svg');
+  }
+
+  &--warning {
+    mask-image: url('/assets/icons/warning.svg');
+    -webkit-mask-image: url('/assets/icons/warning.svg');
+  }
+
+  &--settings {
+    mask-image: url('/assets/icons/settings.svg');
+    -webkit-mask-image: url('/assets/icons/settings.svg');
+  }
+
+  &--book {
+    mask-image: url('/assets/icons/book.svg');
+    -webkit-mask-image: url('/assets/icons/book.svg');
+  }
+
+  &--grid {
+    mask-image: url('/assets/icons/grid.svg');
+    -webkit-mask-image: url('/assets/icons/grid.svg');
+  }
+
+  &--view {
+    mask-image: url('/assets/icons/view.svg');
+    -webkit-mask-image: url('/assets/icons/view.svg');
+  }
+
+  &--logout {
+    mask-image: url('/assets/icons/logout.svg');
+    -webkit-mask-image: url('/assets/icons/logout.svg');
+  }
+
+  &--sun {
+    mask-image: url('/assets/icons/sun.svg');
+    -webkit-mask-image: url('/assets/icons/sun.svg');
+  }
+
+  &--moon {
+    mask-image: url('/assets/icons/moon.svg');
+    -webkit-mask-image: url('/assets/icons/moon.svg');
+  }
+
+  &--plus {
+    mask-image: url('/assets/icons/plus.svg');
+    -webkit-mask-image: url('/assets/icons/plus.svg');
+  }
+
+  &--close {
+    mask-image: url('/assets/icons/close.svg');
+    -webkit-mask-image: url('/assets/icons/close.svg');
+  }
+
+  &--menu {
+    mask-image: url('/assets/icons/menu.svg');
+    -webkit-mask-image: url('/assets/icons/menu.svg');
+  }
+
+  &--upload {
+    mask-image: url('/assets/icons/upload.svg');
+    -webkit-mask-image: url('/assets/icons/upload.svg');
+  }
+
+  &--brain {
+    mask-image: url('/assets/icons/brain.svg');
+    -webkit-mask-image: url('/assets/icons/brain.svg');
+  }
+
+  &--check {
+    mask-image: url('/assets/icons/check.svg');
+    -webkit-mask-image: url('/assets/icons/check.svg');
+  }
+
+  &--zoom {
+    mask-image: url('/assets/icons/zoom.svg');
+    -webkit-mask-image: url('/assets/icons/zoom.svg');
+  }
+
+  &--box {
+    mask-image: url('/assets/icons/box.svg');
+    -webkit-mask-image: url('/assets/icons/box.svg');
+  }
+
+  &--list-view {
+    mask-image: url('/assets/icons/list-view.svg');
+    -webkit-mask-image: url('/assets/icons/list-view.svg');
+  }
+
+  &--trash {
+    mask-image: url('/assets/icons/trash.svg');
+    -webkit-mask-image: url('/assets/icons/trash.svg');
+  }
+}

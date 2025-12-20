@@ -1,0 +1,5 @@
+<svg width="20" height="22" viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M1 9.25L19.5 9.25" stroke="black" stroke-dasharray="2 2"/>
+<path d="M6.5 12.5L2.5 16.5M6.5 12.5H16.5L16.3102 21.5M6.5 12.5V16.5H2.5M2.5 16.5V21.5" stroke="black"/>
+<path d="M2.5 0V5.5H16.5V0" stroke="black"/>
+</svg>

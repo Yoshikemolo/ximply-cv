@@ -1,0 +1,279 @@
+/**
+ * Global component styles.
+ */
+
+@use 'variables' as *;
+@use 'colors' as *;
+@use 'mixins' as *;
+
+// Buttons
+.btn {
+  @include button-base;
+
+  &--primary {
+    @include button-primary;
+  }
+
+  &--secondary {
+    @include button-secondary;
+  }
+
+  &--ghost {
+    @include button-base;
+    background: transparent;
+    color: var(--text-primary);
+
+    &:hover:not(:disabled) {
+      background-color: var(--accent-alpha-10);
+    }
+  }
+
+  &--danger {
+    @include button-base;
+    background-color: var(--color-error);
+    color: white;
+
+    &:hover:not(:disabled) {
+      background-color: #{$color-error-dark};
+    }
+  }
+
+  &--icon {
+    @include button-base;
+    padding: $space-2;
+    background: transparent;
+
+    &:hover:not(:disabled) {
+      background-color: var(--accent-alpha-10);
+    }
+  }
+
+  &--sm {
+    padding: $space-1 $space-3;
+    font-size: $font-size-xs;
+  }
+
+  &--lg {
+    padding: $space-3 $space-6;
+    font-size: $font-size-base;
+  }
+}
+
+// Form inputs
+.input {
+  @include input-base;
+
+  &--error {
+    border-color: var(--color-error);
+
+    &:focus {
+      box-shadow: 0 0 0 3px rgba($color-error, 0.2);
+    }
+  }
+}
+
+.textarea {
+  @include input-base;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.select {
+  @include input-base;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right $space-3 center;
+  background-size: 16px;
+  padding-right: $space-10;
+}
+
+// Labels
+.label {
+  display: block;
+  margin-bottom: $space-2;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--text-primary);
+}
+
+.hint {
+  margin-top: $space-1;
+  font-size: $font-size-xs;
+  color: var(--text-tertiary);
+}
+
+.error-message {
+  margin-top: $space-1;
+  font-size: $font-size-xs;
+  color: var(--color-error);
+}
+
+// Cards
+.card {
+  @include card;
+  padding: $space-6;
+
+  &__header {
+    @include flex-between;
+    margin-bottom: $space-4;
+    padding-bottom: $space-4;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+  }
+
+  &__body {
+    color: var(--text-secondary);
+  }
+
+  &__footer {
+    @include flex-between;
+    margin-top: $space-4;
+    padding-top: $space-4;
+    border-top: 1px solid var(--border-default);
+  }
+}
+
+// Badges
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: $space-1 $space-2;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-full;
+  background-color: var(--accent-alpha-10);
+  color: var(--brand-primary);
+
+  &--success {
+    background-color: rgba($color-success, 0.1);
+    color: var(--color-success);
+  }
+
+  &--warning {
+    background-color: rgba($color-warning, 0.1);
+    color: var(--color-warning);
+  }
+
+  &--error {
+    background-color: rgba($color-error, 0.1);
+    color: var(--color-error);
+  }
+}
+
+// Spinner
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--brand-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+
+  &--sm {
+    width: 16px;
+    height: 16px;
+  }
+
+  &--lg {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// Skeleton loader
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    var(--bg-secondary) 50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: $radius-md;
+
+  &--text {
+    height: 1em;
+    width: 100%;
+  }
+
+  &--circle {
+    border-radius: 50%;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// Tooltip
+.tooltip {
+  position: relative;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: $space-2 $space-3;
+    font-size: $font-size-xs;
+    white-space: nowrap;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-radius: $radius-md;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity $transition-fast, visibility $transition-fast;
+    margin-bottom: $space-2;
+    box-shadow: var(--shadow-md);
+  }
+
+  &:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+// Avatar
+.avatar {
+  @include flex-center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--brand-primary);
+  color: white;
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-sm;
+
+  &--sm {
+    width: 32px;
+    height: 32px;
+    font-size: $font-size-xs;
+  }
+
+  &--lg {
+    width: 56px;
+    height: 56px;
+    font-size: $font-size-lg;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+}

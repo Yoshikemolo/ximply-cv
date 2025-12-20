@@ -1,0 +1,86 @@
+# ==============================================================================
+# XIMPLY Vision - Production Environment Overrides
+# ==============================================================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  # ----------------------------------------------------------------------------
+  # Database - Production
+  # ----------------------------------------------------------------------------
+  db:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # MinIO - Production
+  # ----------------------------------------------------------------------------
+  minio:
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ----------------------------------------------------------------------------
+  # Backend - Production
+  # ----------------------------------------------------------------------------
+  backend:
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+      replicas: 2
+    environment:
+      DEBUG: "false"
+      USE_MOCK_SERVICES: "false"
+      WORKERS: "4"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+  # ----------------------------------------------------------------------------
+  # Frontend - Production
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      args:
+        BUILD_CONFIGURATION: production
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+      replicas: 2
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

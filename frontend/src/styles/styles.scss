@@ -1,0 +1,27 @@
+/**
+ * Main stylesheet entry point.
+ * Imports all partial stylesheets in the correct order.
+ */
+
+// Design tokens and variables (using @use with namespace)
+@use 'variables' as vars;
+@use 'colors' as colors;
+
+// Theme definitions
+@use 'theme';
+
+// Utilities and mixins
+@use 'mixins' as mix;
+@use 'z-index';
+
+// Base styles
+@use 'base';
+
+// Component styles
+@use 'components';
+
+// Utility classes
+@use 'utilities';
+
+// Icon definitions
+@use 'icons';

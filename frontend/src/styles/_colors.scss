@@ -1,0 +1,66 @@
+/**
+ * Color palette definitions.
+ * Defines all colors used in the application.
+ */
+
+// Brand colors
+$brand-primary: #6366f1;
+$brand-primary-light: #818cf8;
+$brand-primary-dark: #4f46e5;
+
+$brand-secondary: #8b5cf6;
+$brand-secondary-light: #a78bfa;
+$brand-secondary-dark: #7c3aed;
+
+// Neutral colors - Light theme
+$light-bg-primary: #ffffff;
+$light-bg-secondary: #f8fafc;
+$light-bg-tertiary: #f1f5f9;
+$light-bg-elevated: #ffffff;
+
+$light-text-primary: #0f172a;
+$light-text-secondary: #475569;
+$light-text-tertiary: #94a3b8;
+$light-text-disabled: #cbd5e1;
+
+$light-border-default: #e2e8f0;
+$light-border-strong: #cbd5e1;
+
+// Neutral colors - Dark theme
+$dark-bg-primary: #0f172a;
+$dark-bg-secondary: #1e293b;
+$dark-bg-tertiary: #334155;
+$dark-bg-elevated: #1e293b;
+
+$dark-text-primary: #f8fafc;
+$dark-text-secondary: #cbd5e1;
+$dark-text-tertiary: #94a3b8;
+$dark-text-disabled: #64748b;
+
+$dark-border-default: #334155;
+$dark-border-strong: #475569;
+
+// Semantic colors
+$color-success: #22c55e;
+$color-success-light: #4ade80;
+$color-success-dark: #16a34a;
+
+$color-warning: #f59e0b;
+$color-warning-light: #fbbf24;
+$color-warning-dark: #d97706;
+
+$color-error: #ef4444;
+$color-error-light: #f87171;
+$color-error-dark: #dc2626;
+
+$color-info: #3b82f6;
+$color-info-light: #60a5fa;
+$color-info-dark: #2563eb;
+
+// Alpha variants (for overlays, backgrounds)
+$alpha-5: 0.05;
+$alpha-10: 0.1;
+$alpha-20: 0.2;
+$alpha-30: 0.3;
+$alpha-50: 0.5;
+$alpha-70: 0.7;

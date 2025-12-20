@@ -1,0 +1,156 @@
+<!-- Backdrop -->
+<div
+  class="side-menu__backdrop"
+  [class.side-menu__backdrop--visible]="isOpen"
+  (click)="onBackdropClick()"
+  aria-hidden="true"
+></div>
+
+<!-- Menu Panel -->
+<aside
+  class="side-menu"
+  [class.side-menu--open]="isOpen"
+  role="navigation"
+  [attr.aria-hidden]="!isOpen"
+>
+  <!-- Header -->
+  <div class="side-menu__header">
+    <div class="side-menu__brand">
+      <img
+        [src]="logoPath()"
+        alt="XIMPLY Vision"
+        class="side-menu__logo"
+      />
+      <span class="side-menu__title">XIMPLY Vision</span>
+    </div>
+  </div>
+
+  <!-- User Info -->
+  @if (isAuthenticated()) {
+    <div class="side-menu__user">
+      <div class="side-menu__user-avatar">
+        {{ user()?.fullName?.charAt(0)?.toUpperCase() }}
+      </div>
+      <div class="side-menu__user-info">
+        <div class="side-menu__user-name">{{ user()?.fullName }}</div>
+        <div class="side-menu__user-email">{{ user()?.email }}</div>
+      </div>
+    </div>
+  }
+
+  <!-- Navigation -->
+  <nav class="side-menu__nav">
+    @for (item of visibleNavItems; track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="side-menu__nav-link--active"
+        class="side-menu__nav-link"
+        (click)="onNavClick()"
+      >
+        <span class="side-menu__nav-icon">
+          @switch (item.icon) {
+            @case ('eye') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            }
+            @case ('book') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+            }
+            @case ('grid') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            }
+            @case ('settings') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            }
+          }
+        </span>
+        <span class="side-menu__nav-label">{{ item.labelKey | translate }}</span>
+      </a>
+    }
+  </nav>
+
+  <!-- Settings -->
+  <div class="side-menu__settings">
+    <!-- Theme Toggle -->
+    <button
+      type="button"
+      class="side-menu__setting-btn"
+      (click)="toggleTheme()"
+    >
+      <span class="side-menu__setting-icon">
+        @if (isDarkMode()) {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        } @else {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        }
+      </span>
+      <span class="side-menu__setting-label">
+        {{ isDarkMode() ? ('theme.light' | translate) : ('theme.dark' | translate) }}
+      </span>
+    </button>
+
+    <!-- Language -->
+    <div class="side-menu__language">
+      <span class="side-menu__setting-label">{{ 'settings.language' | translate }}</span>
+      <div class="side-menu__language-options">
+        @for (lang of languages; track lang.code) {
+          <button
+            type="button"
+            class="side-menu__language-btn"
+            [class.side-menu__language-btn--active]="currentLanguage() === lang.code"
+            (click)="setLanguage(lang.code)"
+          >
+            {{ lang.nativeName }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="side-menu__footer">
+    @if (isAuthenticated()) {
+      <button
+        type="button"
+        class="side-menu__logout-btn"
+        (click)="logout()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+        {{ 'auth.logout' | translate }}
+      </button>
+    }
+    <div class="side-menu__copyright">
+      &copy; {{ currentYear }} XIMPLY Vision
+      <span class="side-menu__version">v{{ version }}</span>
+    </div>
+  </div>
+</aside>

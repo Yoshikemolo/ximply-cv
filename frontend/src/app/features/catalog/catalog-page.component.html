@@ -1,0 +1,184 @@
+<div class="catalog-container">
+  <div class="catalog-header">
+    <div class="header-content">
+      <h1>{{ 'catalog.title' | translate }}</h1>
+      <p class="subtitle">{{ 'catalog.subtitle' | translate }}</p>
+    </div>
+    <a routerLink="/learn" class="btn-primary">
+      <span class="icon-mask icon-mask--plus icon-mask--sm"></span>
+      {{ 'catalog.addNew' | translate }}
+    </a>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="catalog-filters">
+    <div class="search-box">
+      <span class="icon-mask icon-mask--zoom search-icon"></span>
+      <input
+        type="text"
+        [placeholder]="'catalog.searchPlaceholder' | translate"
+        [value]="searchQuery()"
+        (input)="onSearchChange($event)"
+      />
+    </div>
+
+    <div class="filter-group">
+      <div class="category-tabs">
+        @for (category of categories(); track category) {
+          <button
+            class="category-tab"
+            [class.active]="selectedCategory() === category"
+            (click)="onCategoryChange(category)"
+          >
+            {{ 'catalog.categories.' + category | translate }}
+          </button>
+        }
+      </div>
+
+      <button class="view-toggle" (click)="toggleViewMode()">
+        <span
+          class="icon-mask"
+          [class.icon-mask--list-view]="viewMode() === 'grid'"
+          [class.icon-mask--grid]="viewMode() === 'list'"
+        ></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>{{ 'common.loading' | translate }}</p>
+    </div>
+  } @else {
+    <!-- Empty State -->
+    @if (filteredObjects().length === 0) {
+      <div class="empty-state">
+        <span class="icon-mask icon-mask--box icon-mask--xxl empty-icon"></span>
+        <h2>{{ 'catalog.empty.title' | translate }}</h2>
+        <p>{{ 'catalog.empty.description' | translate }}</p>
+        <a routerLink="/learn" class="btn-primary">
+          {{ 'catalog.empty.action' | translate }}
+        </a>
+      </div>
+    } @else {
+      <!-- Objects Grid/List -->
+      <div class="catalog-content" [class.grid-view]="viewMode() === 'grid'" [class.list-view]="viewMode() === 'list'">
+        @for (obj of filteredObjects(); track obj.id) {
+          <div class="object-card" [class.inactive]="!obj.isActive" (click)="selectObject(obj)">
+            <div class="object-image">
+              @if (obj.imageUrl) {
+                <img [src]="obj.imageUrl" [alt]="obj.name" />
+              } @else {
+                <div class="placeholder-image">
+                  <span class="icon-mask icon-mask--camera icon-mask--xl"></span>
+                </div>
+              }
+              <span class="category-badge">{{ 'catalog.categories.' + obj.category | translate }}</span>
+            </div>
+
+            <div class="object-info">
+              <h3>{{ obj.name }}</h3>
+              <p class="description">{{ obj.description }}</p>
+
+              <div class="object-meta">
+                <div class="accuracy" [class]="getAccuracyClass(obj.accuracy)">
+                  <span class="accuracy-label">{{ 'catalog.accuracy' | translate }}</span>
+                  <span class="accuracy-value">{{ (obj.accuracy * 100).toFixed(0) }}%</span>
+                </div>
+
+                <div class="status">
+                  <span class="status-dot" [class.active]="obj.isActive"></span>
+                  {{ (obj.isActive ? 'catalog.status.active' : 'catalog.status.inactive') | translate }}
+                </div>
+              </div>
+            </div>
+
+            <div class="object-actions" (click)="$event.stopPropagation()">
+              <button class="action-btn" (click)="toggleObjectStatus(obj)">
+                {{ (obj.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
+              </button>
+              <button class="action-btn danger" (click)="confirmDelete(obj)">
+                {{ 'catalog.actions.delete' | translate }}
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <!-- Object Details Modal -->
+  @if (selectedObject()) {
+    <div class="modal-overlay" (click)="closeDetails()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <button class="modal-close" (click)="closeDetails()">
+          <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+        </button>
+
+        <div class="detail-header">
+          <div class="detail-image">
+            @if (selectedObject()!.imageUrl) {
+              <img [src]="selectedObject()!.imageUrl" [alt]="selectedObject()!.name" />
+            } @else {
+              <div class="placeholder-image">
+                <span class="icon-mask icon-mask--camera icon-mask--xl"></span>
+              </div>
+            }
+          </div>
+          <div class="detail-title">
+            <h2>{{ selectedObject()!.name }}</h2>
+            <span class="category-badge">{{ 'catalog.categories.' + selectedObject()!.category | translate }}</span>
+          </div>
+        </div>
+
+        <p class="detail-description">{{ selectedObject()!.description }}</p>
+
+        <div class="detail-stats">
+          <div class="stat">
+            <span class="stat-value">{{ (selectedObject()!.accuracy * 100).toFixed(1) }}%</span>
+            <span class="stat-label">{{ 'catalog.accuracy' | translate }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{{ selectedObject()!.trainingImages }}</span>
+            <span class="stat-label">{{ 'catalog.trainingImages' | translate }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{{ selectedObject()!.createdAt | date:'shortDate' }}</span>
+            <span class="stat-label">{{ 'catalog.createdAt' | translate }}</span>
+          </div>
+        </div>
+
+        <div class="detail-actions">
+          <button class="btn-secondary" (click)="toggleObjectStatus(selectedObject()!)">
+            {{ (selectedObject()!.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
+          </button>
+          <button class="btn-danger" (click)="confirmDelete(selectedObject()!)">
+            {{ 'catalog.actions.delete' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Delete Confirmation Modal -->
+  @if (showDeleteModal()) {
+    <div class="modal-overlay" (click)="cancelDelete()">
+      <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+        <span class="icon-mask icon-mask--warning icon-mask--xl modal-icon danger"></span>
+        <h2>{{ 'catalog.delete.title' | translate }}</h2>
+        <p>{{ 'catalog.delete.message' | translate: { name: objectToDelete()?.name } }}</p>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" (click)="cancelDelete()">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button class="btn-danger" (click)="deleteObject()">
+            {{ 'catalog.actions.delete' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

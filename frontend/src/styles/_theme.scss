@@ -1,0 +1,173 @@
+/**
+ * Theme definitions using CSS custom properties.
+ * Supports light and dark themes.
+ */
+
+@use 'sass:color';
+
+// Brand colors
+$brand-primary: #6366f1;
+$brand-primary-light: #818cf8;
+$brand-primary-dark: #4f46e5;
+
+$brand-secondary: #8b5cf6;
+$brand-secondary-light: #a78bfa;
+$brand-secondary-dark: #7c3aed;
+
+// Neutral colors - Light theme
+$light-bg-primary: #ffffff;
+$light-bg-secondary: #f8fafc;
+$light-bg-tertiary: #f1f5f9;
+$light-bg-elevated: #ffffff;
+
+$light-text-primary: #0f172a;
+$light-text-secondary: #475569;
+$light-text-tertiary: #94a3b8;
+$light-text-disabled: #cbd5e1;
+
+$light-border-default: #e2e8f0;
+$light-border-strong: #cbd5e1;
+
+// Neutral colors - Dark theme
+$dark-bg-primary: #0f172a;
+$dark-bg-secondary: #1e293b;
+$dark-bg-tertiary: #334155;
+$dark-bg-elevated: #1e293b;
+
+$dark-text-primary: #f8fafc;
+$dark-text-secondary: #cbd5e1;
+$dark-text-tertiary: #94a3b8;
+$dark-text-disabled: #64748b;
+
+$dark-border-default: #334155;
+$dark-border-strong: #475569;
+
+// Semantic colors
+$color-success: #22c55e;
+$color-success-light: #4ade80;
+$color-success-dark: #16a34a;
+
+$color-warning: #f59e0b;
+$color-warning-light: #fbbf24;
+$color-warning-dark: #d97706;
+
+$color-error: #ef4444;
+$color-error-light: #f87171;
+$color-error-dark: #dc2626;
+
+$color-info: #3b82f6;
+$color-info-light: #60a5fa;
+$color-info-dark: #2563eb;
+
+// Light theme (default)
+:root,
+[data-theme='light'] {
+  // Backgrounds
+  --bg-primary: #{$light-bg-primary};
+  --bg-secondary: #{$light-bg-secondary};
+  --bg-tertiary: #{$light-bg-tertiary};
+  --bg-elevated: #{$light-bg-elevated};
+
+  // Text
+  --text-primary: #{$light-text-primary};
+  --text-secondary: #{$light-text-secondary};
+  --text-tertiary: #{$light-text-tertiary};
+  --text-disabled: #{$light-text-disabled};
+
+  // Borders
+  --border-default: #{$light-border-default};
+  --border-strong: #{$light-border-strong};
+
+  // Brand
+  --brand-primary: #{$brand-primary};
+  --brand-primary-light: #{$brand-primary-light};
+  --brand-primary-dark: #{$brand-primary-dark};
+  --brand-secondary: #{$brand-secondary};
+
+  // Semantic
+  --color-success: #{$color-success};
+  --color-warning: #{$color-warning};
+  --color-error: #{$color-error};
+  --color-info: #{$color-info};
+
+  // Alpha overlays
+  --overlay-light: rgba(255, 255, 255, 0.8);
+  --overlay-dark: rgba(0, 0, 0, 0.5);
+
+  // Focus ring
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.4);
+
+  // Shadows
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  // Accent (used for highlights)
+  --accent-color: #{$brand-primary};
+  --accent-alpha-10: rgba(99, 102, 241, 0.1);
+  --accent-alpha-20: rgba(99, 102, 241, 0.2);
+}
+
+// Dark theme
+[data-theme='dark'] {
+  // Backgrounds
+  --bg-primary: #{$dark-bg-primary};
+  --bg-secondary: #{$dark-bg-secondary};
+  --bg-tertiary: #{$dark-bg-tertiary};
+  --bg-elevated: #{$dark-bg-elevated};
+
+  // Text
+  --text-primary: #{$dark-text-primary};
+  --text-secondary: #{$dark-text-secondary};
+  --text-tertiary: #{$dark-text-tertiary};
+  --text-disabled: #{$dark-text-disabled};
+
+  // Borders
+  --border-default: #{$dark-border-default};
+  --border-strong: #{$dark-border-strong};
+
+  // Brand (slightly adjusted for dark mode)
+  --brand-primary: #{$brand-primary-light};
+  --brand-primary-light: #{$brand-primary};
+  --brand-primary-dark: #{$brand-primary-dark};
+  --brand-secondary: #{$brand-secondary-light};
+
+  // Semantic (adjusted for dark mode)
+  --color-success: #{$color-success-light};
+  --color-warning: #{$color-warning-light};
+  --color-error: #{$color-error-light};
+  --color-info: #{$color-info-light};
+
+  // Alpha overlays
+  --overlay-light: rgba(255, 255, 255, 0.1);
+  --overlay-dark: rgba(0, 0, 0, 0.7);
+
+  // Focus ring
+  --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.4);
+
+  // Shadows (more subtle in dark mode)
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  // Accent
+  --accent-color: #{$brand-primary-light};
+  --accent-alpha-10: rgba(129, 140, 248, 0.1);
+  --accent-alpha-20: rgba(129, 140, 248, 0.2);
+}
+
+// System preference detection
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-primary: #{$dark-bg-primary};
+    --bg-secondary: #{$dark-bg-secondary};
+    --bg-tertiary: #{$dark-bg-tertiary};
+    --bg-elevated: #{$dark-bg-elevated};
+    --text-primary: #{$dark-text-primary};
+    --text-secondary: #{$dark-text-secondary};
+    --text-tertiary: #{$dark-text-tertiary};
+    --text-disabled: #{$dark-text-disabled};
+    --border-default: #{$dark-border-default};
+    --border-strong: #{$dark-border-strong};
+  }
+}

@@ -1,0 +1,101 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">
+        <img [src]="logoPath()" alt="XIMPLY Vision" class="logo-image" />
+      </div>
+      <h1>{{ 'auth.login.title' | translate }}</h1>
+      <p class="subtitle">{{ 'auth.login.subtitle' | translate }}</p>
+    </div>
+
+    @if (errorMessage(); as msg) {
+      <div class="error-banner">
+        <img src="assets/icons/warning.svg" alt="" class="error-icon" />
+        <span>{{ msg | translate }}</span>
+      </div>
+    }
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-group">
+        <label for="email">{{ 'auth.login.email' | translate }}</label>
+        <input
+          type="email"
+          id="email"
+          formControlName="email"
+          autocomplete="email"
+          [placeholder]="'auth.login.emailPlaceholder' | translate"
+          [class.invalid]="emailControl?.invalid && emailControl?.touched"
+        />
+        @if (emailControl?.invalid && emailControl?.touched) {
+          <span class="error-message">
+            @if (emailControl?.errors?.['required']) {
+              {{ 'auth.errors.emailRequired' | translate }}
+            } @else if (emailControl?.errors?.['email']) {
+              {{ 'auth.errors.emailInvalid' | translate }}
+            }
+          </span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="password">{{ 'auth.login.password' | translate }}</label>
+        <div class="password-input">
+          <input
+            [type]="showPassword() ? 'text' : 'password'"
+            id="password"
+            formControlName="password"
+            autocomplete="current-password"
+            [placeholder]="'auth.login.passwordPlaceholder' | translate"
+            [class.invalid]="passwordControl?.invalid && passwordControl?.touched"
+          />
+          <button
+            type="button"
+            class="toggle-password"
+            (click)="togglePasswordVisibility()"
+            [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+          >
+            <img
+              [src]="showPassword() ? 'assets/icons/eye-off.svg' : 'assets/icons/eye.svg'"
+              alt=""
+              class="toggle-password-icon"
+            />
+          </button>
+        </div>
+        @if (passwordControl?.invalid && passwordControl?.touched) {
+          <span class="error-message">
+            @if (passwordControl?.errors?.['required']) {
+              {{ 'auth.errors.passwordRequired' | translate }}
+            } @else if (passwordControl?.errors?.['minlength']) {
+              {{ 'auth.errors.passwordMinLength' | translate }}
+            }
+          </span>
+        }
+      </div>
+
+      <div class="form-options">
+        <label class="checkbox-label">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span>{{ 'auth.login.rememberMe' | translate }}</span>
+        </label>
+        <a href="#" class="forgot-link">{{ 'auth.login.forgotPassword' | translate }}</a>
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary btn-login"
+        [disabled]="isLoading()"
+      >
+        @if (isLoading()) {
+          <span class="spinner"></span>
+          {{ 'common.loading' | translate }}
+        } @else {
+          {{ 'auth.login.submit' | translate }}
+        }
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>{{ 'auth.login.noAccount' | translate }}</p>
+    </div>
+  </div>
+</div>
