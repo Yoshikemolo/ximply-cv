@@ -34,6 +34,7 @@ dependencies = [
     "opencv-contrib-python>=4.9.0",
     "numpy>=1.26.0",
     "pillow>=10.2.0",
+    "pyzbar>=0.1.9",  # Barcode/QR code detection
 
     # Async utilities
     "aiofiles>=23.2.0",

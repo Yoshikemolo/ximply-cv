@@ -79,15 +79,14 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.errorMessage.set(null);
 
     try {
-      // Load catalog features for custom object recognition
-      this.detectionService.loadCatalogFeatures().subscribe({
-        next: response => {
-          console.log(`Loaded ${response.objectsLoaded} catalog objects for recognition`);
-        },
-        error: err => {
-          console.warn('Could not load catalog features:', err);
-        },
-      });
+      // Load catalog features for custom object recognition BEFORE starting detection
+      try {
+        const catalogResponse = await this.detectionService.loadCatalogFeatures().toPromise();
+        console.log(`Loaded ${catalogResponse?.objectsLoaded || 0} catalog objects for recognition`);
+      } catch (err) {
+        console.warn('Could not load catalog features:', err);
+        // Continue anyway - YOLO detection will still work
+      }
 
       const constraints: MediaStreamConstraints = {
         video: {

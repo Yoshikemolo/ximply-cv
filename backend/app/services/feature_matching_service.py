@@ -43,19 +43,26 @@ class FeatureMatchingService:
     ORB is fast and works well for object recognition.
     """
 
-    def __init__(self, min_match_count: int = 10, match_ratio: float = 0.75):
+    def __init__(
+        self,
+        min_match_count: int = 8,
+        match_ratio: float = 0.75,
+        min_confidence: float = 0.15,
+    ):
         """
         Initialize the feature matching service.
 
         Args:
             min_match_count: Minimum number of good matches required.
             match_ratio: Ratio test threshold for filtering matches.
+            min_confidence: Minimum confidence score to accept a match.
         """
         self.min_match_count = min_match_count
         self.match_ratio = match_ratio
+        self.min_confidence = min_confidence
 
-        # Initialize ORB detector
-        self.orb = cv2.ORB_create(nfeatures=500)
+        # Initialize ORB detector with more features for better matching
+        self.orb = cv2.ORB_create(nfeatures=1000)
 
         # Initialize brute-force matcher with Hamming distance
         self.bf_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -164,13 +171,17 @@ class FeatureMatchingService:
             Tuple of (object_id, object_name, confidence) if match found, None otherwise.
         """
         if not self._object_cache:
+            logger.debug("No objects in feature cache")
             return None
 
         # Extract features from the query region
         query_keypoints, query_descriptors = self.extract_features(region)
 
         if query_descriptors is None or len(query_descriptors) < 4:
+            logger.debug(f"Insufficient features in query region: {len(query_descriptors) if query_descriptors is not None else 0}")
             return None
+
+        logger.debug(f"Query region has {len(query_descriptors)} features, matching against {len(self._object_cache)} catalog objects")
 
         best_match = None
         best_score = 0.0
@@ -187,7 +198,7 @@ class FeatureMatchingService:
                     k=2,
                 )
 
-                # Apply ratio test
+                # Apply ratio test (Lowe's ratio test)
                 good_matches = []
                 for m_list in matches:
                     if len(m_list) >= 2:
@@ -206,6 +217,13 @@ class FeatureMatchingService:
                     distance_score = 1.0 - (avg_distance / 256.0)
                     score = match_ratio * distance_score
 
+                    logger.debug(
+                        f"Object '{obj_features.object_name}': "
+                        f"{len(good_matches)} matches, "
+                        f"avg_dist={avg_distance:.1f}, "
+                        f"score={score:.3f}"
+                    )
+
                     if score > best_score:
                         best_score = score
                         best_match = (
@@ -218,7 +236,15 @@ class FeatureMatchingService:
                 logger.warning(f"Match error for object {obj_features.object_id}: {e}")
                 continue
 
-        return best_match
+        # Only return if confidence meets minimum threshold
+        if best_match and best_match[2] >= self.min_confidence:
+            logger.info(f"Feature match found: '{best_match[1]}' with confidence {best_match[2]:.2f}")
+            return best_match
+
+        if best_match:
+            logger.debug(f"Best match '{best_match[1]}' rejected: confidence {best_match[2]:.2f} < {self.min_confidence}")
+
+        return None
 
     def has_cached_objects(self) -> bool:
         """Check if there are any cached object features."""
