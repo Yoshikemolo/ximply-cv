@@ -78,6 +78,10 @@
       "cameraPermission": "Camera permission denied",
       "streamFailed": "Failed to start camera stream",
       "saveFailed": "Failed to save object to catalog"
+    },
+    "barcodes": {
+      "title": "Detected Barcodes",
+      "noResults": "No barcodes detected"
     }
   },
   "learn": {

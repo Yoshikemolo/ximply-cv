@@ -125,7 +125,12 @@
                   class="detection-color"
                   [style.background-color]="detection.color"
                 ></span>
-                <span class="detection-label">{{ detection.label }}</span>
+                <span class="detection-label">
+                  {{ detection.label }}
+                  @if (detection.objectName) {
+                    <span class="matched-badge">{{ 'view.matchedObject' | translate }}</span>
+                  }
+                </span>
                 <span class="detection-confidence">
                   {{ (detection.confidence * 100).toFixed(0) }}%
                 </span>
@@ -135,6 +140,30 @@
           </ul>
         }
       </div>
+
+      <!-- Barcodes Section -->
+      @if (barcodes().length > 0) {
+        <div class="control-card barcode-card">
+          <h3>
+            <span class="icon-mask icon-mask--barcode icon-mask--sm"></span>
+            {{ 'view.barcodes.title' | translate }}
+          </h3>
+
+          <ul class="barcode-list">
+            @for (barcode of barcodes(); track barcode.id) {
+              <li class="barcode-item">
+                <div class="barcode-icon">
+                  <span class="icon-mask icon-mask--barcode icon-mask--lg"></span>
+                </div>
+                <div class="barcode-info">
+                  <span class="barcode-type">{{ barcode.type }}</span>
+                  <span class="barcode-data">{{ barcode.data }}</span>
+                </div>
+              </li>
+            }
+          </ul>
+        </div>
+      }
     </div>
   </div>
 

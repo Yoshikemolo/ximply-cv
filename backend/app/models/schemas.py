@@ -333,9 +333,11 @@ class ObjectListResponse(CamelCaseModel):
 
     id: UUID
     name: str
+    description: Optional[str] = None
     reference: Optional[str] = None
     status: str
     thumbnail_path: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     category_id: Optional[UUID] = None
     training_samples: int = 0
     model_confidence: Optional[float] = None
@@ -392,14 +394,24 @@ class DetectionResult(CamelCaseModel):
     confidence: float
     bbox: BoundingBox
     class_id: Optional[int] = None
-    object_id: Optional[UUID] = None
+    object_id: Optional[str] = None
     object_name: Optional[str] = None
 
 
+class BarcodeResult(CamelCaseModel):
+    """Single barcode detection result."""
+
+    barcode_type: str  # EAN13, EAN8, UPC, QR, Code128, etc.
+    data: str  # The decoded barcode value
+    bbox: BoundingBox
+    quality: float = Field(ge=0, le=1)
+
+
 class DetectionResponse(CamelCaseModel):
-    """Detection response with all detected objects."""
+    """Detection response with all detected objects and barcodes."""
 
     detections: List[DetectionResult]
+    barcodes: List[BarcodeResult] = []
     frame_width: int
     frame_height: int
     processing_time_ms: float

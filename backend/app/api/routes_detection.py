@@ -11,6 +11,7 @@ from io import BytesIO
 from typing import AsyncGenerator, List, Optional
 from uuid import UUID
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.responses import StreamingResponse
 from PIL import Image
@@ -24,13 +25,20 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_permissions
 from app.core.logging import get_logger
-from app.core.minio_client import upload_file, get_presigned_url
+from app.core.minio_client import upload_file
 from app.core.security import TokenData
 from app.models.entities import ObjectEntity, ObjectImageEntity
 from app.models.enums import Permission
-from app.models.schemas import DetectionResponse, DetectionResult, BoundingBox, ObjectResponse
+from app.models.schemas import (
+    DetectionResponse,
+    DetectionResult,
+    BoundingBox,
+    BarcodeResult,
+    ObjectResponse,
+)
 from app.services.detection_service import get_detection_service
 from app.services.feature_matching_service import get_feature_matching_service
+from app.services.barcode_service import get_barcode_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -178,25 +186,87 @@ async def stop_detection(
     }
 
 
+async def _load_catalog_features(
+    feature_service,
+    user_id: str,
+    db: AsyncSession,
+) -> int:
+    """
+    Load catalog object features into the feature matching cache.
+
+    Args:
+        feature_service: The feature matching service instance.
+        user_id: User ID to load objects for.
+        db: Database session.
+
+    Returns:
+        int: Number of objects loaded.
+    """
+    from sqlalchemy.orm import selectinload
+
+    try:
+        # Convert user_id string to UUID for comparison
+        user_uuid = UUID(user_id)
+
+        # Get all objects with images for this user
+        result = await db.execute(
+            select(ObjectEntity)
+            .options(selectinload(ObjectEntity.images))
+            .where(
+                ObjectEntity.owner_id == user_uuid,
+                ObjectEntity.training_samples > 0,
+            )
+        )
+        objects = result.scalars().all()
+
+        loaded_count = 0
+        for obj in objects:
+            if obj.images:
+                image_paths = [img.file_path for img in obj.images]
+                if feature_service.load_object_features(
+                    object_id=obj.id,
+                    object_name=obj.name,
+                    image_paths=image_paths,
+                ):
+                    loaded_count += 1
+
+        if loaded_count > 0:
+            logger.info(f"Auto-loaded features for {loaded_count} catalog objects")
+
+        return loaded_count
+
+    except Exception as e:
+        logger.warning(f"Failed to auto-load catalog features: {e}")
+        return 0
+
+
 @router.post("/detect")
 async def detect_objects(
     request: DetectRequest,
     current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> DetectionResponse:
     """
     Detect objects in a single image.
 
     Accepts a base64 encoded image and returns detection results.
+    Also matches detected regions against catalog objects using feature matching.
 
     Args:
         request: Detection request with base64 image.
         current_user: Authenticated user.
+        db: Database session.
 
     Returns:
-        DetectionResponse: Detected objects with bounding boxes.
+        DetectionResponse: Detected objects with bounding boxes and catalog matches.
     """
     try:
         service = get_detection_service()
+        feature_service = get_feature_matching_service()
+
+        # Auto-load catalog features if cache is empty
+        if not feature_service.has_cached_objects():
+            await _load_catalog_features(feature_service, current_user.sub, db)
 
         detections, processing_time, (width, height) = service.detect_from_base64(
             request.image,
@@ -204,26 +274,96 @@ async def detect_objects(
             iou_threshold=request.iouThreshold,
         )
 
-        # Convert to response format
-        detection_results = [
-            DetectionResult(
-                label=d.label,
-                confidence=d.confidence,
-                bbox=BoundingBox(
-                    x=d.x,
-                    y=d.y,
-                    width=d.width,
-                    height=d.height,
-                ),
-                class_id=d.class_id,
-                object_id=d.object_id,
-                object_name=d.object_name,
+        # Decode the image for feature matching
+        image_array = None
+        try:
+            image_data = request.image
+            if "," in image_data:
+                image_data = image_data.split(",")[1]
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(BytesIO(image_bytes))
+            image_array = np.array(image)
+            # Convert RGB to BGR for OpenCV
+            if len(image_array.shape) == 3 and image_array.shape[2] == 3:
+                image_array = image_array[:, :, ::-1].copy()
+        except Exception as e:
+            logger.warning(f"Failed to decode image for feature matching: {e}")
+
+        # Convert to response format and match against catalog
+        detection_results = []
+        for d in detections:
+            object_id = d.object_id
+            object_name = d.object_name
+
+            # Try to match against catalog objects if image was decoded
+            if image_array is not None and object_id is None:
+                try:
+                    # Crop the detection region with padding
+                    padding = 5
+                    x1 = max(0, int(d.x) - padding)
+                    y1 = max(0, int(d.y) - padding)
+                    x2 = min(image_array.shape[1], int(d.x + d.width) + padding)
+                    y2 = min(image_array.shape[0], int(d.y + d.height) + padding)
+
+                    if x2 > x1 and y2 > y1:
+                        cropped_region = image_array[y1:y2, x1:x2]
+
+                        # Match against catalog
+                        match = feature_service.match_region(cropped_region)
+                        if match:
+                            object_id = str(match[0])
+                            object_name = match[1]
+                            # Optionally boost confidence with match confidence
+                            # match[2] contains the feature match confidence
+
+                except Exception as e:
+                    logger.debug(f"Feature matching failed for detection: {e}")
+
+            detection_results.append(
+                DetectionResult(
+                    label=d.label,
+                    confidence=d.confidence,
+                    bbox=BoundingBox(
+                        x=d.x,
+                        y=d.y,
+                        width=d.width,
+                        height=d.height,
+                    ),
+                    class_id=d.class_id,
+                    object_id=object_id,
+                    object_name=object_name,
+                )
             )
-            for d in detections
-        ]
+
+        # Detect barcodes
+        barcode_results = []
+        if image_array is not None:
+            try:
+                barcode_service = get_barcode_service()
+                # Convert BGR back to RGB for barcode detection
+                rgb_image = image_array[:, :, ::-1] if len(image_array.shape) == 3 else image_array
+                barcodes = barcode_service.detect(rgb_image)
+
+                for bc in barcodes:
+                    barcode_results.append(
+                        BarcodeResult(
+                            barcode_type=bc.barcode_type,
+                            data=bc.data,
+                            bbox=BoundingBox(
+                                x=bc.bbox[0],
+                                y=bc.bbox[1],
+                                width=bc.bbox[2],
+                                height=bc.bbox[3],
+                            ),
+                            quality=bc.quality,
+                        )
+                    )
+            except Exception as e:
+                logger.debug(f"Barcode detection failed: {e}")
 
         return DetectionResponse(
             detections=detection_results,
+            barcodes=barcode_results,
             frame_width=width,
             frame_height=height,
             processing_time_ms=processing_time,
@@ -460,12 +600,15 @@ async def load_catalog_features(
     try:
         from sqlalchemy.orm import selectinload
 
+        # Convert user_id string to UUID for comparison
+        user_uuid = UUID(current_user.sub)
+
         # Get all objects with images for this user
         result = await db.execute(
             select(ObjectEntity)
             .options(selectinload(ObjectEntity.images))
             .where(
-                ObjectEntity.owner_id == current_user.sub,
+                ObjectEntity.owner_id == user_uuid,
                 ObjectEntity.training_samples > 0,
             )
         )
@@ -525,12 +668,15 @@ async def refresh_object_features(
     try:
         from sqlalchemy.orm import selectinload
 
+        # Convert user_id string to UUID for comparison
+        user_uuid = UUID(current_user.sub)
+
         result = await db.execute(
             select(ObjectEntity)
             .options(selectinload(ObjectEntity.images))
             .where(
                 ObjectEntity.id == object_id,
-                ObjectEntity.owner_id == current_user.sub,
+                ObjectEntity.owner_id == user_uuid,
             )
         )
         obj = result.scalar_one_or_none()

@@ -144,13 +144,30 @@ export class LearnPageComponent implements OnInit, OnDestroy {
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        const image: UploadedImage = {
-          id: crypto.randomUUID(),
-          file,
-          preview: e.target?.result as string,
-          annotations: [],
+        const preview = e.target?.result as string;
+
+        // Load image to get natural dimensions for full-image annotation
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          // Create full-image bounding box by default (same as "Select All" button)
+          const fullImageAnnotation: Annotation = {
+            id: crypto.randomUUID(),
+            x: 0,
+            y: 0,
+            width: tempImg.naturalWidth,
+            height: tempImg.naturalHeight,
+            label: this.objectName() || 'object',
+          };
+
+          const image: UploadedImage = {
+            id: crypto.randomUUID(),
+            file,
+            preview,
+            annotations: [fullImageAnnotation],
+          };
+          this.uploadedImages.update(imgs => [...imgs, image]);
         };
-        this.uploadedImages.update(imgs => [...imgs, image]);
+        tempImg.src = preview;
       };
       reader.readAsDataURL(file);
     });
@@ -958,6 +975,18 @@ export class LearnPageComponent implements OnInit, OnDestroy {
       if (this.currentStep() === 'upload' && this.learningMode() === 'camera') {
         this.stopCamera();
       }
+
+      // When moving to annotate step, auto-select first image
+      if (this.currentStep() === 'upload' && this.learningMode() === 'images') {
+        const images = this.uploadedImages();
+        if (images.length > 0) {
+          this.selectImage(images[0]);
+          if (images[0].annotations.length > 0) {
+            this.selectedAnnotationId.set(images[0].annotations[0].id);
+          }
+        }
+      }
+
       this.currentStep.set(steps[currentIndex + 1]);
     }
   }

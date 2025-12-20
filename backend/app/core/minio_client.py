@@ -16,22 +16,25 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def create_minio_client() -> Minio:
+def create_minio_client(endpoint: Optional[str] = None) -> Minio:
     """
     Create MinIO client instance.
+
+    Args:
+        endpoint: Optional custom endpoint. Uses settings.minio_endpoint if None.
 
     Returns:
         Minio: Configured MinIO client.
     """
     return Minio(
-        settings.minio_endpoint,
+        endpoint or settings.minio_endpoint,
         access_key=settings.minio_access_key,
         secret_key=settings.minio_secret_key,
         secure=settings.minio_secure,
     )
 
 
-# Global MinIO client instance
+# Global MinIO client instance for internal operations
 minio_client = create_minio_client()
 
 
@@ -178,6 +181,10 @@ def get_presigned_url(
     """
     Generate a presigned URL for downloading an object.
 
+    Note: This function is deprecated. Use the proxy endpoint at
+    /api/v1/objects/files/{path} instead to avoid signature issues
+    when accessing from browsers in Docker environments.
+
     Args:
         object_name: Name/path of the object.
         expires_hours: URL expiration time in hours.
@@ -196,6 +203,7 @@ def get_presigned_url(
             object_name,
             expires=timedelta(hours=expires_hours),
         )
+
         return url
     except S3Error as e:
         logger.error(f"Failed to generate presigned URL: {e}")

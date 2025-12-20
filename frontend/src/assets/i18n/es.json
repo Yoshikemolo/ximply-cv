@@ -78,6 +78,10 @@
       "cameraPermission": "Permiso de cámara denegado",
       "streamFailed": "Error al iniciar la cámara",
       "saveFailed": "Error al guardar el objeto en el catálogo"
+    },
+    "barcodes": {
+      "title": "Códigos de Barras Detectados",
+      "noResults": "No se detectaron códigos de barras"
     }
   },
   "learn": {

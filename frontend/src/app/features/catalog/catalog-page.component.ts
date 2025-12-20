@@ -1,9 +1,23 @@
-import { Component, inject, signal, OnInit, effect } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
-import { CatalogService, CatalogObject } from '@core/services/catalog.service';
+import { ObjectsService, CatalogObject as BackendObject } from '@core/services/objects.service';
+import { environment } from '@env';
+
+// Local interface for catalog display
+interface CatalogObject {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  imageUrl: string;
+  createdAt: Date;
+  trainingImages: number;
+  accuracy: number;
+  isActive: boolean;
+}
 
 @Component({
   selector: 'app-catalog-page',
@@ -13,8 +27,9 @@ import { CatalogService, CatalogObject } from '@core/services/catalog.service';
   styleUrl: './catalog-page.component.scss',
 })
 export class CatalogPageComponent implements OnInit {
-  private readonly catalogService = inject(CatalogService);
+  private readonly objectsService = inject(ObjectsService);
 
+  allObjects = signal<CatalogObject[]>([]);
   filteredObjects = signal<CatalogObject[]>([]);
   searchQuery = signal('');
   selectedCategory = signal<string>('all');
@@ -26,26 +41,45 @@ export class CatalogPageComponent implements OnInit {
 
   categories = signal<string[]>(['all', 'trained', 'imported', 'system']);
 
-  constructor() {
-    // React to changes in catalog service
-    effect(() => {
-      const objects = this.catalogService.objects();
-      this.applyFilters();
-    });
-  }
-
   ngOnInit(): void {
     this.loadObjects();
   }
 
-  private async loadObjects(): Promise<void> {
+  private loadObjects(): void {
     this.isLoading.set(true);
 
-    // Small delay to show loading state
-    setTimeout(() => {
-      this.applyFilters();
-      this.isLoading.set(false);
-    }, 300);
+    this.objectsService.getObjects({ page_size: 100 }).subscribe({
+      next: (response) => {
+        const objects = response.items.map(obj => this.mapToDisplayObject(obj));
+        this.allObjects.set(objects);
+        this.applyFilters();
+        this.isLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load objects:', err);
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  private mapToDisplayObject(obj: BackendObject): CatalogObject {
+    // Extract base URL from apiUrl (remove /api suffix)
+    const baseUrl = environment.apiUrl.replace(/\/api$/, '');
+    const thumbnailUrl = obj.thumbnailUrl || obj.thumbnailPath || '';
+    // Prepend base URL if it's a relative path
+    const imageUrl = thumbnailUrl.startsWith('/') ? `${baseUrl}${thumbnailUrl}` : thumbnailUrl;
+
+    return {
+      id: obj.id,
+      name: obj.name,
+      description: obj.description || '',
+      category: 'trained', // Objects from backend are trained
+      imageUrl,
+      createdAt: new Date(obj.createdAt),
+      trainingImages: obj.trainingSamples,
+      accuracy: obj.modelConfidence || 0.85,
+      isActive: obj.status === 'active',
+    };
   }
 
   onSearchChange(event: Event): void {
@@ -64,7 +98,7 @@ export class CatalogPageComponent implements OnInit {
   }
 
   private applyFilters(): void {
-    let filtered = this.catalogService.objects();
+    let filtered = this.allObjects();
 
     // Apply search filter
     const query = this.searchQuery().toLowerCase();
@@ -102,29 +136,52 @@ export class CatalogPageComponent implements OnInit {
     this.showDeleteModal.set(false);
   }
 
-  async deleteObject(): Promise<void> {
+  deleteObject(): void {
     const obj = this.objectToDelete();
     if (!obj) return;
 
-    this.catalogService.deleteObject(obj.id);
+    this.objectsService.deleteObject(obj.id).subscribe({
+      next: () => {
+        // Remove from local list
+        this.allObjects.update(objects => objects.filter(o => o.id !== obj.id));
+        this.applyFilters();
 
-    if (this.selectedObject()?.id === obj.id) {
-      this.selectedObject.set(null);
-    }
-
-    this.cancelDelete();
+        if (this.selectedObject()?.id === obj.id) {
+          this.selectedObject.set(null);
+        }
+        this.cancelDelete();
+      },
+      error: (err) => {
+        console.error('Failed to delete object:', err);
+        this.cancelDelete();
+      },
+    });
   }
 
   toggleObjectStatus(obj: CatalogObject): void {
-    this.catalogService.toggleStatus(obj.id);
+    const newStatus = obj.isActive ? 'archived' : 'active';
 
-    // Update selected object if it was toggled
-    if (this.selectedObject()?.id === obj.id) {
-      const updated = this.catalogService.getObjectById(obj.id);
-      if (updated) {
-        this.selectedObject.set(updated);
-      }
-    }
+    this.objectsService.setObjectStatus(obj.id, newStatus).subscribe({
+      next: (updated) => {
+        // Update in local list
+        this.allObjects.update(objects =>
+          objects.map(o =>
+            o.id === obj.id ? { ...o, isActive: updated.status === 'active' } : o
+          )
+        );
+        this.applyFilters();
+
+        // Update selected object if it was toggled
+        if (this.selectedObject()?.id === obj.id) {
+          this.selectedObject.update(selected =>
+            selected ? { ...selected, isActive: updated.status === 'active' } : null
+          );
+        }
+      },
+      error: (err) => {
+        console.error('Failed to update object status:', err);
+      },
+    });
   }
 
   getAccuracyClass(accuracy: number): string {

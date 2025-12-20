@@ -149,6 +149,7 @@ async def login(
         "email": user.email,
         "roles": roles,
         "permissions": permissions,
+        "is_superuser": user.is_superuser,
     }
 
     access_token = create_access_token(token_data)
@@ -273,6 +274,7 @@ async def refresh_token(
         "email": user.email,
         "roles": roles,
         "permissions": permissions,
+        "is_superuser": user.is_superuser,
     }
 
     access_token = create_access_token(new_token_data)

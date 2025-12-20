@@ -18,7 +18,7 @@ from app.api.routes_health import router as health_router
 from app.api.routes_objects import router as objects_router
 from app.api.routes_users import router as users_router
 from app.core.config import settings
-from app.core.database import close_db, init_db
+from app.core.database import close_db, init_db, seed_initial_data
 from app.core.logging import get_logger, setup_logging
 from app.core.minio_client import ensure_bucket_exists
 
@@ -42,6 +42,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await init_db()
         logger.info("Database initialized")
+
+        # Seed initial data (permissions, roles, admin user)
+        await seed_initial_data()
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
 

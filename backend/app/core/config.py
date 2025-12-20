@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # MinIO
     minio_endpoint: str = "localhost:9000"
+    minio_public_endpoint: str = "localhost:9000"  # Public URL for browser access
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "ximply-vision"
@@ -92,7 +93,9 @@ class Settings(BaseSettings):
     models_path: Path = Path("./models/weights")
 
     # ML Models
-    detection_model: str = "yolov8s"  # small model, better accuracy than nano
+    # YOLO11s offers better accuracy than YOLOv8s with similar speed
+    # Options: yolo11n (fast), yolo11s (balanced), yolo11m (accurate), yolo11l/x (most accurate)
+    detection_model: str = "yolo11s"
     detection_confidence_threshold: float = 0.25  # lower threshold for more detections
     detection_iou_threshold: float = 0.45
 

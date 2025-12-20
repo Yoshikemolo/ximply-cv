@@ -220,6 +220,10 @@ class FeatureMatchingService:
 
         return best_match
 
+    def has_cached_objects(self) -> bool:
+        """Check if there are any cached object features."""
+        return len(self._object_cache) > 0
+
     def clear_cache(self) -> None:
         """Clear the cached object features."""
         self._object_cache.clear()

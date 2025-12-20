@@ -25,8 +25,16 @@ export interface DetectionResult {
   objectName?: string;
 }
 
+export interface BarcodeResult {
+  barcodeType: string;  // EAN13, EAN8, UPC, QR, Code128, etc.
+  data: string;  // The decoded barcode value
+  bbox: BoundingBox;
+  quality: number;
+}
+
 export interface DetectionResponse {
   detections: DetectionResult[];
+  barcodes: BarcodeResult[];
   frameWidth: number;
   frameHeight: number;
   processingTimeMs: number;

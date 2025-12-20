@@ -32,6 +32,7 @@ class TokenData(BaseModel):
         email: User email address.
         roles: List of role names.
         permissions: List of permission strings.
+        is_superuser: Whether user is a superuser.
         exp: Expiration timestamp.
         iat: Issued at timestamp.
         token_type: Type of token (access or refresh).
@@ -41,6 +42,7 @@ class TokenData(BaseModel):
     email: str
     roles: List[str] = []
     permissions: List[str] = []
+    is_superuser: bool = False
     exp: Optional[datetime] = None
     iat: Optional[datetime] = None
     token_type: str = "access"
@@ -169,6 +171,7 @@ def decode_token(token: str) -> Optional[TokenData]:
             email=payload.get("email", ""),
             roles=payload.get("roles", []),
             permissions=payload.get("permissions", []),
+            is_superuser=payload.get("is_superuser", False),
             exp=datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.utc),
             iat=datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.utc),
             token_type=payload.get("token_type", "access"),
@@ -195,6 +198,8 @@ def has_any_permission(token_data: TokenData, permissions: List[str]) -> bool:
     """
     Check if token has any of the required permissions.
 
+    Superusers always have all permissions.
+
     Args:
         token_data: Decoded token data.
         permissions: List of permission strings to check.
@@ -202,12 +207,17 @@ def has_any_permission(token_data: TokenData, permissions: List[str]) -> bool:
     Returns:
         bool: True if any permission is present, False otherwise.
     """
+    # Superusers have all permissions
+    if token_data.is_superuser:
+        return True
     return any(perm in token_data.permissions for perm in permissions)
 
 
 def has_all_permissions(token_data: TokenData, permissions: List[str]) -> bool:
     """
     Check if token has all required permissions.
+
+    Superusers always have all permissions.
 
     Args:
         token_data: Decoded token data.
@@ -216,6 +226,9 @@ def has_all_permissions(token_data: TokenData, permissions: List[str]) -> bool:
     Returns:
         bool: True if all permissions are present, False otherwise.
     """
+    # Superusers have all permissions
+    if token_data.is_superuser:
+        return True
     return all(perm in token_data.permissions for perm in permissions)
 
 

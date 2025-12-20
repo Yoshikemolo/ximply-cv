@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, ElementRef, ViewChild } f
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
-import { DetectionService, DetectionResult, CaptureDetectionRequest } from '@core/services/detection.service';
+import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest } from '@core/services/detection.service';
 import { Subscription } from 'rxjs';
 
 // Color palette for different detection classes
@@ -27,6 +27,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   isStreaming = signal(false);
   isLoading = signal(false);
   detections = signal<Detection[]>([]);
+  barcodes = signal<Barcode[]>([]);
   selectedCamera = signal<string>('');
   availableCameras = signal<MediaDeviceInfo[]>([]);
   errorMessage = signal<string | null>(null);
@@ -205,12 +206,25 @@ export class ViewPageComponent implements OnInit, OnDestroy {
             // Convert response to local Detection format with colors
             const newDetections: Detection[] = response.detections.map((d, i) => ({
               id: `${d.label}-${i}-${Date.now()}`,
-              label: d.label,
+              label: d.objectName || d.label,
               confidence: d.confidence,
               bbox: d.bbox,
               color: DETECTION_COLORS[d.classId ? d.classId % DETECTION_COLORS.length : i % DETECTION_COLORS.length],
+              objectId: d.objectId,
+              objectName: d.objectName,
             }));
             this.detections.set(newDetections);
+
+            // Convert barcodes
+            const newBarcodes: Barcode[] = (response.barcodes || []).map((b, i) => ({
+              id: `barcode-${i}-${Date.now()}`,
+              type: b.barcodeType,
+              data: b.data,
+              bbox: b.bbox,
+              quality: b.quality,
+            }));
+            this.barcodes.set(newBarcodes);
+
             this.isDetecting = false;
           },
           error: (err) => {
@@ -241,6 +255,9 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     // Draw detections
     this.drawDetections(ctx);
+
+    // Draw barcodes
+    this.drawBarcodes(ctx);
   }
 
   private drawDetections(ctx: CanvasRenderingContext2D): void {
@@ -268,6 +285,38 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       // Draw label text
       ctx.fillStyle = '#ffffff';
       ctx.fillText(label, x + 4, y - 6);
+    });
+  }
+
+  private drawBarcodes(ctx: CanvasRenderingContext2D): void {
+    const barcodes = this.barcodes();
+    const barcodeColor = '#f59e0b'; // Amber color for barcodes
+
+    barcodes.forEach(barcode => {
+      const { x, y, width, height } = barcode.bbox;
+
+      // Draw bounding box with dashed line
+      ctx.strokeStyle = barcodeColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+
+      // Draw label background
+      const label = `${barcode.type}: ${barcode.data}`;
+      ctx.font = 'bold 14px Inter, sans-serif';
+      const textMetrics = ctx.measureText(label);
+      const textHeight = 22;
+
+      // Position label below the barcode
+      const labelY = y + height + textHeight;
+
+      ctx.fillStyle = barcodeColor;
+      ctx.fillRect(x, y + height, textMetrics.width + 12, textHeight);
+
+      // Draw label text
+      ctx.fillStyle = '#000000';
+      ctx.fillText(label, x + 6, labelY - 6);
     });
   }
 
@@ -339,4 +388,19 @@ interface Detection {
     height: number;
   };
   color?: string;
+  objectId?: string;
+  objectName?: string;
+}
+
+interface Barcode {
+  id: string;
+  type: string;
+  data: string;
+  bbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  quality: number;
 }

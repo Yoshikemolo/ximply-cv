@@ -259,4 +259,9 @@
     mask-image: url('/assets/icons/lock.svg');
     -webkit-mask-image: url('/assets/icons/lock.svg');
   }
+
+  &--barcode {
+    mask-image: url('/assets/icons/barcode.svg');
+    -webkit-mask-image: url('/assets/icons/barcode.svg');
+  }
 }

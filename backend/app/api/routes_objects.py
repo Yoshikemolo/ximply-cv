@@ -7,7 +7,7 @@ Provides CRUD operations for catalog objects and their images.
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,7 +16,8 @@ from uuid_extensions import uuid7
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_permissions
 from app.core.logging import get_logger
-from app.core.minio_client import delete_file, get_presigned_url, upload_file
+from fastapi.responses import StreamingResponse
+from app.core.minio_client import delete_file, download_file, upload_file
 from app.core.security import TokenData
 from app.models.entities import ObjectEntity, ObjectImageEntity
 from app.models.enums import Permission
@@ -60,8 +61,11 @@ async def list_objects(
     Returns:
         PaginatedResponse: Paginated list of objects.
     """
+    # Convert user_id string to UUID for comparison
+    user_uuid = UUID(current_user.sub)
+
     # Build base query
-    query = select(ObjectEntity).where(ObjectEntity.owner_id == current_user.sub)
+    query = select(ObjectEntity).where(ObjectEntity.owner_id == user_uuid)
 
     # Apply filters
     if search:
@@ -89,20 +93,28 @@ async def list_objects(
     result = await db.execute(query)
     objects = result.scalars().all()
 
-    items = [
-        ObjectListResponse(
-            id=obj.id,
-            name=obj.name,
-            reference=obj.reference,
-            status=obj.status,
-            thumbnail_path=obj.thumbnail_path,
-            category_id=obj.category_id,
-            training_samples=obj.training_samples,
-            model_confidence=obj.model_confidence,
-            created_at=obj.created_at,
+    items = []
+    for obj in objects:
+        thumbnail_url = None
+        if obj.thumbnail_path:
+            # Use proxy URL instead of presigned URL to avoid signature issues
+            thumbnail_url = f"/api/v1/objects/files/{obj.thumbnail_path}"
+
+        items.append(
+            ObjectListResponse(
+                id=obj.id,
+                name=obj.name,
+                description=obj.description,
+                reference=obj.reference,
+                status=obj.status,
+                thumbnail_path=obj.thumbnail_path,
+                thumbnail_url=thumbnail_url,
+                category_id=obj.category_id,
+                training_samples=obj.training_samples,
+                model_confidence=obj.model_confidence,
+                created_at=obj.created_at,
+            )
         )
-        for obj in objects
-    ]
 
     total_pages = (total + page_size - 1) // page_size
 
@@ -189,7 +201,7 @@ async def get_object(
         .options(selectinload(ObjectEntity.images))
         .where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     obj = result.scalar_one_or_none()
@@ -230,7 +242,7 @@ async def update_object(
         .options(selectinload(ObjectEntity.images))
         .where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     obj = result.scalar_one_or_none()
@@ -289,7 +301,7 @@ async def delete_object(
         .options(selectinload(ObjectEntity.images))
         .where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     obj = result.scalar_one_or_none()
@@ -321,7 +333,7 @@ async def delete_object(
 async def upload_object_image(
     object_id: UUID,
     file: UploadFile = File(...),
-    is_primary: bool = False,
+    is_primary: bool = Form(False),
     current_user: TokenData = Depends(require_permissions([Permission.OBJECTS_WRITE])),
     db: AsyncSession = Depends(get_db),
 ) -> ObjectImageUploadResponse:
@@ -345,7 +357,7 @@ async def upload_object_image(
     result = await db.execute(
         select(ObjectEntity).where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     obj = result.scalar_one_or_none()
@@ -410,8 +422,8 @@ async def upload_object_image(
 
     await db.commit()
 
-    # Get presigned URL
-    url = get_presigned_url(file_path) or file_path
+    # Use proxy URL instead of presigned URL
+    url = f"/api/v1/objects/files/{file_path}"
 
     logger.info(f"Image uploaded for object {object_id}: {image_id}")
 
@@ -444,7 +456,7 @@ async def list_object_images(
     result = await db.execute(
         select(ObjectEntity).where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     if result.scalar_one_or_none() is None:
@@ -486,7 +498,7 @@ async def delete_object_image(
     obj_result = await db.execute(
         select(ObjectEntity).where(
             ObjectEntity.id == object_id,
-            ObjectEntity.owner_id == current_user.sub,
+            ObjectEntity.owner_id == UUID(current_user.sub),
         )
     )
     obj = obj_result.scalar_one_or_none()
@@ -525,3 +537,57 @@ async def delete_object_image(
     logger.info(f"Image deleted: {image_id} from object {object_id}")
 
     return MessageResponse(message="Image deleted successfully")
+
+
+# ==============================================================================
+# Image Proxy (serves images from MinIO)
+# ==============================================================================
+
+
+@router.get("/files/{file_path:path}")
+async def get_file(
+    file_path: str,
+) -> StreamingResponse:
+    """
+    Proxy endpoint to serve files from MinIO storage.
+
+    This avoids CORS and presigned URL issues by serving files through the backend.
+    No authentication required - URLs contain UUIDs which are not guessable.
+
+    Args:
+        file_path: Path to the file in MinIO (e.g., objects/{id}/images/{id}.jpg).
+
+    Returns:
+        StreamingResponse: The file content.
+
+    Raises:
+        HTTPException: If file not found.
+    """
+    from io import BytesIO
+
+    content = download_file(file_path)
+
+    if content is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    # Determine content type from file extension
+    extension = file_path.split(".")[-1].lower()
+    content_types = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "webp": "image/webp",
+        "gif": "image/gif",
+    }
+    content_type = content_types.get(extension, "application/octet-stream")
+
+    return StreamingResponse(
+        BytesIO(content),
+        media_type=content_type,
+        headers={
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+        },
+    )
