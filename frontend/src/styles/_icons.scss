@@ -234,4 +234,19 @@
     mask-image: url('/assets/icons/trash.svg');
     -webkit-mask-image: url('/assets/icons/trash.svg');
   }
+
+  &--tag {
+    mask-image: url('/assets/icons/label.svg');
+    -webkit-mask-image: url('/assets/icons/label.svg');
+  }
+
+  &--maximize {
+    mask-image: url('/assets/icons/select-all.svg');
+    -webkit-mask-image: url('/assets/icons/select-all.svg');
+  }
+
+  &--square {
+    mask-image: url('/assets/icons/square.svg');
+    -webkit-mask-image: url('/assets/icons/square.svg');
+  }
 }

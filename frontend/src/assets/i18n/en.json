@@ -83,11 +83,34 @@
   "learn": {
     "title": "Learn New Object",
     "subtitle": "Train the system to recognize new objects",
+    "mode": {
+      "images": "Upload Images",
+      "imagesDesc": "Upload static images from your device",
+      "camera": "Use Camera",
+      "cameraDesc": "Capture objects in real-time with your camera"
+    },
     "steps": {
       "upload": "Upload",
+      "capture": "Capture",
       "annotate": "Annotate",
       "train": "Train",
       "complete": "Complete"
+    },
+    "camera": {
+      "clickToStart": "Click to start camera",
+      "detectedObjects": "Detected Objects",
+      "noDetections": "No objects detected. Point the camera at an object.",
+      "startToDetect": "Start the camera to detect objects",
+      "captureObject": "Capture Object",
+      "capturedImages": "Captured Images",
+      "minImagesHint": "Capture at least 5 images of the object from different angles",
+      "confidenceThreshold": "Detection Sensitivity",
+      "autoAnnotated": "Images Auto-Annotated",
+      "autoAnnotatedDesc": "Objects were automatically detected and annotated during capture",
+      "errors": {
+        "permission": "Camera permission denied",
+        "streamFailed": "Failed to start camera stream"
+      }
     },
     "objectName": "Object Name",
     "objectNamePlaceholder": "Enter object name",
@@ -97,6 +120,8 @@
     "minImagesHint": "Minimum 10 images required for training",
     "images": "Images",
     "annotationHint": "Click and drag to draw bounding boxes around the object",
+    "annotations": "Annotations",
+    "selectAll": "Select All",
     "selectImageToAnnotate": "Select an image to annotate",
     "trainingTitle": "Training Model",
     "trainingDescription": "The AI model is learning to recognize your object",
@@ -149,6 +174,9 @@
     "createdAt": "Created",
     "categories": {
       "all": "All",
+      "trained": "Trained",
+      "imported": "Imported",
+      "system": "System",
       "products": "Products",
       "tools": "Tools",
       "parts": "Parts",

@@ -4,11 +4,33 @@
     <p class="subtitle">{{ 'learn.subtitle' | translate }}</p>
   </div>
 
+  <!-- Learning Mode Selector -->
+  <div class="mode-selector">
+    <button
+      class="mode-btn"
+      [class.active]="learningMode() === 'images'"
+      (click)="setLearningMode('images')"
+    >
+      <span class="icon-mask icon-mask--upload icon-mask--lg"></span>
+      <span class="mode-label">{{ 'learn.mode.images' | translate }}</span>
+      <span class="mode-desc">{{ 'learn.mode.imagesDesc' | translate }}</span>
+    </button>
+    <button
+      class="mode-btn"
+      [class.active]="learningMode() === 'camera'"
+      (click)="setLearningMode('camera')"
+    >
+      <span class="icon-mask icon-mask--camera icon-mask--lg"></span>
+      <span class="mode-label">{{ 'learn.mode.camera' | translate }}</span>
+      <span class="mode-desc">{{ 'learn.mode.cameraDesc' | translate }}</span>
+    </button>
+  </div>
+
   <!-- Progress Steps -->
   <div class="progress-steps">
     <div class="step" [class.active]="currentStep() === 'upload'" [class.completed]="['annotate', 'train', 'complete'].includes(currentStep())">
       <div class="step-number">1</div>
-      <span class="step-label">{{ 'learn.steps.upload' | translate }}</span>
+      <span class="step-label">{{ (learningMode() === 'camera' ? 'learn.steps.capture' : 'learn.steps.upload') | translate }}</span>
     </div>
     <div class="step-connector" [class.completed]="['annotate', 'train', 'complete'].includes(currentStep())"></div>
     <div class="step" [class.active]="currentStep() === 'annotate'" [class.completed]="['train', 'complete'].includes(currentStep())">
@@ -38,85 +60,310 @@
   <div class="step-content">
     @switch (currentStep()) {
       @case ('upload') {
-        <div class="upload-step">
-          <div class="form-group">
-            <label for="objectName">{{ 'learn.objectName' | translate }}</label>
-            <input
-              type="text"
-              id="objectName"
-              [(ngModel)]="objectName"
-              [placeholder]="'learn.objectNamePlaceholder' | translate"
-            />
-          </div>
+        <!-- Object Name (common for both modes) -->
+        <div class="form-group">
+          <label for="objectName">
+            <span class="icon-mask icon-mask--tag icon-mask--sm"></span>
+            {{ 'learn.objectName' | translate }}
+          </label>
+          <input
+            type="text"
+            id="objectName"
+            [(ngModel)]="objectName"
+            [placeholder]="'learn.objectNamePlaceholder' | translate"
+          />
+        </div>
 
-          <div class="upload-zone" (click)="fileInput.click()">
-            <input
-              #fileInput
-              type="file"
-              accept="image/*"
-              multiple
-              (change)="onFilesSelected($event)"
-              hidden
-            />
-            <span class="icon-mask icon-mask--upload icon-mask--xxl upload-icon"></span>
-            <p class="upload-text">{{ 'learn.uploadText' | translate }}</p>
-            <p class="upload-hint">{{ 'learn.uploadHint' | translate }}</p>
-          </div>
+        @if (learningMode() === 'images') {
+          <!-- Static Image Upload Mode -->
+          <div class="upload-step">
+            <div class="upload-zone" (click)="fileInput.click()">
+              <input
+                #fileInput
+                type="file"
+                accept="image/*"
+                multiple
+                (change)="onFilesSelected($event)"
+                hidden
+              />
+              <span class="icon-mask icon-mask--upload icon-mask--xxl upload-icon"></span>
+              <p class="upload-text">{{ 'learn.uploadText' | translate }}</p>
+              <p class="upload-hint">{{ 'learn.uploadHint' | translate }}</p>
+            </div>
 
-          @if (uploadedImages().length > 0) {
-            <div class="uploaded-images">
-              <h3>{{ 'learn.uploadedImages' | translate }} ({{ uploadedImages().length }})</h3>
-              <div class="image-grid">
-                @for (image of uploadedImages(); track image.id) {
-                  <div class="image-card">
-                    <img [src]="image.preview" [alt]="image.file.name" />
-                    <button class="remove-btn" (click)="removeImage(image.id)">×</button>
+            @if (uploadedImages().length > 0) {
+              <div class="uploaded-images">
+                <h3>{{ 'learn.uploadedImages' | translate }} ({{ uploadedImages().length }})</h3>
+                <div class="image-grid">
+                  @for (image of uploadedImages(); track image.id) {
+                    <div class="image-card">
+                      <img [src]="image.preview" [alt]="image.file.name" />
+                      <button class="remove-btn" (click)="removeImage(image.id)">
+                        <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <p class="min-images-hint">
+              {{ 'learn.minImagesHint' | translate }}
+            </p>
+          </div>
+        } @else {
+          <!-- Camera Capture Mode -->
+          <div class="camera-step">
+            <div class="camera-layout">
+              <!-- Camera Preview -->
+              <div class="camera-preview">
+                <!-- Hidden video element for capturing frames -->
+                <video #videoElement autoplay playsinline muted [hidden]="true"></video>
+
+                @if (!isStreaming()) {
+                  <div class="camera-placeholder" (click)="startCamera()">
+                    @if (isLoading()) {
+                      <div class="spinner"></div>
+                      <p>{{ 'common.loading' | translate }}</p>
+                    } @else {
+                      <span class="icon-mask icon-mask--camera icon-mask--xxl"></span>
+                      <p>{{ 'learn.camera.clickToStart' | translate }}</p>
+                    }
+                  </div>
+                } @else {
+                  <div class="camera-container">
+                    <canvas #canvasElement (click)="onCanvasClick($event)"></canvas>
+
+                    <div class="camera-overlay">
+                      <div class="camera-controls">
+                        @if (availableCameras().length > 1) {
+                          <select
+                            class="camera-select"
+                            [value]="selectedCamera()"
+                            (change)="onCameraChange($event)"
+                          >
+                            @for (camera of availableCameras(); track camera.deviceId) {
+                              <option [value]="camera.deviceId">
+                                {{ camera.label || 'Camera ' + ($index + 1) }}
+                              </option>
+                            }
+                          </select>
+                        }
+                        <button class="control-btn" (click)="stopCamera()">
+                          <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <!-- Detection List & Capture -->
+              <div class="capture-panel">
+                <h3>{{ 'learn.camera.detectedObjects' | translate }}</h3>
+
+                @if (detections().length > 0) {
+                  <div class="detection-list">
+                    @for (detection of detections(); track detection.id) {
+                      <div
+                        class="detection-item"
+                        [class.selected]="selectedDetection()?.id === detection.id"
+                        (click)="selectDetection(detection)"
+                      >
+                        <span
+                          class="detection-color"
+                          [style.background]="detection.color"
+                        ></span>
+                        <span class="detection-label">{{ detection.label }}</span>
+                        <span class="detection-confidence">
+                          {{ (detection.confidence * 100).toFixed(0) }}%
+                        </span>
+                      </div>
+                    }
+                  </div>
+
+                  <button
+                    class="btn-primary capture-btn"
+                    [disabled]="!selectedDetection() || isCapturing()"
+                    (click)="captureSelectedObject()"
+                  >
+                    <span class="icon-mask icon-mask--camera icon-mask--sm"></span>
+                    {{ 'learn.camera.captureObject' | translate }}
+                  </button>
+                } @else if (isStreaming()) {
+                  <div class="no-detections">
+                    <span class="icon-mask icon-mask--zoom icon-mask--lg"></span>
+                    <p>{{ 'learn.camera.noDetections' | translate }}</p>
+                  </div>
+                } @else {
+                  <div class="no-detections">
+                    <span class="icon-mask icon-mask--camera icon-mask--lg"></span>
+                    <p>{{ 'learn.camera.startToDetect' | translate }}</p>
+                  </div>
+                }
+
+                <!-- Confidence Threshold -->
+                @if (isStreaming()) {
+                  <div class="threshold-control">
+                    <label>{{ 'learn.camera.confidenceThreshold' | translate }}</label>
+                    <div class="threshold-slider">
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="0.9"
+                        step="0.1"
+                        [value]="confidenceThreshold()"
+                        (input)="onThresholdChange($event)"
+                      />
+                      <span>{{ (confidenceThreshold() * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Captured Images Grid -->
+            @if (capturedImages().length > 0) {
+              <div class="captured-images">
+                <h3>{{ 'learn.camera.capturedImages' | translate }} ({{ capturedImages().length }})</h3>
+                <div class="image-grid">
+                  @for (image of capturedImages(); track image.id) {
+                    <div class="image-card">
+                      <img [src]="image.preview" [alt]="image.label" />
+                      <span class="image-label">{{ image.label }}</span>
+                      <button class="remove-btn" (click)="removeCapturedImage(image.id)">
+                        <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <p class="min-images-hint">
+              {{ 'learn.camera.minImagesHint' | translate }}
+            </p>
+          </div>
+        }
+      }
+
+      @case ('annotate') {
+        <div class="annotate-step">
+          @if (learningMode() === 'camera') {
+            <!-- Camera mode: Show auto-annotated images -->
+            <div class="auto-annotate-info">
+              <span class="icon-mask icon-mask--check icon-mask--lg success-icon"></span>
+              <h3>{{ 'learn.camera.autoAnnotated' | translate }}</h3>
+              <p>{{ 'learn.camera.autoAnnotatedDesc' | translate }}</p>
+            </div>
+
+            <div class="annotated-preview">
+              <h4>{{ 'learn.camera.capturedImages' | translate }} ({{ capturedImages().length }})</h4>
+              <div class="image-grid large">
+                @for (image of capturedImages(); track image.id) {
+                  <div class="image-card annotated">
+                    <img [src]="image.preview" [alt]="image.label" />
+                    <div class="annotation-info">
+                      <span class="label">{{ image.label }}</span>
+                      <span class="confidence">{{ (image.confidence * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <!-- Static image mode: Manual annotation -->
+            <div class="annotate-layout-v2">
+              <!-- Image Reel (horizontal scroll) -->
+              <div class="image-reel-container">
+                <h3>
+                  <span class="icon-mask icon-mask--grid icon-mask--sm"></span>
+                  {{ 'learn.images' | translate }} ({{ uploadedImages().length }})
+                </h3>
+                <div #imageReel class="image-reel" (wheel)="onReelWheel($event)">
+                  @for (image of uploadedImages(); track image.id) {
+                    <div
+                      class="reel-thumb"
+                      [class.selected]="selectedImage()?.id === image.id"
+                      [class.annotated]="image.annotations.length > 0"
+                      (click)="selectImage(image)"
+                    >
+                      <img [src]="image.preview" [alt]="image.file.name" />
+                      @if (image.annotations.length > 0) {
+                        <span class="annotation-badge">{{ image.annotations.length }}</span>
+                      }
+                      @if (selectedImage()?.id === image.id) {
+                        <span class="selected-indicator"></span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Main annotation area -->
+              <div class="annotation-main">
+                @if (selectedImage()) {
+                  <div class="annotation-workspace">
+                    <div class="canvas-container"
+                      (mousedown)="onAnnotationMouseDown($event)"
+                      (mousemove)="onAnnotationMouseMove($event)"
+                      (mouseup)="onAnnotationMouseUp($event)"
+                      (mouseleave)="onAnnotationMouseLeave()"
+                    >
+                      <img
+                        #annotationImage
+                        [src]="selectedImage()!.preview"
+                        alt="Selected image"
+                        (load)="onAnnotationImageLoad()"
+                        draggable="false"
+                      />
+                      <canvas #annotationCanvas class="annotation-overlay"></canvas>
+                    </div>
+
+                    <div class="annotation-toolbar">
+                      <div class="toolbar-row">
+                        <div class="toolbar-info">
+                          <span class="icon-mask icon-mask--box icon-mask--sm"></span>
+                          <span>{{ 'learn.annotationHint' | translate }}</span>
+                        </div>
+                        <button class="btn-small btn-select-all" (click)="selectAllImage()">
+                          <span class="icon-mask icon-mask--maximize icon-mask--sm"></span>
+                          {{ 'learn.selectAll' | translate }}
+                        </button>
+                      </div>
+
+                      @if (selectedImage()!.annotations.length > 0) {
+                        <div class="annotations-list">
+                          <span class="list-label">{{ 'learn.annotations' | translate }}:</span>
+                          @for (annotation of selectedImage()!.annotations; track annotation.id; let i = $index) {
+                            <div
+                              class="annotation-chip"
+                              [class.selected]="selectedAnnotationId() === annotation.id"
+                              (click)="selectedAnnotationId.set(annotation.id); renderAnnotationCanvas()"
+                            >
+                              <span
+                                class="chip-color"
+                                [style.background]="['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5]"
+                              ></span>
+                              <span class="chip-label">{{ annotation.label }}</span>
+                              <button class="chip-remove" (click)="removeAnnotation(annotation.id); $event.stopPropagation()">
+                                <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                } @else {
+                  <div class="no-selection">
+                    <span class="icon-mask icon-mask--camera icon-mask--xxl"></span>
+                    <p>{{ 'learn.selectImageToAnnotate' | translate }}</p>
                   </div>
                 }
               </div>
             </div>
           }
-
-          <p class="min-images-hint">
-            {{ 'learn.minImagesHint' | translate }}
-          </p>
-        </div>
-      }
-
-      @case ('annotate') {
-        <div class="annotate-step">
-          <div class="annotate-layout">
-            <div class="image-list">
-              <h3>{{ 'learn.images' | translate }}</h3>
-              @for (image of uploadedImages(); track image.id) {
-                <div
-                  class="image-thumb"
-                  [class.selected]="selectedImage()?.id === image.id"
-                  [class.annotated]="image.annotations.length > 0"
-                  (click)="selectImage(image)"
-                >
-                  <img [src]="image.preview" [alt]="image.file.name" />
-                  @if (image.annotations.length > 0) {
-                    <span class="annotation-badge">{{ image.annotations.length }}</span>
-                  }
-                </div>
-              }
-            </div>
-
-            <div class="annotation-canvas">
-              @if (selectedImage()) {
-                <div class="canvas-wrapper">
-                  <img [src]="selectedImage()!.preview" alt="Selected image" />
-                  <p class="annotation-hint">{{ 'learn.annotationHint' | translate }}</p>
-                </div>
-              } @else {
-                <div class="no-selection">
-                  <span class="icon-mask icon-mask--camera icon-mask--xxl"></span>
-                  <p>{{ 'learn.selectImageToAnnotate' | translate }}</p>
-                </div>
-              }
-            </div>
-          </div>
         </div>
       }
 
@@ -126,6 +373,17 @@
             <span class="icon-mask icon-mask--brain icon-mask--xxl train-icon"></span>
             <h2>{{ 'learn.trainingTitle' | translate }}</h2>
             <p>{{ 'learn.trainingDescription' | translate }}</p>
+
+            <div class="training-summary">
+              <div class="summary-item">
+                <span class="summary-value">{{ getImageCount() }}</span>
+                <span class="summary-label">{{ 'learn.images' | translate }}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-value">{{ objectName() }}</span>
+                <span class="summary-label">{{ 'learn.objectName' | translate }}</span>
+              </div>
+            </div>
 
             @if (isTraining()) {
               <div class="progress-container">

@@ -1,17 +1,20 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { CatalogService, CatalogObject } from '@core/services/catalog.service';
 
 @Component({
   selector: 'app-catalog-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule],
   templateUrl: './catalog-page.component.html',
   styleUrl: './catalog-page.component.scss',
 })
 export class CatalogPageComponent implements OnInit {
-  objects = signal<CatalogObject[]>([]);
+  private readonly catalogService = inject(CatalogService);
+
   filteredObjects = signal<CatalogObject[]>([]);
   searchQuery = signal('');
   selectedCategory = signal<string>('all');
@@ -23,6 +26,14 @@ export class CatalogPageComponent implements OnInit {
 
   categories = signal<string[]>(['all', 'trained', 'imported', 'system']);
 
+  constructor() {
+    // React to changes in catalog service
+    effect(() => {
+      const objects = this.catalogService.objects();
+      this.applyFilters();
+    });
+  }
+
   ngOnInit(): void {
     this.loadObjects();
   }
@@ -30,48 +41,11 @@ export class CatalogPageComponent implements OnInit {
   private async loadObjects(): Promise<void> {
     this.isLoading.set(true);
 
-    // Mock data - will be replaced with real API call
+    // Small delay to show loading state
     setTimeout(() => {
-      const mockObjects: CatalogObject[] = [
-        {
-          id: '1',
-          name: 'Product Box A',
-          description: 'Standard product box for shipping',
-          category: 'trained',
-          imageUrl: '',
-          createdAt: new Date('2024-01-15'),
-          trainingImages: 25,
-          accuracy: 0.95,
-          isActive: true,
-        },
-        {
-          id: '2',
-          name: 'Warehouse Label',
-          description: 'QR code label for inventory tracking',
-          category: 'trained',
-          imageUrl: '',
-          createdAt: new Date('2024-01-20'),
-          trainingImages: 50,
-          accuracy: 0.98,
-          isActive: true,
-        },
-        {
-          id: '3',
-          name: 'Safety Equipment',
-          description: 'PPE detection for safety compliance',
-          category: 'imported',
-          imageUrl: '',
-          createdAt: new Date('2024-02-01'),
-          trainingImages: 0,
-          accuracy: 0.92,
-          isActive: true,
-        },
-      ];
-
-      this.objects.set(mockObjects);
       this.applyFilters();
       this.isLoading.set(false);
-    }, 500);
+    }, 300);
   }
 
   onSearchChange(event: Event): void {
@@ -90,7 +64,7 @@ export class CatalogPageComponent implements OnInit {
   }
 
   private applyFilters(): void {
-    let filtered = this.objects();
+    let filtered = this.catalogService.objects();
 
     // Apply search filter
     const query = this.searchQuery().toLowerCase();
@@ -132,9 +106,7 @@ export class CatalogPageComponent implements OnInit {
     const obj = this.objectToDelete();
     if (!obj) return;
 
-    // Mock delete - will be replaced with real API call
-    this.objects.update(objects => objects.filter(o => o.id !== obj.id));
-    this.applyFilters();
+    this.catalogService.deleteObject(obj.id);
 
     if (this.selectedObject()?.id === obj.id) {
       this.selectedObject.set(null);
@@ -144,12 +116,15 @@ export class CatalogPageComponent implements OnInit {
   }
 
   toggleObjectStatus(obj: CatalogObject): void {
-    this.objects.update(objects =>
-      objects.map(o =>
-        o.id === obj.id ? { ...o, isActive: !o.isActive } : o
-      )
-    );
-    this.applyFilters();
+    this.catalogService.toggleStatus(obj.id);
+
+    // Update selected object if it was toggled
+    if (this.selectedObject()?.id === obj.id) {
+      const updated = this.catalogService.getObjectById(obj.id);
+      if (updated) {
+        this.selectedObject.set(updated);
+      }
+    }
   }
 
   getAccuracyClass(accuracy: number): string {
@@ -157,16 +132,4 @@ export class CatalogPageComponent implements OnInit {
     if (accuracy >= 0.7) return 'medium';
     return 'low';
   }
-}
-
-interface CatalogObject {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  imageUrl: string;
-  createdAt: Date;
-  trainingImages: number;
-  accuracy: number;
-  isActive: boolean;
 }

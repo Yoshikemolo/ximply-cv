@@ -1,10 +1,10 @@
 .learn-container {
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
 .learn-header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 
   h1 {
     font-size: 1.75rem;
@@ -16,6 +16,61 @@
   .subtitle {
     color: var(--text-secondary);
     margin: 0;
+  }
+}
+
+// Mode Selector
+.mode-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 1rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-default);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--brand-primary);
+    background: var(--accent-alpha-10);
+  }
+
+  &.active {
+    border-color: var(--brand-primary);
+    background: var(--accent-alpha-10);
+
+    .mode-label {
+      color: var(--brand-primary);
+    }
+  }
+
+  .icon-mask {
+    color: var(--text-tertiary);
+  }
+
+  &.active .icon-mask {
+    color: var(--brand-primary);
+  }
+
+  .mode-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .mode-desc {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-align: center;
   }
 }
 
@@ -110,36 +165,55 @@
   min-height: 400px;
 }
 
-// Upload Step
-.upload-step {
-  .form-group {
-    margin-bottom: 1.5rem;
+// Form Group (Object Name Input)
+.form-group {
+  margin-bottom: 1.5rem;
 
-    label {
-      display: block;
-      font-weight: 500;
-      color: var(--text-primary);
-      margin-bottom: 0.5rem;
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  input[type='text'] {
+    width: 100%;
+    max-width: 480px;
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--border-default);
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+
+    &::placeholder {
+      color: var(--text-tertiary);
+      font-weight: 400;
     }
 
-    input[type='text'] {
-      width: 100%;
-      max-width: 400px;
-      padding: 0.75rem 1rem;
-      border: 1px solid var(--border-default);
-      border-radius: 8px;
-      font-size: 1rem;
-      background: var(--bg-primary);
-      color: var(--text-primary);
+    &:hover {
+      border-color: var(--text-tertiary);
+      background: var(--bg-secondary);
+    }
 
-      &:focus {
-        outline: none;
-        border-color: var(--brand-primary);
-        box-shadow: var(--focus-ring);
-      }
+    &:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      background: var(--bg-primary);
+      box-shadow: 0 0 0 3px var(--accent-alpha-20);
     }
   }
 }
+
+// Upload Step
+.upload-step {}
 
 .upload-zone {
   border: 2px dashed var(--border-default);
@@ -328,6 +402,307 @@
   }
 }
 
+// New Annotation Layout V2
+.annotate-layout-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.image-reel-container {
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0 0 0.75rem 0;
+  }
+}
+
+.image-reel {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+  scroll-behavior: smooth;
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--text-secondary);
+    }
+  }
+}
+
+.reel-thumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:hover {
+    border-color: var(--border-default);
+    transform: scale(1.05);
+  }
+
+  &.selected {
+    border-color: var(--brand-primary);
+
+    .selected-indicator {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--brand-primary);
+    }
+  }
+
+  &.annotated {
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--color-success);
+      border-radius: 5px;
+      pointer-events: none;
+    }
+  }
+
+  .annotation-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--color-success);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    padding: 0 4px;
+  }
+}
+
+.annotation-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.annotation-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .annotation-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+}
+
+.annotation-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+
+  .toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .toolbar-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+  }
+}
+
+.btn-small {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-tertiary);
+  }
+
+  &:active {
+    background: var(--border-default);
+  }
+}
+
+.btn-select-all {
+  .icon-mask {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.annotations-list {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  .list-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+}
+
+.annotation-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-default);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--text-tertiary);
+  }
+
+  &.selected {
+    border-color: var(--brand-primary);
+    background: var(--accent-alpha-10);
+  }
+
+  .chip-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .chip-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background 0.2s;
+
+    .icon-mask {
+      color: var(--text-tertiary);
+    }
+
+    &:hover {
+      background: var(--bg-tertiary);
+
+      .icon-mask {
+        color: var(--color-error);
+      }
+    }
+  }
+}
+
+.no-selection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  color: var(--text-tertiary);
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}
+
 // Train Step
 .train-step {
   display: flex;
@@ -482,4 +857,373 @@
 .btn-large {
   padding: 1rem 2rem;
   font-size: 1rem;
+}
+
+// Camera Step Styles
+.camera-step {
+  .camera-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.camera-preview {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  position: relative;
+}
+
+.camera-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .icon-mask {
+    color: var(--text-tertiary);
+  }
+
+  p {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-default);
+    border-top-color: var(--brand-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+}
+
+.camera-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: crosshair;
+  }
+}
+
+.camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  pointer-events: none;
+}
+
+.camera-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.camera-select {
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.control-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  .icon-mask {
+    color: white;
+  }
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.9);
+  }
+}
+
+.capture-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+
+  h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1rem 0;
+  }
+}
+
+.detection-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.detection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+  }
+
+  &.selected {
+    border-color: var(--brand-primary);
+    background: var(--accent-alpha-10);
+  }
+
+  .detection-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .detection-label {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .detection-confidence {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+  }
+}
+
+.capture-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: auto;
+}
+
+.no-detections {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  color: var(--text-tertiary);
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    text-align: center;
+  }
+}
+
+.threshold-control {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+
+  .threshold-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    input[type='range'] {
+      flex: 1;
+      height: 4px;
+      appearance: none;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+
+      &::-webkit-slider-thumb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: var(--brand-primary);
+        border-radius: 50%;
+        cursor: pointer;
+      }
+    }
+
+    span {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      min-width: 36px;
+    }
+  }
+}
+
+.captured-images {
+  margin-top: 1.5rem;
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1rem 0;
+  }
+}
+
+.image-card {
+  .image-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.25rem 0.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 0.625rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Auto-annotate info (camera mode)
+.auto-annotate-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+
+  h3 {
+    font-size: 1.25rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+  }
+
+  p {
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 400px;
+  }
+}
+
+.annotated-preview {
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1rem 0;
+  }
+}
+
+.image-grid.large {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.image-card.annotated {
+  .annotation-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .label {
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .confidence {
+      color: var(--color-success);
+      font-size: 0.625rem;
+      font-weight: 600;
+    }
+  }
+}
+
+// Training summary
+.training-summary {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .summary-label {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+    }
+  }
 }

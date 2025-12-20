@@ -83,11 +83,34 @@
   "learn": {
     "title": "Aprender Nuevo Objeto",
     "subtitle": "Entrena el sistema para reconocer nuevos objetos",
+    "mode": {
+      "images": "Subir Imágenes",
+      "imagesDesc": "Sube imágenes estáticas desde tu dispositivo",
+      "camera": "Usar Cámara",
+      "cameraDesc": "Captura objetos en tiempo real con tu cámara"
+    },
     "steps": {
       "upload": "Subir",
+      "capture": "Capturar",
       "annotate": "Anotar",
       "train": "Entrenar",
       "complete": "Completado"
+    },
+    "camera": {
+      "clickToStart": "Haz clic para iniciar la cámara",
+      "detectedObjects": "Objetos Detectados",
+      "noDetections": "No se detectaron objetos. Apunta la cámara a un objeto.",
+      "startToDetect": "Inicia la cámara para detectar objetos",
+      "captureObject": "Capturar Objeto",
+      "capturedImages": "Imágenes Capturadas",
+      "minImagesHint": "Captura al menos 5 imágenes del objeto desde diferentes ángulos",
+      "confidenceThreshold": "Sensibilidad de Detección",
+      "autoAnnotated": "Imágenes Auto-Anotadas",
+      "autoAnnotatedDesc": "Los objetos fueron detectados y anotados automáticamente durante la captura",
+      "errors": {
+        "permission": "Permiso de cámara denegado",
+        "streamFailed": "Error al iniciar la cámara"
+      }
     },
     "objectName": "Nombre del Objeto",
     "objectNamePlaceholder": "Introduce el nombre del objeto",
@@ -97,6 +120,8 @@
     "minImagesHint": "Se requieren mínimo 10 imágenes para el entrenamiento",
     "images": "Imágenes",
     "annotationHint": "Haz clic y arrastra para dibujar cuadros delimitadores alrededor del objeto",
+    "annotations": "Anotaciones",
+    "selectAll": "Seleccionar Todo",
     "selectImageToAnnotate": "Selecciona una imagen para anotar",
     "trainingTitle": "Entrenando Modelo",
     "trainingDescription": "El modelo de IA está aprendiendo a reconocer tu objeto",
@@ -149,6 +174,9 @@
     "createdAt": "Creado",
     "categories": {
       "all": "Todos",
+      "trained": "Entrenados",
+      "imported": "Importados",
+      "system": "Sistema",
       "products": "Productos",
       "tools": "Herramientas",
       "parts": "Piezas",
