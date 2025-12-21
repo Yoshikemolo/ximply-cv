@@ -5,6 +5,7 @@ Uses OpenCV ORB features to match detected objects against catalog objects.
 """
 
 import base64
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
@@ -17,6 +18,19 @@ from app.core.logging import get_logger
 from app.core.minio_client import download_file
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class FeatureLoadResult:
+    """Result of loading features for an object."""
+
+    success: bool
+    object_id: UUID
+    object_name: str
+    feature_count: int
+    images_processed: int
+    images_failed: int
+    error_message: Optional[str] = None
 
 
 class ObjectFeatures:
@@ -45,9 +59,9 @@ class FeatureMatchingService:
 
     def __init__(
         self,
-        min_match_count: int = 8,
-        match_ratio: float = 0.75,
-        min_confidence: float = 0.15,
+        min_match_count: int = 4,
+        match_ratio: float = 0.85,
+        min_confidence: float = 0.03,
     ):
         """
         Initialize the feature matching service.
@@ -62,7 +76,7 @@ class FeatureMatchingService:
         self.min_confidence = min_confidence
 
         # Initialize ORB detector with more features for better matching
-        self.orb = cv2.ORB_create(nfeatures=1000)
+        self.orb = cv2.ORB_create(nfeatures=1500)
 
         # Initialize brute-force matcher with Hamming distance
         self.bf_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
@@ -96,9 +110,13 @@ class FeatureMatchingService:
         object_id: UUID,
         object_name: str,
         image_paths: List[str],
-    ) -> bool:
+    ) -> FeatureLoadResult:
         """
         Load and cache features for a catalog object.
+
+        This method performs an atomic update - it only updates the cache
+        if features were successfully extracted. The old features remain
+        in cache until new ones are ready.
 
         Args:
             object_id: Object UUID.
@@ -106,16 +124,31 @@ class FeatureMatchingService:
             image_paths: List of image file paths in MinIO.
 
         Returns:
-            bool: True if features were loaded successfully.
+            FeatureLoadResult: Detailed result of the operation.
         """
         all_keypoints = []
         all_descriptors = []
+        images_processed = 0
+        images_failed = 0
+
+        if not image_paths:
+            return FeatureLoadResult(
+                success=False,
+                object_id=object_id,
+                object_name=object_name,
+                feature_count=0,
+                images_processed=0,
+                images_failed=0,
+                error_message="No image paths provided",
+            )
 
         for path in image_paths:
             try:
                 # Download image from MinIO
                 image_data = download_file(path)
                 if image_data is None:
+                    logger.warning(f"Failed to download image from MinIO: {path}")
+                    images_failed += 1
                     continue
 
                 # Convert to numpy array
@@ -129,33 +162,77 @@ class FeatureMatchingService:
                 # Extract features
                 keypoints, descriptors = self.extract_features(frame)
 
-                if descriptors is not None:
+                if descriptors is not None and len(descriptors) > 0:
                     all_keypoints.extend(keypoints)
                     all_descriptors.append(descriptors)
+                    images_processed += 1
+                    logger.debug(f"Extracted {len(descriptors)} features from {path}")
+                else:
+                    logger.warning(f"No features extracted from image: {path}")
+                    images_failed += 1
 
             except Exception as e:
                 logger.warning(f"Failed to load features from {path}: {e}")
+                images_failed += 1
                 continue
 
+        # Validate we have enough features
         if not all_descriptors:
-            logger.warning(f"No features extracted for object {object_id}")
-            return False
+            error_msg = f"No features extracted from any of {len(image_paths)} images"
+            logger.warning(f"{error_msg} for object {object_id}")
+            return FeatureLoadResult(
+                success=False,
+                object_id=object_id,
+                object_name=object_name,
+                feature_count=0,
+                images_processed=images_processed,
+                images_failed=images_failed,
+                error_message=error_msg,
+            )
 
         # Combine all descriptors
         combined_descriptors = np.vstack(all_descriptors)
+        feature_count = len(combined_descriptors)
 
-        # Cache the features
-        self._object_cache[object_id] = ObjectFeatures(
+        # Minimum feature threshold for reliable matching
+        MIN_FEATURES_REQUIRED = 10
+        if feature_count < MIN_FEATURES_REQUIRED:
+            error_msg = f"Only {feature_count} features extracted, minimum {MIN_FEATURES_REQUIRED} required"
+            logger.warning(f"{error_msg} for object {object_id}")
+            return FeatureLoadResult(
+                success=False,
+                object_id=object_id,
+                object_name=object_name,
+                feature_count=feature_count,
+                images_processed=images_processed,
+                images_failed=images_failed,
+                error_message=error_msg,
+            )
+
+        # Create new features object BEFORE updating cache (atomic preparation)
+        new_features = ObjectFeatures(
             object_id=object_id,
             object_name=object_name,
             keypoints=all_keypoints,
             descriptors=combined_descriptors,
         )
 
+        # Atomic update - only update cache after successful extraction
+        self._object_cache[object_id] = new_features
+
         logger.info(
-            f"Loaded {len(combined_descriptors)} features for object '{object_name}'"
+            f"Loaded {feature_count} features for object '{object_name}' "
+            f"({images_processed} images processed, {images_failed} failed)"
         )
-        return True
+
+        return FeatureLoadResult(
+            success=True,
+            object_id=object_id,
+            object_name=object_name,
+            feature_count=feature_count,
+            images_processed=images_processed,
+            images_failed=images_failed,
+        )
 
     def match_region(
         self,
@@ -210,16 +287,26 @@ class FeatureMatchingService:
                 if len(good_matches) >= self.min_match_count:
                     # Score based on number of matches and their quality
                     avg_distance = np.mean([m.distance for m in good_matches])
-                    match_ratio = len(good_matches) / len(query_descriptors)
+                    num_matches = len(good_matches)
 
-                    # Normalize score (lower distance = better match)
+                    # Normalize distance score (lower distance = better match)
                     # ORB distance typically ranges from 0-256
                     distance_score = 1.0 - (avg_distance / 256.0)
-                    score = match_ratio * distance_score
+
+                    # Score primarily based on absolute match count and distance quality
+                    # More matches = higher confidence, regardless of how many query features
+                    # 4 matches = 0.04, 10 = 0.10, 20 = 0.20, 50 = 0.50
+                    base_score = num_matches / 100.0
+
+                    # Apply distance quality as a multiplier (0.6 - 1.0 range typically)
+                    score = base_score * distance_score
+
+                    # Cap at 0.99
+                    score = min(score, 0.99)
 
                     logger.debug(
                         f"Object '{obj_features.object_name}': "
-                        f"{len(good_matches)} matches, "
+                        f"{num_matches} matches, "
                         f"avg_dist={avg_distance:.1f}, "
                         f"score={score:.3f}"
                     )
@@ -229,7 +316,7 @@ class FeatureMatchingService:
                         best_match = (
                             obj_features.object_id,
                             obj_features.object_name,
-                            min(score * 1.5, 0.99),  # Scale up but cap at 0.99
+                            min(score, 0.99),  # Cap at 0.99
                         )
 
             except Exception as e:

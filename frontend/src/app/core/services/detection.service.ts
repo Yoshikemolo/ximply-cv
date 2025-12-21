@@ -8,6 +8,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '@env';
+import { LoadCatalogResponse, RefreshFeaturesResponse } from './objects.service';
 
 export interface BoundingBox {
   x: number;
@@ -107,10 +108,10 @@ export class DetectionService {
    * Loads features from all catalog objects to enable matching
    * during detection.
    *
-   * @returns Observable with load status.
+   * @returns Observable with detailed load status.
    */
-  loadCatalogFeatures(): Observable<{ status: string; objectsLoaded: number }> {
-    return this.http.post<{ status: string; objectsLoaded: number }>(
+  loadCatalogFeatures(): Observable<LoadCatalogResponse> {
+    return this.http.post<LoadCatalogResponse>(
       `${this.apiUrl}/catalog/load`,
       {}
     );
@@ -120,10 +121,10 @@ export class DetectionService {
    * Refresh features for a specific catalog object.
    *
    * @param objectId - Object UUID to refresh.
-   * @returns Observable with refresh status.
+   * @returns Observable with detailed refresh status.
    */
-  refreshObjectFeatures(objectId: string): Observable<{ status: string }> {
-    return this.http.post<{ status: string }>(
+  refreshObjectFeatures(objectId: string): Observable<RefreshFeaturesResponse> {
+    return this.http.post<RefreshFeaturesResponse>(
       `${this.apiUrl}/catalog/refresh/${objectId}`,
       {}
     );

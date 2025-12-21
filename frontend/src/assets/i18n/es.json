@@ -57,6 +57,7 @@
     "noObjects": "No se detectaron objetos",
     "detections": "detecciones",
     "noDetections": "Aún no se han detectado objetos",
+    "noCustomDetections": "No se reconocen objetos entrenados",
     "confidence": "Confianza",
     "matchedObject": "Objeto Coincidente",
     "detectedObjects": "Objetos Detectados",
@@ -64,7 +65,12 @@
     "controls": {
       "camera": "Controles de Cámara",
       "selectCamera": "Seleccionar Cámara",
-      "confidence": "Umbral de Confianza"
+      "confidence": "Umbral de Confianza",
+      "showingAll": "Mostrando todas las detecciones",
+      "clickToFilter": "Clic para mostrar solo tus objetos entrenados",
+      "showingCustom": "Mostrando solo objetos entrenados",
+      "clickToShowAll": "Clic para mostrar todas las detecciones",
+      "refreshingCache": "Actualizando modelo..."
     },
     "capture": {
       "title": "Guardar Objeto en Catálogo",
@@ -72,7 +78,9 @@
       "namePlaceholder": "Introduce un nombre para este objeto",
       "description": "Descripción",
       "descriptionPlaceholder": "Descripción opcional...",
-      "save": "Guardar en Catálogo"
+      "save": "Guardar en Catálogo",
+      "addImage": "Añadir Imagen",
+      "willAddTo": "Se añadirá imagen a \"{{name}}\" ({{count}} imágenes existentes)"
     },
     "errors": {
       "cameraPermission": "Permiso de cámara denegado",
@@ -219,7 +227,11 @@
       "deactivate": "Desactivar",
       "delete": "Eliminar",
       "retrain": "Reentrenar"
-    }
+    },
+    "forgetAll": "Olvidar Todo",
+    "forgetAll.title": "Olvidar Todos los Objetos",
+    "forgetAll.message": "¿Estás seguro de que quieres eliminar los {{count}} objetos? Esto eliminará todos los objetos entrenados y sus datos de reconocimiento. Esta acción no se puede deshacer.",
+    "forgetAll.confirm": "Eliminar Todo"
   },
   "admin": {
     "title": "Administración",

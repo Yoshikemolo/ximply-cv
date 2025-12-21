@@ -85,6 +85,30 @@ export interface TrainingProgress {
   total_images: number;
 }
 
+export interface RefreshFeaturesResponse {
+  status: 'refreshed' | 'removed' | 'failed';
+  objectId: string;
+  objectName: string;
+  imageCount: number;
+  imagesProcessed?: number;
+  imagesFailed?: number;
+  featureCount: number;
+  message?: string;
+  error?: string;
+}
+
+export interface LoadCatalogResponse {
+  status: string;
+  objectsLoaded: number;
+  totalObjects: number;
+  objectsFailed?: number;
+  errors?: Array<{
+    object_id: string;
+    object_name: string;
+    error: string;
+  }>;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -142,6 +166,13 @@ export class ObjectsService {
    */
   deleteObject(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Delete all objects and clear feature cache.
+   */
+  deleteAllObjects(): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>(`${this.apiUrl}/all`);
   }
 
   /**
@@ -254,22 +285,40 @@ export class ObjectsService {
 
       await this.updateObject(object.id, { status: 'active' } as any).toPromise();
 
-      // Step 4: Refresh catalog features
+      // Step 4: Refresh catalog features (extract features for recognition)
       this.trainingProgress.update(p => p ? {
         ...p,
         progress: 90,
-        message: 'Extracting features...',
+        message: 'Extracting features for recognition...',
       } : null);
 
-      await this.refreshObjectFeatures(object.id).toPromise();
+      try {
+        const refreshResult = await this.refreshObjectFeatures(object.id).toPromise();
 
-      // Complete
-      this.trainingProgress.update(p => p ? {
-        ...p,
-        status: 'complete',
-        progress: 100,
-        message: 'Training complete!',
-      } : null);
+        if (refreshResult?.status === 'failed') {
+          throw new Error(refreshResult.error || 'Feature extraction failed');
+        }
+
+        // Complete with feature count info
+        const featureCount = refreshResult?.featureCount || 0;
+        this.trainingProgress.update(p => p ? {
+          ...p,
+          status: 'complete',
+          progress: 100,
+          message: `Training complete! ${featureCount} features extracted.`,
+        } : null);
+
+      } catch (refreshError: any) {
+        // Training succeeded but feature extraction failed
+        // Still mark as complete but warn the user
+        console.warn('Feature extraction failed:', refreshError);
+        this.trainingProgress.update(p => p ? {
+          ...p,
+          status: 'complete',
+          progress: 100,
+          message: 'Object saved, but feature extraction failed. Recognition may not work.',
+        } : null);
+      }
 
       // Return updated object
       const updatedObject = await this.getObject(object.id).toPromise();
@@ -320,18 +369,33 @@ export class ObjectsService {
       this.trainingProgress.update(p => p ? {
         ...p,
         progress: 90,
-        message: 'Updating features...',
+        message: 'Updating recognition features...',
       } : null);
 
-      await this.refreshObjectFeatures(objectId).toPromise();
+      try {
+        const refreshResult = await this.refreshObjectFeatures(objectId).toPromise();
 
-      // Complete
-      this.trainingProgress.update(p => p ? {
-        ...p,
-        status: 'complete',
-        progress: 100,
-        message: 'Images added successfully!',
-      } : null);
+        if (refreshResult?.status === 'failed') {
+          throw new Error(refreshResult.error || 'Feature extraction failed');
+        }
+
+        const featureCount = refreshResult?.featureCount || 0;
+        this.trainingProgress.update(p => p ? {
+          ...p,
+          status: 'complete',
+          progress: 100,
+          message: `Images added! ${featureCount} features extracted.`,
+        } : null);
+
+      } catch (refreshError: any) {
+        console.warn('Feature extraction failed:', refreshError);
+        this.trainingProgress.update(p => p ? {
+          ...p,
+          status: 'complete',
+          progress: 100,
+          message: 'Images added, but feature extraction failed. Recognition may not work.',
+        } : null);
+      }
 
       const updatedObject = await this.getObject(objectId).toPromise();
       if (!updatedObject) {
@@ -352,8 +416,8 @@ export class ObjectsService {
   /**
    * Load all catalog features for detection.
    */
-  loadCatalogFeatures(): Observable<{ status: string; objectsLoaded: number }> {
-    return this.http.post<{ status: string; objectsLoaded: number }>(
+  loadCatalogFeatures(): Observable<LoadCatalogResponse> {
+    return this.http.post<LoadCatalogResponse>(
       `${this.detectionUrl}/catalog/load`,
       {}
     );
@@ -361,9 +425,10 @@ export class ObjectsService {
 
   /**
    * Refresh features for a specific object.
+   * Returns detailed information about the refresh operation.
    */
-  refreshObjectFeatures(objectId: string): Observable<{ status: string }> {
-    return this.http.post<{ status: string }>(
+  refreshObjectFeatures(objectId: string): Observable<RefreshFeaturesResponse> {
+    return this.http.post<RefreshFeaturesResponse>(
       `${this.detectionUrl}/catalog/refresh/${objectId}`,
       {}
     );

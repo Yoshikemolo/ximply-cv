@@ -264,4 +264,14 @@
     mask-image: url('/assets/icons/barcode.svg');
     -webkit-mask-image: url('/assets/icons/barcode.svg');
   }
+
+  &--toggle-on {
+    mask-image: url('/assets/icons/toggle-on.svg');
+    -webkit-mask-image: url('/assets/icons/toggle-on.svg');
+  }
+
+  &--toggle-off {
+    mask-image: url('/assets/icons/toggle-off.svg');
+    -webkit-mask-image: url('/assets/icons/toggle-off.svg');
+  }
 }

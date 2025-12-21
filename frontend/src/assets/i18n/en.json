@@ -57,6 +57,7 @@
     "noObjects": "No objects detected",
     "detections": "detections",
     "noDetections": "No objects detected yet",
+    "noCustomDetections": "No trained objects recognized",
     "confidence": "Confidence",
     "matchedObject": "Matched Object",
     "detectedObjects": "Detected Objects",
@@ -64,7 +65,12 @@
     "controls": {
       "camera": "Camera Controls",
       "selectCamera": "Select Camera",
-      "confidence": "Confidence Threshold"
+      "confidence": "Confidence Threshold",
+      "showingAll": "Showing all detections",
+      "clickToFilter": "Click to show only your trained objects",
+      "showingCustom": "Showing trained objects only",
+      "clickToShowAll": "Click to show all detections",
+      "refreshingCache": "Updating recognition model..."
     },
     "capture": {
       "title": "Save Object to Catalog",
@@ -72,7 +78,9 @@
       "namePlaceholder": "Enter a name for this object",
       "description": "Description",
       "descriptionPlaceholder": "Optional description...",
-      "save": "Save to Catalog"
+      "save": "Save to Catalog",
+      "addImage": "Add Image",
+      "willAddTo": "Will add image to \"{{name}}\" ({{count}} existing images)"
     },
     "errors": {
       "cameraPermission": "Camera permission denied",
@@ -219,7 +227,11 @@
       "deactivate": "Deactivate",
       "delete": "Delete",
       "retrain": "Retrain"
-    }
+    },
+    "forgetAll": "Forget All",
+    "forgetAll.title": "Forget All Objects",
+    "forgetAll.message": "Are you sure you want to delete all {{count}} objects? This will remove all trained objects and their recognition data. This action cannot be undone.",
+    "forgetAll.confirm": "Delete All"
   },
   "admin": {
     "title": "Administration",

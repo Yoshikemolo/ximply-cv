@@ -225,6 +225,10 @@ async def update_object(
     """
     Update a catalog object.
 
+    When status changes, the feature cache is updated:
+    - active → inactive: features removed from cache
+    - inactive → active: features loaded into cache
+
     Args:
         object_id: Object UUID.
         data: Update data.
@@ -237,6 +241,8 @@ async def update_object(
     Raises:
         HTTPException: If object not found.
     """
+    from app.services.feature_matching_service import get_feature_matching_service
+
     result = await db.execute(
         select(ObjectEntity)
         .options(selectinload(ObjectEntity.images))
@@ -253,8 +259,10 @@ async def update_object(
             detail="Object not found",
         )
 
-    # Update fields
+    # Track status change for feature cache update
+    old_status = obj.status
     update_data = data.model_dump(exclude_unset=True)
+    new_status = update_data.get("status", old_status)
 
     # Handle dimensions separately
     if "dimensions" in update_data and update_data["dimensions"]:
@@ -271,9 +279,82 @@ async def update_object(
     await db.commit()
     await db.refresh(obj)
 
+    # Update feature cache if status changed
+    if old_status != new_status:
+        feature_service = get_feature_matching_service()
+        if new_status == "active" and obj.images and obj.training_samples > 0:
+            # Object activated - load features into cache
+            image_paths = [img.file_path for img in obj.images]
+            load_result = feature_service.load_object_features(
+                object_id=obj.id,
+                object_name=obj.name,
+                image_paths=image_paths,
+            )
+            if load_result.success:
+                logger.info(f"Loaded features for activated object '{obj.name}'")
+            else:
+                logger.warning(f"Failed to load features for activated object: {load_result.error_message}")
+        elif old_status == "active" and new_status != "active":
+            # Object deactivated - remove features from cache
+            removed = feature_service.remove_object(obj.id)
+            if removed:
+                logger.info(f"Removed features for deactivated object '{obj.name}'")
+
     logger.info(f"Object updated: {obj.id} by user {current_user.sub}")
 
     return ObjectResponse.model_validate(obj)
+
+
+@router.delete("/all")
+async def delete_all_objects(
+    current_user: TokenData = Depends(require_permissions([Permission.OBJECTS_DELETE])),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Delete all catalog objects for the current user and clear feature cache.
+
+    This is a destructive operation that cannot be undone.
+
+    Args:
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        dict: Number of objects deleted.
+    """
+    from app.services.feature_matching_service import get_feature_matching_service
+
+    user_uuid = UUID(current_user.sub)
+
+    # Get all objects for this user with their images
+    result = await db.execute(
+        select(ObjectEntity)
+        .options(selectinload(ObjectEntity.images))
+        .where(ObjectEntity.owner_id == user_uuid)
+    )
+    objects = result.scalars().all()
+
+    deleted_count = 0
+    for obj in objects:
+        # Delete images from MinIO
+        for image in obj.images:
+            try:
+                delete_file(image.file_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete file {image.file_path}: {e}")
+
+        await db.delete(obj)
+        deleted_count += 1
+
+    await db.commit()
+
+    # Clear the feature cache
+    feature_service = get_feature_matching_service()
+    feature_service.clear_cache()
+
+    logger.info(f"Deleted all objects ({deleted_count}) for user {current_user.sub}")
+
+    return {"deleted": deleted_count, "message": f"Deleted {deleted_count} objects"}
 
 
 @router.delete("/{object_id}", response_model=MessageResponse)
@@ -284,6 +365,8 @@ async def delete_object(
 ) -> MessageResponse:
     """
     Delete a catalog object and its images.
+
+    Also removes the object from the feature matching cache.
 
     Args:
         object_id: Object UUID.
@@ -296,6 +379,8 @@ async def delete_object(
     Raises:
         HTTPException: If object not found.
     """
+    from app.services.feature_matching_service import get_feature_matching_service
+
     result = await db.execute(
         select(ObjectEntity)
         .options(selectinload(ObjectEntity.images))
@@ -318,6 +403,10 @@ async def delete_object(
 
     await db.delete(obj)
     await db.commit()
+
+    # Remove from feature cache
+    feature_service = get_feature_matching_service()
+    feature_service.remove_object(object_id)
 
     logger.info(f"Object deleted: {object_id} by user {current_user.sub}")
 

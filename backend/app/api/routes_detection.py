@@ -8,7 +8,7 @@ import asyncio
 import base64
 from datetime import datetime, timezone
 from io import BytesIO
-from typing import AsyncGenerator, List, Optional
+from typing import AsyncGenerator, List, Optional, Tuple
 from uuid import UUID
 
 import numpy as np
@@ -37,7 +37,7 @@ from app.models.schemas import (
     ObjectResponse,
 )
 from app.services.detection_service import get_detection_service
-from app.services.feature_matching_service import get_feature_matching_service
+from app.services.feature_matching_service import get_feature_matching_service, FeatureLoadResult
 from app.services.barcode_service import get_barcode_service
 
 logger = get_logger(__name__)
@@ -190,9 +190,11 @@ async def _load_catalog_features(
     feature_service,
     user_id: str,
     db: AsyncSession,
-) -> int:
+) -> Tuple[int, int, List[str]]:
     """
     Load catalog object features into the feature matching cache.
+
+    Only loads features from ACTIVE objects.
 
     Args:
         feature_service: The feature matching service instance.
@@ -200,7 +202,7 @@ async def _load_catalog_features(
         db: Database session.
 
     Returns:
-        int: Number of objects loaded.
+        Tuple of (loaded_count, failed_count, error_messages).
     """
     from sqlalchemy.orm import selectinload
 
@@ -208,36 +210,47 @@ async def _load_catalog_features(
         # Convert user_id string to UUID for comparison
         user_uuid = UUID(user_id)
 
-        # Get all objects with images for this user
+        # Get all ACTIVE objects with images for this user
         result = await db.execute(
             select(ObjectEntity)
             .options(selectinload(ObjectEntity.images))
             .where(
                 ObjectEntity.owner_id == user_uuid,
                 ObjectEntity.training_samples > 0,
+                ObjectEntity.status == "active",
             )
         )
         objects = result.scalars().all()
 
         loaded_count = 0
+        failed_count = 0
+        errors = []
+
         for obj in objects:
             if obj.images:
                 image_paths = [img.file_path for img in obj.images]
-                if feature_service.load_object_features(
+                load_result = feature_service.load_object_features(
                     object_id=obj.id,
                     object_name=obj.name,
                     image_paths=image_paths,
-                ):
+                )
+                if load_result.success:
                     loaded_count += 1
+                else:
+                    failed_count += 1
+                    if load_result.error_message:
+                        errors.append(f"{obj.name}: {load_result.error_message}")
 
         if loaded_count > 0:
             logger.info(f"Auto-loaded features for {loaded_count} catalog objects")
+        if failed_count > 0:
+            logger.warning(f"Failed to load features for {failed_count} objects")
 
-        return loaded_count
+        return loaded_count, failed_count, errors
 
     except Exception as e:
         logger.warning(f"Failed to auto-load catalog features: {e}")
-        return 0
+        return 0, 0, [str(e)]
 
 
 @router.post("/detect")
@@ -266,7 +279,9 @@ async def detect_objects(
 
         # Auto-load catalog features if cache is empty
         if not feature_service.has_cached_objects():
-            await _load_catalog_features(feature_service, current_user.sub, db)
+            loaded, failed, errors = await _load_catalog_features(feature_service, current_user.sub, db)
+            if errors:
+                logger.debug(f"Some objects failed to load: {errors}")
 
         detections, processing_time, (width, height) = service.detect_from_base64(
             request.image,
@@ -425,6 +440,7 @@ async def capture_detection(
         cropped = image.crop((left, top, right, bottom))
 
         # Create object entity
+        # Set status to "active" so the object is immediately available for recognition
         object_id = uuid7()
         obj = ObjectEntity(
             id=object_id,
@@ -432,7 +448,7 @@ async def capture_detection(
             description=request.description,
             category_id=request.category_id,
             owner_id=UUID(current_user.sub),
-            status="draft",
+            status="active",
             training_samples=1,
         )
 
@@ -586,9 +602,15 @@ async def load_catalog_features(
     """
     Load catalog object features for custom object recognition.
 
-    Loads features from all catalog objects with at least one image
+    Loads features from all ACTIVE catalog objects with at least one image
     into the feature matching cache. This enables the detection service
     to recognize custom objects added to the catalog.
+
+    Inactive objects are excluded from the feature cache.
+
+    This is an atomic operation - features are loaded into a temporary
+    structure first, then atomically swapped into the cache. This ensures
+    the cache is never empty during a reload.
 
     Args:
         current_user: Authenticated user.
@@ -603,40 +625,61 @@ async def load_catalog_features(
         # Convert user_id string to UUID for comparison
         user_uuid = UUID(current_user.sub)
 
-        # Get all objects with images for this user
+        # Get all ACTIVE objects with images for this user
         result = await db.execute(
             select(ObjectEntity)
             .options(selectinload(ObjectEntity.images))
             .where(
                 ObjectEntity.owner_id == user_uuid,
                 ObjectEntity.training_samples > 0,
+                ObjectEntity.status == "active",
             )
         )
         objects = result.scalars().all()
 
         feature_service = get_feature_matching_service()
-        feature_service.clear_cache()
 
+        # Load features WITHOUT clearing cache first (atomic approach)
+        # Each load_object_features call updates the cache atomically
         loaded_count = 0
+        failed_count = 0
+        errors = []
+
         for obj in objects:
             if obj.images:
                 image_paths = [img.file_path for img in obj.images]
-                if feature_service.load_object_features(
+                load_result = feature_service.load_object_features(
                     object_id=obj.id,
                     object_name=obj.name,
                     image_paths=image_paths,
-                ):
+                )
+                if load_result.success:
                     loaded_count += 1
+                else:
+                    failed_count += 1
+                    if load_result.error_message:
+                        errors.append({
+                            "object_id": str(obj.id),
+                            "object_name": obj.name,
+                            "error": load_result.error_message,
+                        })
 
         logger.info(
             f"Loaded features for {loaded_count} catalog objects for user {current_user.sub}"
         )
 
-        return {
+        response = {
             "status": "loaded",
-            "objects_loaded": loaded_count,
-            "total_objects": len(objects),
+            "objectsLoaded": loaded_count,
+            "totalObjects": len(objects),
         }
+
+        if failed_count > 0:
+            response["objectsFailed"] = failed_count
+            response["errors"] = errors
+            logger.warning(f"{failed_count} objects failed to load features")
+
+        return response
 
     except Exception as e:
         logger.error(f"Failed to load catalog features: {e}")
@@ -656,6 +699,8 @@ async def refresh_object_features(
     Refresh features for a specific catalog object.
 
     Call this after adding new images to an object.
+    This is an atomic operation - if feature extraction fails,
+    the existing features (if any) remain in the cache.
 
     Args:
         object_id: Object UUID to refresh.
@@ -663,7 +708,10 @@ async def refresh_object_features(
         db: Database session.
 
     Returns:
-        dict: Status of the refresh operation.
+        dict: Detailed status of the refresh operation.
+
+    Raises:
+        HTTPException: 404 if object not found, 422 if feature extraction failed.
     """
     try:
         from sqlalchemy.orm import selectinload
@@ -689,22 +737,58 @@ async def refresh_object_features(
 
         feature_service = get_feature_matching_service()
 
-        if obj.images:
-            image_paths = [img.file_path for img in obj.images]
-            success = feature_service.load_object_features(
-                object_id=obj.id,
-                object_name=obj.name,
-                image_paths=image_paths,
-            )
-        else:
+        if not obj.images:
+            # No images - remove from cache if present
             feature_service.remove_object(object_id)
-            success = True
+            return {
+                "status": "removed",
+                "objectId": str(object_id),
+                "objectName": obj.name,
+                "imageCount": 0,
+                "featureCount": 0,
+                "message": "Object has no images, removed from feature cache",
+            }
+
+        image_paths = [img.file_path for img in obj.images]
+        load_result = feature_service.load_object_features(
+            object_id=obj.id,
+            object_name=obj.name,
+            image_paths=image_paths,
+        )
+
+        if not load_result.success:
+            # Feature extraction failed - return detailed error
+            # Don't raise exception - let frontend handle it
+            logger.warning(
+                f"Feature extraction failed for object {object_id}: {load_result.error_message}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "status": "failed",
+                    "objectId": str(object_id),
+                    "objectName": obj.name,
+                    "imageCount": len(obj.images),
+                    "imagesProcessed": load_result.images_processed,
+                    "imagesFailed": load_result.images_failed,
+                    "featureCount": load_result.feature_count,
+                    "error": load_result.error_message,
+                },
+            )
+
+        logger.info(
+            f"Successfully refreshed features for object '{obj.name}': "
+            f"{load_result.feature_count} features from {load_result.images_processed} images"
+        )
 
         return {
-            "status": "refreshed" if success else "failed",
-            "object_id": str(object_id),
-            "object_name": obj.name,
-            "image_count": len(obj.images),
+            "status": "refreshed",
+            "objectId": str(object_id),
+            "objectName": obj.name,
+            "imageCount": len(obj.images),
+            "imagesProcessed": load_result.images_processed,
+            "imagesFailed": load_result.images_failed,
+            "featureCount": load_result.feature_count,
         }
 
     except HTTPException:

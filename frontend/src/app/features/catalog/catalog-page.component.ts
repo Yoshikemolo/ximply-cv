@@ -38,6 +38,8 @@ export class CatalogPageComponent implements OnInit {
   selectedObject = signal<CatalogObject | null>(null);
   showDeleteModal = signal(false);
   objectToDelete = signal<CatalogObject | null>(null);
+  showForgetAllModal = signal(false);
+  isDeleting = signal(false);
 
   categories = signal<string[]>(['all', 'trained', 'imported', 'system']);
 
@@ -188,5 +190,34 @@ export class CatalogPageComponent implements OnInit {
     if (accuracy >= 0.9) return 'high';
     if (accuracy >= 0.7) return 'medium';
     return 'low';
+  }
+
+  // Forget All functionality
+  confirmForgetAll(): void {
+    this.showForgetAllModal.set(true);
+  }
+
+  cancelForgetAll(): void {
+    this.showForgetAllModal.set(false);
+  }
+
+  forgetAll(): void {
+    this.isDeleting.set(true);
+
+    this.objectsService.deleteAllObjects().subscribe({
+      next: () => {
+        // Clear local state
+        this.allObjects.set([]);
+        this.filteredObjects.set([]);
+        this.selectedObject.set(null);
+        this.showForgetAllModal.set(false);
+        this.isDeleting.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to delete all objects:', err);
+        this.isDeleting.set(false);
+        this.showForgetAllModal.set(false);
+      },
+    });
   }
 }

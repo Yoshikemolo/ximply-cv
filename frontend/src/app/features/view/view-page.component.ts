@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy, inject, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest } from '@core/services/detection.service';
+import { ObjectsService, CatalogObject } from '@core/services/objects.service';
 import { Subscription } from 'rxjs';
 
 // Color palette for different detection classes
@@ -23,6 +24,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
 
   private readonly detectionService = inject(DetectionService);
+  private readonly objectsService = inject(ObjectsService);
 
   isStreaming = signal(false);
   isLoading = signal(false);
@@ -34,6 +36,20 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   confidenceThreshold = signal(0.5);
   fps = signal(0);
 
+  // Toggle to show only custom (matched) objects
+  showOnlyCustomObjects = signal(false);
+  isRefreshingFeatures = signal(false);
+
+  // Filtered detections based on toggle
+  filteredDetections = computed(() => {
+    const all = this.detections();
+    if (!this.showOnlyCustomObjects()) {
+      return all;
+    }
+    // Only show detections that have a matched objectId (custom trained objects)
+    return all.filter(d => d.objectId);
+  });
+
   // Capture modal state
   showCaptureModal = signal(false);
   selectedDetection = signal<Detection | null>(null);
@@ -41,6 +57,26 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   captureObjectDescription = signal('');
   isSaving = signal(false);
   lastFrameBase64 = signal<string>('');
+
+  // Catalog objects for autocomplete
+  catalogObjects = signal<CatalogObject[]>([]);
+
+  // Computed: check if name matches an existing object
+  matchingObject = computed(() => {
+    const name = this.captureObjectName().trim().toLowerCase();
+    if (!name) return null;
+    return this.catalogObjects().find(obj => obj.name.toLowerCase() === name) || null;
+  });
+
+  // Computed: filtered suggestions based on current input
+  nameSuggestions = computed(() => {
+    const query = this.captureObjectName().trim().toLowerCase();
+    if (!query) return [];
+    return this.catalogObjects()
+      .filter(obj => obj.name.toLowerCase().includes(query))
+      .map(obj => obj.name)
+      .slice(0, 5);
+  });
 
   private mediaStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
@@ -52,6 +88,18 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.loadCameras();
+    this.loadCatalogObjects();
+  }
+
+  private loadCatalogObjects(): void {
+    this.objectsService.getObjects({ page_size: 100 }).subscribe({
+      next: (response) => {
+        this.catalogObjects.set(response.items);
+      },
+      error: (err) => {
+        console.warn('Could not load catalog objects for autocomplete:', err);
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -82,7 +130,14 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       // Load catalog features for custom object recognition BEFORE starting detection
       try {
         const catalogResponse = await this.detectionService.loadCatalogFeatures().toPromise();
-        console.log(`Loaded ${catalogResponse?.objectsLoaded || 0} catalog objects for recognition`);
+        if (catalogResponse) {
+          console.log(
+            `Loaded ${catalogResponse.objectsLoaded}/${catalogResponse.totalObjects} catalog objects for recognition`
+          );
+          if (catalogResponse.objectsFailed && catalogResponse.objectsFailed > 0) {
+            console.warn(`${catalogResponse.objectsFailed} objects failed to load features`);
+          }
+        }
       } catch (err) {
         console.warn('Could not load catalog features:', err);
         // Continue anyway - YOLO detection will still work
@@ -156,6 +211,31 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   onThresholdChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.confidenceThreshold.set(parseFloat(input.value));
+  }
+
+  toggleCustomObjectsOnly(): void {
+    const newValue = !this.showOnlyCustomObjects();
+    this.showOnlyCustomObjects.set(newValue);
+
+    // When enabling custom-only mode, refresh the feature cache
+    if (newValue) {
+      this.refreshFeatureCache();
+    }
+  }
+
+  private refreshFeatureCache(): void {
+    this.isRefreshingFeatures.set(true);
+
+    this.detectionService.loadCatalogFeatures().subscribe({
+      next: (response) => {
+        console.log(`Feature cache refreshed: ${response.objectsLoaded} objects loaded`);
+        this.isRefreshingFeatures.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to refresh feature cache:', err);
+        this.isRefreshingFeatures.set(false);
+      },
+    });
   }
 
   private startDetectionLoop(): void {
@@ -260,7 +340,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   }
 
   private drawDetections(ctx: CanvasRenderingContext2D): void {
-    const detections = this.detections();
+    const detections = this.filteredDetections();
 
     detections.forEach(detection => {
       if (detection.confidence < this.confidenceThreshold()) return;
@@ -347,9 +427,32 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     this.isSaving.set(true);
 
+    const existingObject = this.matchingObject();
+
+    if (existingObject) {
+      // Add image to existing object (retrain)
+      this.addImageToExistingObject(existingObject, detection);
+    } else {
+      // Create new object
+      this.createNewObject(name, detection);
+    }
+  }
+
+  private createNewObject(name: string, detection: Detection): void {
+    const video = this.videoElement?.nativeElement;
+
+    if (!video) {
+      this.isSaving.set(false);
+      this.errorMessage.set('view.errors.saveFailed');
+      return;
+    }
+
+    // Crop the detection region on frontend (don't send full frame)
+    const croppedImage = this.cropDetectionRegion(video, detection.bbox);
+
     const request: CaptureDetectionRequest = {
-      image: this.lastFrameBase64(),
-      bbox: detection.bbox,
+      image: croppedImage,
+      bbox: { x: 0, y: 0, width: detection.bbox.width, height: detection.bbox.height },
       name,
       description: this.captureObjectDescription().trim() || undefined,
     };
@@ -360,7 +463,11 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
         // Refresh features so the new object can be recognized
         this.detectionService.refreshObjectFeatures(response.id).subscribe({
-          next: () => console.log('Object features refreshed'),
+          next: () => {
+            console.log('Object features refreshed');
+            // Reload catalog objects for future autocomplete
+            this.loadCatalogObjects();
+          },
           error: err => console.warn('Could not refresh features:', err),
         });
 
@@ -369,6 +476,65 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       },
       error: err => {
         console.error('Failed to save object:', err);
+        this.isSaving.set(false);
+        this.errorMessage.set('view.errors.saveFailed');
+      },
+    });
+  }
+
+  private cropDetectionRegion(
+    video: HTMLVideoElement,
+    bbox: { x: number; y: number; width: number; height: number }
+  ): string {
+    const canvas = document.createElement('canvas');
+    const padding = 10;
+
+    const x = Math.max(0, bbox.x - padding);
+    const y = Math.max(0, bbox.y - padding);
+    const width = Math.min(video.videoWidth - x, bbox.width + padding * 2);
+    const height = Math.min(video.videoHeight - y, bbox.height + padding * 2);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
+
+    ctx.drawImage(video, x, y, width, height, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  }
+
+  private addImageToExistingObject(object: CatalogObject, detection: Detection): void {
+    const video = this.videoElement?.nativeElement;
+
+    if (!video) {
+      this.isSaving.set(false);
+      return;
+    }
+
+    // Crop the detection region
+    const croppedImage = this.cropDetectionRegion(video, detection.bbox);
+
+    // Upload the cropped image to the existing object
+    this.objectsService.uploadImage(object.id, croppedImage, false).subscribe({
+      next: () => {
+        console.log(`Image added to existing object "${object.name}"`);
+
+        // Refresh features to include the new image
+        this.objectsService.refreshObjectFeatures(object.id).subscribe({
+          next: (result) => {
+            console.log(`Features refreshed for "${object.name}":`, result);
+          },
+          error: err => console.warn('Could not refresh features:', err),
+        });
+
+        this.isSaving.set(false);
+        this.closeCaptureModal();
+      },
+      error: err => {
+        console.error('Failed to add image to object:', err);
         this.isSaving.set(false);
         this.errorMessage.set('view.errors.saveFailed');
       },

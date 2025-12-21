@@ -47,7 +47,7 @@
               {{ fps() }} FPS
             </div>
             <div class="detection-count">
-              {{ detections().length }} {{ 'view.detections' | translate }}
+              {{ filteredDetections().length }} {{ 'view.detections' | translate }}
             </div>
           </div>
         }
@@ -88,6 +88,37 @@
           />
         </div>
 
+        <div class="control-group toggle-group">
+          <button
+            class="toggle-button"
+            [class.active]="showOnlyCustomObjects()"
+            [class.loading]="isRefreshingFeatures()"
+            [disabled]="isRefreshingFeatures()"
+            (click)="toggleCustomObjectsOnly()"
+          >
+            @if (isRefreshingFeatures()) {
+              <span class="spinner-small"></span>
+            } @else {
+              <span
+                class="icon-mask icon-mask--lg"
+                [class.icon-mask--toggle-on]="showOnlyCustomObjects()"
+                [class.icon-mask--toggle-off]="!showOnlyCustomObjects()"
+              ></span>
+            }
+            <span class="toggle-content">
+              @if (isRefreshingFeatures()) {
+                <span class="toggle-text">{{ 'view.controls.refreshingCache' | translate }}</span>
+              } @else if (showOnlyCustomObjects()) {
+                <span class="toggle-text">{{ 'view.controls.showingCustom' | translate }}</span>
+                <span class="toggle-hint">{{ 'view.controls.clickToShowAll' | translate }}</span>
+              } @else {
+                <span class="toggle-text">{{ 'view.controls.showingAll' | translate }}</span>
+                <span class="toggle-hint">{{ 'view.controls.clickToFilter' | translate }}</span>
+              }
+            </span>
+          </button>
+        </div>
+
         <div class="control-actions">
           @if (isStreaming()) {
             <button class="btn-danger" (click)="stopStream()">
@@ -111,11 +142,17 @@
         <h3>{{ 'view.detectedObjects' | translate }}</h3>
         <p class="detection-hint">{{ 'view.clickToSave' | translate }}</p>
 
-        @if (detections().length === 0) {
-          <p class="no-detections">{{ 'view.noDetections' | translate }}</p>
+        @if (filteredDetections().length === 0) {
+          <p class="no-detections">
+            @if (showOnlyCustomObjects() && detections().length > 0) {
+              {{ 'view.noCustomDetections' | translate }}
+            } @else {
+              {{ 'view.noDetections' | translate }}
+            }
+          </p>
         } @else {
           <ul class="detection-list">
-            @for (detection of detections(); track detection.id) {
+            @for (detection of filteredDetections(); track detection.id) {
               <li
                 class="detection-item detection-item--clickable"
                 (click)="openCaptureModal(detection)"
@@ -199,11 +236,23 @@
             <input
               type="text"
               id="objectName"
+              list="catalogObjectsList"
               [ngModel]="captureObjectName()"
               (ngModelChange)="captureObjectName.set($event)"
               placeholder="{{ 'view.capture.namePlaceholder' | translate }}"
               autocomplete="off"
             />
+            <datalist id="catalogObjectsList">
+              @for (obj of catalogObjects(); track obj.id) {
+                <option [value]="obj.name"></option>
+              }
+            </datalist>
+            @if (matchingObject(); as existing) {
+              <div class="matching-hint">
+                <span class="icon-mask icon-mask--info icon-mask--sm"></span>
+                {{ 'view.capture.willAddTo' | translate: { name: existing.name, count: existing.trainingSamples } }}
+              </div>
+            }
           </div>
 
           <div class="form-group">
@@ -230,7 +279,11 @@
             @if (isSaving()) {
               <span class="spinner"></span>
             }
-            {{ 'view.capture.save' | translate }}
+            @if (matchingObject()) {
+              {{ 'view.capture.addImage' | translate }}
+            } @else {
+              {{ 'view.capture.save' | translate }}
+            }
           </button>
         </div>
       </div>

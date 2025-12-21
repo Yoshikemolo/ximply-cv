@@ -4,10 +4,18 @@
       <h1>{{ 'catalog.title' | translate }}</h1>
       <p class="subtitle">{{ 'catalog.subtitle' | translate }}</p>
     </div>
-    <a routerLink="/learn" class="btn-primary">
-      <span class="icon-mask icon-mask--plus icon-mask--sm"></span>
-      {{ 'catalog.addNew' | translate }}
-    </a>
+    <div class="header-actions">
+      @if (allObjects().length > 0) {
+        <button class="btn-danger-outline" (click)="confirmForgetAll()">
+          <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
+          {{ 'catalog.forgetAll' | translate }}
+        </button>
+      }
+      <a routerLink="/learn" class="btn-primary">
+        <span class="icon-mask icon-mask--plus icon-mask--sm"></span>
+        {{ 'catalog.addNew' | translate }}
+      </a>
+    </div>
   </div>
 
   <!-- Filters and Search -->
@@ -184,6 +192,29 @@
           </button>
           <button class="btn-danger" (click)="deleteObject()">
             {{ 'catalog.actions.delete' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Forget All Confirmation Modal -->
+  @if (showForgetAllModal()) {
+    <div class="modal-overlay" (click)="cancelForgetAll()">
+      <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+        <span class="icon-mask icon-mask--warning icon-mask--xl modal-icon danger"></span>
+        <h2>{{ 'catalog.forgetAll.title' | translate }}</h2>
+        <p>{{ 'catalog.forgetAll.message' | translate: { count: allObjects().length } }}</p>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" (click)="cancelForgetAll()" [disabled]="isDeleting()">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button class="btn-danger" (click)="forgetAll()" [disabled]="isDeleting()">
+            @if (isDeleting()) {
+              <span class="spinner-small"></span>
+            }
+            {{ 'catalog.forgetAll.confirm' | translate }}
           </button>
         </div>
       </div>

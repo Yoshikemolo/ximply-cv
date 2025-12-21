@@ -1065,12 +1065,12 @@ export class LearnPageComponent implements OnInit, OnDestroy {
     const images: Array<{ data: string; bbox?: { x: number; y: number; width: number; height: number } }> = [];
 
     if (this.learningMode() === 'camera') {
-      // Camera mode: captured images already have bboxes
+      // Camera mode: use cropped preview images (already cropped to detection bbox)
+      // Do NOT use fullFrame as it contains the entire scene, not just the object
       const captured = this.capturedImages();
       for (const img of captured) {
         images.push({
-          data: img.fullFrame || img.preview,
-          bbox: img.bbox,
+          data: img.preview, // Use cropped image, not full frame
         });
       }
     } else {
