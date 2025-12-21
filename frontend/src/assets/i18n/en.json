@@ -70,7 +70,11 @@
       "clickToFilter": "Click to show only your trained objects",
       "showingCustom": "Showing trained objects only",
       "clickToShowAll": "Click to show all detections",
-      "refreshingCache": "Updating recognition model..."
+      "refreshingCache": "Updating recognition model...",
+      "hidingPersons": "Hiding person detections",
+      "showingPersons": "Showing person detections",
+      "clickToShowPersons": "Click to show persons",
+      "clickToHidePersons": "Click to hide persons"
     },
     "capture": {
       "title": "Save Object to Catalog",

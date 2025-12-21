@@ -182,9 +182,29 @@
               <div class="capture-panel">
                 <h3>{{ 'learn.camera.detectedObjects' | translate }}</h3>
 
-                @if (detections().length > 0) {
+                <!-- Toggle for person detections -->
+                <button
+                  class="toggle-button toggle-button--compact"
+                  [class.active]="hidePersonDetections()"
+                  (click)="togglePersonDetections()"
+                >
+                  <span
+                    class="icon-mask icon-mask--md"
+                    [class.icon-mask--toggle-on]="hidePersonDetections()"
+                    [class.icon-mask--toggle-off]="!hidePersonDetections()"
+                  ></span>
+                  <span class="toggle-text">
+                    @if (hidePersonDetections()) {
+                      {{ 'view.controls.hidingPersons' | translate }}
+                    } @else {
+                      {{ 'view.controls.showingPersons' | translate }}
+                    }
+                  </span>
+                </button>
+
+                @if (filteredDetections().length > 0) {
                   <div class="detection-list">
-                    @for (detection of detections(); track detection.id) {
+                    @for (detection of filteredDetections(); track detection.id) {
                       <div
                         class="detection-item"
                         [class.selected]="selectedDetection()?.id === detection.id"

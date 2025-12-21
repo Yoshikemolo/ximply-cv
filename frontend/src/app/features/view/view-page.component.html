@@ -117,6 +117,27 @@
               }
             </span>
           </button>
+
+          <button
+            class="toggle-button"
+            [class.active]="hidePersonDetections()"
+            (click)="togglePersonDetections()"
+          >
+            <span
+              class="icon-mask icon-mask--lg"
+              [class.icon-mask--toggle-on]="hidePersonDetections()"
+              [class.icon-mask--toggle-off]="!hidePersonDetections()"
+            ></span>
+            <span class="toggle-content">
+              @if (hidePersonDetections()) {
+                <span class="toggle-text">{{ 'view.controls.hidingPersons' | translate }}</span>
+                <span class="toggle-hint">{{ 'view.controls.clickToShowPersons' | translate }}</span>
+              } @else {
+                <span class="toggle-text">{{ 'view.controls.showingPersons' | translate }}</span>
+                <span class="toggle-hint">{{ 'view.controls.clickToHidePersons' | translate }}</span>
+              }
+            </span>
+          </button>
         </div>
 
         <div class="control-actions">

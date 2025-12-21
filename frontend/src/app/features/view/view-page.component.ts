@@ -33,21 +33,31 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   selectedCamera = signal<string>('');
   availableCameras = signal<MediaDeviceInfo[]>([]);
   errorMessage = signal<string | null>(null);
-  confidenceThreshold = signal(0.5);
+  confidenceThreshold = signal(0.3);
   fps = signal(0);
 
   // Toggle to show only custom (matched) objects
   showOnlyCustomObjects = signal(false);
   isRefreshingFeatures = signal(false);
 
-  // Filtered detections based on toggle
+  // Toggle to hide person detections (useful when holding objects)
+  hidePersonDetections = signal(true);
+
+  // Filtered detections based on toggles
   filteredDetections = computed(() => {
-    const all = this.detections();
-    if (!this.showOnlyCustomObjects()) {
-      return all;
+    let result = this.detections();
+
+    // Filter out person detections if toggle is enabled
+    if (this.hidePersonDetections()) {
+      result = result.filter(d => d.label.toLowerCase() !== 'person');
     }
-    // Only show detections that have a matched objectId (custom trained objects)
-    return all.filter(d => d.objectId);
+
+    // Only show custom objects if toggle is enabled
+    if (this.showOnlyCustomObjects()) {
+      result = result.filter(d => d.objectId);
+    }
+
+    return result;
   });
 
   // Capture modal state
@@ -221,6 +231,10 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     if (newValue) {
       this.refreshFeatureCache();
     }
+  }
+
+  togglePersonDetections(): void {
+    this.hidePersonDetections.set(!this.hidePersonDetections());
   }
 
   private refreshFeatureCache(): void {
@@ -423,33 +437,23 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     const detection = this.selectedDetection();
     const name = this.captureObjectName().trim();
 
-    if (!detection || !name || !this.lastFrameBase64()) return;
+    if (!detection || !name) return;
 
-    this.isSaving.set(true);
-
-    const existingObject = this.matchingObject();
-
-    if (existingObject) {
-      // Add image to existing object (retrain)
-      this.addImageToExistingObject(existingObject, detection);
-    } else {
-      // Create new object
-      this.createNewObject(name, detection);
-    }
-  }
-
-  private createNewObject(name: string, detection: Detection): void {
     const video = this.videoElement?.nativeElement;
-
     if (!video) {
-      this.isSaving.set(false);
       this.errorMessage.set('view.errors.saveFailed');
       return;
     }
 
-    // Crop the detection region on frontend (don't send full frame)
+    this.isSaving.set(true);
+
+    // Crop the detection region on frontend
     const croppedImage = this.cropDetectionRegion(video, detection.bbox);
 
+    // The backend handles both new and existing objects:
+    // - If object with this name exists, adds image to it
+    // - If not, creates new object
+    // - In both cases, automatically refreshes features for immediate recognition
     const request: CaptureDetectionRequest = {
       image: croppedImage,
       bbox: { x: 0, y: 0, width: detection.bbox.width, height: detection.bbox.height },
@@ -457,19 +461,18 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       description: this.captureObjectDescription().trim() || undefined,
     };
 
+    const existingObject = this.matchingObject();
+
     this.detectionService.captureDetection(request).subscribe({
       next: response => {
-        console.log('Object saved to catalog:', response);
+        if (existingObject) {
+          console.log(`Image added to existing object "${name}" (${response.trainingSamples} images total)`);
+        } else {
+          console.log(`New object "${name}" created and trained`);
+        }
 
-        // Refresh features so the new object can be recognized
-        this.detectionService.refreshObjectFeatures(response.id).subscribe({
-          next: () => {
-            console.log('Object features refreshed');
-            // Reload catalog objects for future autocomplete
-            this.loadCatalogObjects();
-          },
-          error: err => console.warn('Could not refresh features:', err),
-        });
+        // Reload catalog objects for future autocomplete
+        this.loadCatalogObjects();
 
         this.isSaving.set(false);
         this.closeCaptureModal();
@@ -504,41 +507,6 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     ctx.drawImage(video, x, y, width, height, 0, 0, width, height);
     return canvas.toDataURL('image/jpeg', 0.9);
-  }
-
-  private addImageToExistingObject(object: CatalogObject, detection: Detection): void {
-    const video = this.videoElement?.nativeElement;
-
-    if (!video) {
-      this.isSaving.set(false);
-      return;
-    }
-
-    // Crop the detection region
-    const croppedImage = this.cropDetectionRegion(video, detection.bbox);
-
-    // Upload the cropped image to the existing object
-    this.objectsService.uploadImage(object.id, croppedImage, false).subscribe({
-      next: () => {
-        console.log(`Image added to existing object "${object.name}"`);
-
-        // Refresh features to include the new image
-        this.objectsService.refreshObjectFeatures(object.id).subscribe({
-          next: (result) => {
-            console.log(`Features refreshed for "${object.name}":`, result);
-          },
-          error: err => console.warn('Could not refresh features:', err),
-        });
-
-        this.isSaving.set(false);
-        this.closeCaptureModal();
-      },
-      error: err => {
-        console.error('Failed to add image to object:', err);
-        this.isSaving.set(false);
-        this.errorMessage.set('view.errors.saveFailed');
-      },
-    });
   }
 }
 

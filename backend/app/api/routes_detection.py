@@ -44,6 +44,125 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
 
 
+def _calculate_iou(box1: BoundingBox, box2: BoundingBox) -> float:
+    """
+    Calculate Intersection over Union (IoU) between two bounding boxes.
+
+    Args:
+        box1: First bounding box.
+        box2: Second bounding box.
+
+    Returns:
+        IoU value between 0 and 1.
+    """
+    # Calculate intersection
+    x1 = max(box1.x, box2.x)
+    y1 = max(box1.y, box2.y)
+    x2 = min(box1.x + box1.width, box2.x + box2.width)
+    y2 = min(box1.y + box1.height, box2.y + box2.height)
+
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+
+    intersection = (x2 - x1) * (y2 - y1)
+
+    # Calculate union
+    area1 = box1.width * box1.height
+    area2 = box2.width * box2.height
+    union = area1 + area2 - intersection
+
+    if union <= 0:
+        return 0.0
+
+    return intersection / union
+
+
+def _filter_person_detections(
+    detections: List[DetectionResult],
+) -> List[DetectionResult]:
+    """
+    Filter out 'person' detections when there are other objects detected.
+
+    This helps when users hold objects with their hands - we want to focus
+    on the objects, not the person holding them.
+
+    Args:
+        detections: List of detection results.
+
+    Returns:
+        Filtered list without person detections (if other objects exist).
+    """
+    # Check if there are non-person detections
+    non_person_detections = [d for d in detections if d.label.lower() != "person"]
+
+    # If there are other objects, filter out persons
+    if non_person_detections:
+        return non_person_detections
+
+    # If only person detections, keep them
+    return detections
+
+
+def _apply_custom_nms(
+    detections: List[DetectionResult],
+    iou_threshold: float = 0.5,
+) -> List[DetectionResult]:
+    """
+    Apply custom Non-Maximum Suppression that prioritizes trained objects.
+
+    When two detections overlap significantly:
+    1. If one has objectId (trained) and the other doesn't, keep the trained one
+    2. If both have same priority, keep the one with higher confidence
+
+    Args:
+        detections: List of detection results.
+        iou_threshold: IoU threshold for considering detections as overlapping.
+
+    Returns:
+        Filtered list of detections with duplicates removed.
+    """
+    if len(detections) <= 1:
+        return detections
+
+    # Sort by priority: trained objects first (objectId is not None), then by confidence
+    # Priority score: trained objects get +1000 to their confidence for sorting
+    def sort_key(d: DetectionResult) -> float:
+        priority_boost = 1000.0 if d.object_id else 0.0
+        return priority_boost + d.confidence
+
+    sorted_detections = sorted(detections, key=sort_key, reverse=True)
+
+    keep = []
+    suppressed = set()
+
+    for i, detection in enumerate(sorted_detections):
+        if i in suppressed:
+            continue
+
+        keep.append(detection)
+
+        # Suppress overlapping detections with lower priority
+        for j in range(i + 1, len(sorted_detections)):
+            if j in suppressed:
+                continue
+
+            other = sorted_detections[j]
+            iou = _calculate_iou(detection.bbox, other.bbox)
+
+            if iou >= iou_threshold:
+                # Suppress the lower priority detection
+                suppressed.add(j)
+                logger.debug(
+                    f"NMS: Suppressing '{other.object_name or other.label}' "
+                    f"(conf={other.confidence:.2f}, trained={other.object_id is not None}) "
+                    f"in favor of '{detection.object_name or detection.label}' "
+                    f"(conf={detection.confidence:.2f}, trained={detection.object_id is not None}), "
+                    f"IoU={iou:.2f}"
+                )
+
+    return keep
+
+
 class DetectRequest(BaseModel):
     """Request body for detection endpoint."""
 
@@ -311,7 +430,10 @@ async def detect_objects(
             object_name = d.object_name
 
             # Try to match against catalog objects if image was decoded
-            if image_array is not None and object_id is None:
+            # Skip feature matching for "person" detections to avoid matching
+            # hands/fingers in training images with person detections
+            is_person = d.label.lower() == "person"
+            if image_array is not None and object_id is None and not is_person:
                 try:
                     # Crop the detection region with padding
                     padding = 5
@@ -350,6 +472,15 @@ async def detect_objects(
                 )
             )
 
+        # Apply custom NMS to remove duplicate/overlapping detections
+        # Prioritizes trained objects over YOLO-only detections
+        filtered_detections = _apply_custom_nms(detection_results, iou_threshold=0.4)
+
+        if len(filtered_detections) < len(detection_results):
+            logger.debug(
+                f"Filtering reduced detections from {len(detection_results)} to {len(filtered_detections)}"
+            )
+
         # Detect barcodes
         barcode_results = []
         if image_array is not None:
@@ -377,7 +508,7 @@ async def detect_objects(
                 logger.debug(f"Barcode detection failed: {e}")
 
         return DetectionResponse(
-            detections=detection_results,
+            detections=filtered_detections,
             barcodes=barcode_results,
             frame_width=width,
             frame_height=height,
@@ -408,8 +539,9 @@ async def capture_detection(
     """
     Capture a detected object and add it to the catalog.
 
-    Takes the current frame, crops the region specified by the bounding box,
-    and creates a new catalog object with the given name.
+    If an object with the same name already exists, adds the image to that object.
+    Otherwise, creates a new catalog object.
+    In both cases, automatically updates the feature cache for immediate recognition.
 
     Args:
         request: Capture request with image, bounding box, and object name.
@@ -417,9 +549,13 @@ async def capture_detection(
         db: Database session.
 
     Returns:
-        ObjectResponse: The created catalog object.
+        ObjectResponse: The created or updated catalog object.
     """
+    from sqlalchemy.orm import selectinload
+
     try:
+        user_uuid = UUID(current_user.sub)
+
         # Decode base64 image
         image_data = request.image
         if "," in image_data:
@@ -439,18 +575,40 @@ async def capture_detection(
 
         cropped = image.crop((left, top, right, bottom))
 
-        # Create object entity
-        # Set status to "active" so the object is immediately available for recognition
-        object_id = uuid7()
-        obj = ObjectEntity(
-            id=object_id,
-            name=request.name,
-            description=request.description,
-            category_id=request.category_id,
-            owner_id=UUID(current_user.sub),
-            status="active",
-            training_samples=1,
+        # Check if object with same name already exists for this user
+        existing_result = await db.execute(
+            select(ObjectEntity)
+            .options(selectinload(ObjectEntity.images))
+            .where(
+                ObjectEntity.owner_id == user_uuid,
+                ObjectEntity.name == request.name,
+            )
         )
+        existing_obj = existing_result.scalar_one_or_none()
+
+        is_new_object = existing_obj is None
+
+        if is_new_object:
+            # Create new object entity
+            object_id = uuid7()
+            obj = ObjectEntity(
+                id=object_id,
+                name=request.name,
+                description=request.description,
+                category_id=request.category_id,
+                owner_id=user_uuid,
+                status="active",
+                training_samples=1,
+            )
+            db.add(obj)
+        else:
+            # Use existing object
+            obj = existing_obj
+            object_id = obj.id
+            obj.training_samples += 1
+            # Ensure object is active for recognition
+            if obj.status != "active":
+                obj.status = "active"
 
         # Save cropped image to MinIO
         image_id = uuid7()
@@ -475,30 +633,47 @@ async def capture_detection(
             id=image_id,
             object_id=object_id,
             file_path=file_path,
-            file_name=f"{request.name.replace(' ', '_')}.jpg",
+            file_name=f"{request.name.replace(' ', '_')}_{image_id}.jpg",
             file_size=file_size,
             mime_type="image/jpeg",
             width=cropped.width,
             height=cropped.height,
-            is_primary=True,
+            is_primary=is_new_object,  # Only set as primary for new objects
             bbox_x=bbox.x,
             bbox_y=bbox.y,
             bbox_width=bbox.width,
             bbox_height=bbox.height,
         )
 
-        # Set thumbnail
-        obj.thumbnail_path = file_path
+        db.add(image_entity)
+
+        # Set thumbnail for new objects
+        if is_new_object:
+            obj.thumbnail_path = file_path
 
         # Save to database
-        db.add(obj)
-        db.add(image_entity)
         await db.commit()
         await db.refresh(obj, ["images"])
 
-        logger.info(
-            f"Object captured: {obj.id} '{request.name}' by user {current_user.sub}"
+        # Load/refresh features into cache for immediate recognition
+        feature_service = get_feature_matching_service()
+        image_paths = [img.file_path for img in obj.images]
+
+        load_result = feature_service.load_object_features(
+            object_id=obj.id,
+            object_name=obj.name,
+            image_paths=image_paths,
         )
+
+        if load_result.success:
+            logger.info(
+                f"Object {'created' if is_new_object else 'updated'}: {obj.id} '{request.name}' "
+                f"with {load_result.feature_count} features from {load_result.images_processed} images"
+            )
+        else:
+            logger.warning(
+                f"Object saved but feature extraction failed: {load_result.error_message}"
+            )
 
         return ObjectResponse.model_validate(obj)
 

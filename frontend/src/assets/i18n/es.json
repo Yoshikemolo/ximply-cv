@@ -70,7 +70,11 @@
       "clickToFilter": "Clic para mostrar solo tus objetos entrenados",
       "showingCustom": "Mostrando solo objetos entrenados",
       "clickToShowAll": "Clic para mostrar todas las detecciones",
-      "refreshingCache": "Actualizando modelo..."
+      "refreshingCache": "Actualizando modelo...",
+      "hidingPersons": "Ocultando detecciones de personas",
+      "showingPersons": "Mostrando detecciones de personas",
+      "clickToShowPersons": "Clic para mostrar personas",
+      "clickToHidePersons": "Clic para ocultar personas"
     },
     "capture": {
       "title": "Guardar Objeto en Catálogo",

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal, ElementRef, ViewChild, effect } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal, computed, ElementRef, ViewChild, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -80,8 +80,20 @@ export class LearnPageComponent implements OnInit, OnDestroy {
   detections = signal<Detection[]>([]);
   selectedDetection = signal<Detection | null>(null);
   capturedImages = signal<CapturedImage[]>([]);
-  confidenceThreshold = signal(0.5);
+  confidenceThreshold = signal(0.2);
   isCapturing = signal(false);
+
+  // Toggle to hide person detections (useful when holding objects)
+  hidePersonDetections = signal(true);
+
+  // Filtered detections based on toggle
+  filteredDetections = computed(() => {
+    const all = this.detections();
+    if (this.hidePersonDetections()) {
+      return all.filter(d => d.label.toLowerCase() !== 'person');
+    }
+    return all;
+  });
 
   private mediaStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
@@ -773,6 +785,10 @@ export class LearnPageComponent implements OnInit, OnDestroy {
     this.confidenceThreshold.set(parseFloat(input.value));
   }
 
+  togglePersonDetections(): void {
+    this.hidePersonDetections.set(!this.hidePersonDetections());
+  }
+
   private startDetectionLoop(): void {
     const renderFrame = (): void => {
       if (!this.isStreaming()) return;
@@ -839,7 +855,7 @@ export class LearnPageComponent implements OnInit, OnDestroy {
   }
 
   private drawDetections(ctx: CanvasRenderingContext2D): void {
-    const detections = this.detections();
+    const detections = this.filteredDetections();
     const selected = this.selectedDetection();
 
     detections.forEach(detection => {
@@ -894,7 +910,7 @@ export class LearnPageComponent implements OnInit, OnDestroy {
     const y = (event.clientY - rect.top) * scaleY;
 
     // Find which detection was clicked
-    const detections = this.detections();
+    const detections = this.filteredDetections();
     for (const detection of detections) {
       const { x: bx, y: by, width, height } = detection.bbox;
       if (x >= bx && x <= bx + width && y >= by && y <= by + height) {
