@@ -77,6 +77,38 @@ def _calculate_iou(box1: BoundingBox, box2: BoundingBox) -> float:
     return intersection / union
 
 
+def _calculate_overlap_ratio(box1: BoundingBox, box2: BoundingBox) -> float:
+    """
+    Calculate how much of box2 is covered by box1.
+
+    This helps detect when a smaller box is mostly inside a larger one,
+    even if IoU is low due to size difference.
+
+    Args:
+        box1: First bounding box.
+        box2: Second bounding box.
+
+    Returns:
+        Ratio of box2's area that overlaps with box1 (0 to 1).
+    """
+    # Calculate intersection
+    x1 = max(box1.x, box2.x)
+    y1 = max(box1.y, box2.y)
+    x2 = min(box1.x + box1.width, box2.x + box2.width)
+    y2 = min(box1.y + box1.height, box2.y + box2.height)
+
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+
+    intersection = (x2 - x1) * (y2 - y1)
+    area2 = box2.width * box2.height
+
+    if area2 <= 0:
+        return 0.0
+
+    return intersection / area2
+
+
 def _filter_person_detections(
     detections: List[DetectionResult],
 ) -> List[DetectionResult]:
@@ -105,7 +137,8 @@ def _filter_person_detections(
 
 def _apply_custom_nms(
     detections: List[DetectionResult],
-    iou_threshold: float = 0.5,
+    iou_threshold: float = 0.3,
+    overlap_threshold: float = 0.5,
 ) -> List[DetectionResult]:
     """
     Apply custom Non-Maximum Suppression that prioritizes trained objects.
@@ -114,9 +147,14 @@ def _apply_custom_nms(
     1. If one has objectId (trained) and the other doesn't, keep the trained one
     2. If both have same priority, keep the one with higher confidence
 
+    Overlap is detected using either:
+    - IoU >= iou_threshold (traditional NMS)
+    - overlap_ratio >= overlap_threshold (one box mostly inside another)
+
     Args:
         detections: List of detection results.
         iou_threshold: IoU threshold for considering detections as overlapping.
+        overlap_threshold: Overlap ratio threshold for containment check.
 
     Returns:
         Filtered list of detections with duplicates removed.
@@ -149,7 +187,14 @@ def _apply_custom_nms(
             other = sorted_detections[j]
             iou = _calculate_iou(detection.bbox, other.bbox)
 
-            if iou >= iou_threshold:
+            # Check if boxes overlap using IoU
+            overlaps_by_iou = iou >= iou_threshold
+
+            # Check if the lower-priority box is mostly inside the higher-priority one
+            overlap_ratio = _calculate_overlap_ratio(detection.bbox, other.bbox)
+            overlaps_by_containment = overlap_ratio >= overlap_threshold
+
+            if overlaps_by_iou or overlaps_by_containment:
                 # Suppress the lower priority detection
                 suppressed.add(j)
                 logger.debug(
@@ -157,7 +202,7 @@ def _apply_custom_nms(
                     f"(conf={other.confidence:.2f}, trained={other.object_id is not None}) "
                     f"in favor of '{detection.object_name or detection.label}' "
                     f"(conf={detection.confidence:.2f}, trained={detection.object_id is not None}), "
-                    f"IoU={iou:.2f}"
+                    f"IoU={iou:.2f}, overlap={overlap_ratio:.2f}"
                 )
 
     return keep
@@ -474,7 +519,8 @@ async def detect_objects(
 
         # Apply custom NMS to remove duplicate/overlapping detections
         # Prioritizes trained objects over YOLO-only detections
-        filtered_detections = _apply_custom_nms(detection_results, iou_threshold=0.4)
+        # Uses iou_threshold=0.3 and overlap_threshold=0.5 (defaults)
+        filtered_detections = _apply_custom_nms(detection_results)
 
         if len(filtered_detections) < len(detection_results):
             logger.debug(
