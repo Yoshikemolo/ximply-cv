@@ -6,10 +6,27 @@
     </div>
     <div class="header-actions">
       @if (allObjects().length > 0) {
-        <button class="btn-danger-outline" (click)="confirmForgetAll()">
-          <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
-          {{ 'catalog.forgetAll' | translate }}
-        </button>
+        <!-- Merge mode buttons -->
+        @if (isSelectMode()) {
+          <button class="btn-secondary" (click)="toggleSelectMode()">
+            {{ 'catalog.merge.cancel' | translate }}
+          </button>
+          @if (selectedObjects().size >= 2) {
+            <button class="btn-primary" (click)="openMergeModal()">
+              <span class="icon-mask icon-mask--merge icon-mask--sm"></span>
+              {{ 'catalog.merge.button' | translate }} ({{ selectedObjects().size }})
+            </button>
+          }
+        } @else {
+          <button class="btn-secondary" (click)="toggleSelectMode()">
+            <span class="icon-mask icon-mask--select icon-mask--sm"></span>
+            {{ 'catalog.merge.select' | translate }}
+          </button>
+          <button class="btn-danger-outline" (click)="confirmForgetAll()">
+            <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
+            {{ 'catalog.forgetAll' | translate }}
+          </button>
+        }
       }
       <a routerLink="/learn" class="btn-primary">
         <span class="icon-mask icon-mask--plus icon-mask--sm"></span>
@@ -74,7 +91,24 @@
       <!-- Objects Grid/List -->
       <div class="catalog-content" [class.grid-view]="viewMode() === 'grid'" [class.list-view]="viewMode() === 'list'">
         @for (obj of filteredObjects(); track obj.id) {
-          <div class="object-card" [class.inactive]="!obj.isActive" (click)="selectObject(obj)">
+          <div
+            class="object-card"
+            [class.inactive]="!obj.isActive"
+            [class.selected]="isSelected(obj)"
+            [class.select-mode]="isSelectMode()"
+            (click)="isSelectMode() ? toggleObjectSelection(obj, $event) : selectObject(obj)"
+          >
+            <!-- Selection checkbox overlay -->
+            @if (isSelectMode()) {
+              <div class="selection-checkbox" (click)="toggleObjectSelection(obj, $event)">
+                <span
+                  class="icon-mask icon-mask--sm"
+                  [class.icon-mask--checkbox]="!isSelected(obj)"
+                  [class.icon-mask--checkbox-checked]="isSelected(obj)"
+                ></span>
+              </div>
+            }
+
             <div class="object-image">
               @if (obj.imageUrl) {
                 <img [src]="obj.imageUrl" [alt]="obj.name" />
@@ -215,6 +249,48 @@
               <span class="spinner-small"></span>
             }
             {{ 'catalog.forgetAll.confirm' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Merge Objects Modal -->
+  @if (showMergeModal()) {
+    <div class="modal-overlay" (click)="cancelMerge()">
+      <div class="modal-content modal-merge" (click)="$event.stopPropagation()">
+        <span class="icon-mask icon-mask--merge icon-mask--xl modal-icon"></span>
+        <h2>{{ 'catalog.merge.title' | translate }}</h2>
+        <p>{{ 'catalog.merge.message' | translate: { count: selectedObjects().size } }}</p>
+
+        <div class="merge-objects-list">
+          <p class="merge-label">{{ 'catalog.merge.targetLabel' | translate }}</p>
+          @for (obj of selectedObjectsList(); track obj.id) {
+            <div
+              class="merge-object-item"
+              [class.is-target]="selectedObjectsList()[0].id === obj.id"
+              (click)="!isMerging() && mergeObjects(obj.id)"
+            >
+              <div class="merge-object-thumb">
+                @if (obj.imageUrl) {
+                  <img [src]="obj.imageUrl" [alt]="obj.name" />
+                } @else {
+                  <span class="icon-mask icon-mask--camera icon-mask--sm"></span>
+                }
+              </div>
+              <div class="merge-object-info">
+                <span class="merge-object-name">{{ obj.name }}</span>
+                <span class="merge-object-images">{{ obj.trainingImages }} {{ 'catalog.images' | translate }}</span>
+              </div>
+              <span class="icon-mask icon-mask--chevron-right icon-mask--sm"></span>
+            </div>
+          }
+          <p class="merge-hint">{{ 'catalog.merge.sourcesLabel' | translate }}</p>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" (click)="cancelMerge()" [disabled]="isMerging()">
+            {{ 'common.cancel' | translate }}
           </button>
         </div>
       </div>

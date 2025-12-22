@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -40,6 +40,18 @@ export class CatalogPageComponent implements OnInit {
   objectToDelete = signal<CatalogObject | null>(null);
   showForgetAllModal = signal(false);
   isDeleting = signal(false);
+
+  // Merge functionality
+  isSelectMode = signal(false);
+  selectedObjects = signal<Set<string>>(new Set());
+  showMergeModal = signal(false);
+  isMerging = signal(false);
+
+  // Computed: array of selected objects for the merge modal
+  selectedObjectsList = computed(() => {
+    const ids = this.selectedObjects();
+    return this.allObjects().filter(obj => ids.has(obj.id));
+  });
 
   categories = signal<string[]>(['all', 'trained', 'imported', 'system']);
 
@@ -217,6 +229,90 @@ export class CatalogPageComponent implements OnInit {
         console.error('Failed to delete all objects:', err);
         this.isDeleting.set(false);
         this.showForgetAllModal.set(false);
+      },
+    });
+  }
+
+  // ============================================================================
+  // Merge functionality
+  // ============================================================================
+
+  toggleSelectMode(): void {
+    this.isSelectMode.update(v => !v);
+    if (!this.isSelectMode()) {
+      // Clear selection when exiting select mode
+      this.selectedObjects.set(new Set());
+    }
+  }
+
+  toggleObjectSelection(obj: CatalogObject, event: Event): void {
+    event.stopPropagation();
+    this.selectedObjects.update(selected => {
+      const newSet = new Set(selected);
+      if (newSet.has(obj.id)) {
+        newSet.delete(obj.id);
+      } else {
+        newSet.add(obj.id);
+      }
+      return newSet;
+    });
+  }
+
+  isSelected(obj: CatalogObject): boolean {
+    return this.selectedObjects().has(obj.id);
+  }
+
+  openMergeModal(): void {
+    if (this.selectedObjects().size >= 2) {
+      this.showMergeModal.set(true);
+    }
+  }
+
+  cancelMerge(): void {
+    this.showMergeModal.set(false);
+  }
+
+  /**
+   * Merge selected objects. The first selected object becomes the master.
+   */
+  mergeObjects(targetId: string): void {
+    const selectedIds = Array.from(this.selectedObjects());
+    if (selectedIds.length < 2) return;
+
+    // Reorder so targetId is first
+    const orderedIds = [targetId, ...selectedIds.filter(id => id !== targetId)];
+
+    this.isMerging.set(true);
+
+    this.objectsService.mergeObjects(orderedIds).subscribe({
+      next: (response) => {
+        // Remove merged (source) objects from local list
+        const sourceIds = new Set(orderedIds.slice(1));
+        this.allObjects.update(objects =>
+          objects.map(obj => {
+            if (obj.id === targetId) {
+              // Update target with new image count
+              return { ...obj, trainingImages: response.totalImages };
+            }
+            return obj;
+          }).filter(obj => !sourceIds.has(obj.id))
+        );
+        this.applyFilters();
+
+        // Reset state
+        this.selectedObjects.set(new Set());
+        this.isSelectMode.set(false);
+        this.showMergeModal.set(false);
+        this.isMerging.set(false);
+
+        // Close detail panel if showing a merged object
+        if (this.selectedObject() && sourceIds.has(this.selectedObject()!.id)) {
+          this.selectedObject.set(null);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to merge objects:', err);
+        this.isMerging.set(false);
       },
     });
   }

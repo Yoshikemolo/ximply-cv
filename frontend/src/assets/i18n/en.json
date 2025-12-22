@@ -235,7 +235,17 @@
     "forgetAll": "Forget All",
     "forgetAll.title": "Forget All Objects",
     "forgetAll.message": "Are you sure you want to delete all {{count}} objects? This will remove all trained objects and their recognition data. This action cannot be undone.",
-    "forgetAll.confirm": "Delete All"
+    "forgetAll.confirm": "Delete All",
+    "merge": {
+      "select": "Select",
+      "cancel": "Cancel Selection",
+      "button": "Merge",
+      "title": "Merge Objects",
+      "message": "Merge {{count}} objects into one? All images will be combined.",
+      "targetLabel": "Select target (keeps name)",
+      "sourcesLabel": "Other objects will be merged into selected",
+      "confirm": "Merge Objects"
+    }
   },
   "admin": {
     "title": "Administration",

@@ -109,6 +109,14 @@ export interface LoadCatalogResponse {
   }>;
 }
 
+export interface MergeObjectsResponse {
+  targetId: string;
+  targetName: string;
+  mergedCount: number;
+  totalImages: number;
+  message: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -439,6 +447,17 @@ export class ObjectsService {
    */
   setObjectStatus(id: string, status: 'active' | 'archived' | 'draft'): Observable<CatalogObject> {
     return this.http.put<CatalogObject>(`${this.apiUrl}/${id}`, { status });
+  }
+
+  /**
+   * Merge multiple objects into one.
+   * The first ID becomes the target (master), the rest are merged into it.
+   * Source objects are deleted after merge.
+   */
+  mergeObjects(objectIds: string[]): Observable<MergeObjectsResponse> {
+    return this.http.post<MergeObjectsResponse>(`${this.apiUrl}/merge`, {
+      object_ids: objectIds,
+    });
   }
 
   /**

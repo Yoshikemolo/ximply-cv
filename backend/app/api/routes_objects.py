@@ -4,10 +4,11 @@ Object catalog API routes.
 Provides CRUD operations for catalog objects and their images.
 """
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -411,6 +412,155 @@ async def delete_object(
     logger.info(f"Object deleted: {object_id} by user {current_user.sub}")
 
     return MessageResponse(message="Object deleted successfully")
+
+
+# ==============================================================================
+# Merge Objects
+# ==============================================================================
+
+
+class MergeObjectsRequest(BaseModel):
+    """Request to merge multiple objects into one."""
+
+    object_ids: List[UUID]  # First ID is the target (master), rest are sources
+
+
+class MergeObjectsResponse(BaseModel):
+    """Response from merge operation."""
+
+    target_id: UUID
+    target_name: str
+    merged_count: int
+    total_images: int
+    message: str
+
+
+@router.post("/merge", response_model=MergeObjectsResponse)
+async def merge_objects(
+    request: MergeObjectsRequest,
+    current_user: TokenData = Depends(require_permissions([Permission.OBJECTS_WRITE])),
+    db: AsyncSession = Depends(get_db),
+) -> MergeObjectsResponse:
+    """
+    Merge multiple objects into one.
+
+    The first object_id in the list becomes the target (master).
+    All images from source objects are moved to the target.
+    Source objects are deleted after merge.
+    Feature cache is refreshed for the merged object.
+
+    Args:
+        request: List of object IDs to merge (first is target).
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        MergeObjectsResponse: Result of merge operation.
+
+    Raises:
+        HTTPException: If less than 2 objects or objects not found.
+    """
+    from app.services.feature_matching_service import get_feature_matching_service
+
+    if len(request.object_ids) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least 2 objects required for merge",
+        )
+
+    user_uuid = UUID(current_user.sub)
+    target_id = request.object_ids[0]
+    source_ids = request.object_ids[1:]
+
+    # Get target object with images
+    target_result = await db.execute(
+        select(ObjectEntity)
+        .options(selectinload(ObjectEntity.images))
+        .where(
+            ObjectEntity.id == target_id,
+            ObjectEntity.owner_id == user_uuid,
+        )
+    )
+    target = target_result.scalar_one_or_none()
+
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Target object {target_id} not found",
+        )
+
+    # Get source objects with images
+    source_result = await db.execute(
+        select(ObjectEntity)
+        .options(selectinload(ObjectEntity.images))
+        .where(
+            ObjectEntity.id.in_(source_ids),
+            ObjectEntity.owner_id == user_uuid,
+        )
+    )
+    sources = source_result.scalars().all()
+
+    if len(sources) != len(source_ids):
+        found_ids = {str(s.id) for s in sources}
+        missing = [str(sid) for sid in source_ids if str(sid) not in found_ids]
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source objects not found: {missing}",
+        )
+
+    # Move images from sources to target
+    images_moved = 0
+    feature_service = get_feature_matching_service()
+
+    for source in sources:
+        for image in source.images:
+            # Update image's object_id to target
+            image.object_id = target.id
+            # Ensure not primary (target keeps its primary)
+            image.is_primary = False
+            images_moved += 1
+
+        # Update target's training samples count
+        target.training_samples += source.training_samples
+
+        # Remove source from feature cache
+        feature_service.remove_object(source.id)
+
+        # Delete source object (images are now under target)
+        await db.delete(source)
+
+    await db.commit()
+
+    # Refresh target object
+    await db.refresh(target, ["images"])
+
+    # Reload features for merged object
+    if target.images:
+        image_paths = [img.file_path for img in target.images]
+        load_result = feature_service.load_object_features(
+            object_id=target.id,
+            object_name=target.name,
+            image_paths=image_paths,
+        )
+        if load_result.success:
+            logger.info(
+                f"Merged {len(sources)} objects into '{target.name}': "
+                f"{load_result.feature_count} features from {len(target.images)} images"
+            )
+        else:
+            logger.warning(f"Feature refresh failed after merge: {load_result.error_message}")
+
+    logger.info(
+        f"Objects merged: {len(sources)} sources into target {target.id} by user {current_user.sub}"
+    )
+
+    return MergeObjectsResponse(
+        target_id=target.id,
+        target_name=target.name,
+        merged_count=len(sources),
+        total_images=len(target.images),
+        message=f"Merged {len(sources)} objects into '{target.name}'",
+    )
 
 
 # ==============================================================================

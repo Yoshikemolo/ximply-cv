@@ -274,4 +274,29 @@
     mask-image: url('/assets/icons/toggle-off.svg');
     -webkit-mask-image: url('/assets/icons/toggle-off.svg');
   }
+
+  &--select {
+    mask-image: url('/assets/icons/select.svg');
+    -webkit-mask-image: url('/assets/icons/select.svg');
+  }
+
+  &--merge {
+    mask-image: url('/assets/icons/merge.svg');
+    -webkit-mask-image: url('/assets/icons/merge.svg');
+  }
+
+  &--checkbox {
+    mask-image: url('/assets/icons/checkbox.svg');
+    -webkit-mask-image: url('/assets/icons/checkbox.svg');
+  }
+
+  &--checkbox-checked {
+    mask-image: url('/assets/icons/checkbox-checked.svg');
+    -webkit-mask-image: url('/assets/icons/checkbox-checked.svg');
+  }
+
+  &--chevron-right {
+    mask-image: url('/assets/icons/chevron-right.svg');
+    -webkit-mask-image: url('/assets/icons/chevron-right.svg');
+  }
 }

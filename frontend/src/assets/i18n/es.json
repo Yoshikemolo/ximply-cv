@@ -235,7 +235,17 @@
     "forgetAll": "Olvidar Todo",
     "forgetAll.title": "Olvidar Todos los Objetos",
     "forgetAll.message": "¿Estás seguro de que quieres eliminar los {{count}} objetos? Esto eliminará todos los objetos entrenados y sus datos de reconocimiento. Esta acción no se puede deshacer.",
-    "forgetAll.confirm": "Eliminar Todo"
+    "forgetAll.confirm": "Eliminar Todo",
+    "merge": {
+      "select": "Seleccionar",
+      "cancel": "Cancelar Selección",
+      "button": "Unificar",
+      "title": "Unificar Objetos",
+      "message": "¿Unificar {{count}} objetos en uno? Todas las imágenes se combinarán.",
+      "targetLabel": "Selecciona el destino (mantiene el nombre)",
+      "sourcesLabel": "Los demás objetos se unificarán en el seleccionado",
+      "confirm": "Unificar Objetos"
+    }
   },
   "admin": {
     "title": "Administración",
