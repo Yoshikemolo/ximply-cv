@@ -16,6 +16,7 @@ Architecture decisions are recorded separately, in [doc/adr](../adr/README.md).
 | [SEC-0006](SEC-0006-default-credentials-and-secrets.md) | Default credentials and secrets |
 | [SEC-0007](SEC-0007-container-hardening.md) | Container hardening |
 | [SEC-0008](SEC-0008-webhook-signing.md) | Webhook signing |
+| [SEC-0009](SEC-0009-integration-tokens.md) | Integration tokens |
 
 ## Before exposing this beyond localhost
 
@@ -33,6 +34,9 @@ The short version of what the records above require:
    an administrative permission: a subscription URL is unconstrained and its
    signing secret is stored in readable form
    ([SEC-0008](SEC-0008-webhook-signing.md#known-gaps)).
+6. Issue integration tokens with their scopes named, and serve the protocol
+   mounts over `https`, since the token travels in a header on every request
+   ([SEC-0009](SEC-0009-integration-tokens.md#known-gaps)).
 
 ## Elsewhere
 

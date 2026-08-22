@@ -23,6 +23,8 @@ Security decisions are recorded separately, in [doc/sec](../sec/README.md).
 | [ADR-0013](ADR-0013-events-as-opentelemetry-records.md) | Record events as OpenTelemetry log records |
 | [ADR-0014](ADR-0014-events-on-transition-not-per-frame.md) | An event marks a transition, never a frame |
 | [ADR-0015](ADR-0015-signed-webhook-delivery.md) | Deliver events over signed, retried webhooks |
+| [ADR-0016](ADR-0016-read-only-protocol-server.md) | Serve observations over a read only protocol server |
+| [ADR-0017](ADR-0017-scoped-tokens-for-machine-clients.md) | Authenticate machine clients with scoped tokens |
 
 ## Elsewhere
 

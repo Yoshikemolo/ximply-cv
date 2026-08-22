@@ -3,6 +3,7 @@
 - **Related**: [FEAT-0001](FEAT-0001-live-detection.md),
   [FEAT-0003](FEAT-0003-person-recognition.md),
   [FEAT-0010](FEAT-0010-accounts-and-access.md),
+  [FEAT-0014](FEAT-0014-integrations.md),
   [ADR-0013](../adr/ADR-0013-events-as-opentelemetry-records.md),
   [ADR-0014](../adr/ADR-0014-events-on-transition-not-per-frame.md),
   [ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md),
@@ -79,7 +80,10 @@ puts the picture on the arrival.
 every active subscription that asked for that type, signed and retried, as
 described in [ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md) and
 [SEC-0008](../sec/SEC-0008-webhook-signing.md). Failures are counted on the
-subscription and an endpoint that keeps failing is switched off.
+subscription and an endpoint that keeps failing is switched off. Subscriptions
+themselves are created and looked after from the Integrations page, described
+in [FEAT-0014](FEAT-0014-integrations.md); this document stays with what is
+raised and how it is delivered.
 
 The whole block is guarded. Anything that raises inside it rolls back the event
 transaction, logs a warning, and lets the detection response return unchanged.
@@ -157,8 +161,12 @@ administrator role. The full request and response shapes are in the
   puts it in the `scene.changed` body, but the detection route does not pass it,
   so `description` is currently always null. Descriptions come from a separate
   request ([FEAT-0007](FEAT-0007-scene-description.md)).
-- **There is no screen for this yet.** The layer is API only: events and
-  subscriptions are managed over HTTP, not from the Angular application.
+- **Subscriptions are managed from the Integrations page.** Registering a
+  client, filtering its event types, testing it, rotating its secret and
+  reading its delivery health all happen there, and that screen is described in
+  [FEAT-0014](FEAT-0014-integrations.md). Events themselves still have no
+  screen: they are read over the API, or through the protocol server
+  ([ADR-0016](../adr/ADR-0016-read-only-protocol-server.md)).
 - **Everything is scoped to the owner.** An event belongs to whoever's camera
   raised it and a subscription to whoever created it, so two users of the same
   instance never see each other's events or deliver to each other's endpoints.

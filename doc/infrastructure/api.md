@@ -8,7 +8,11 @@ token unless stated otherwise.
 - **Base URL**: `/api/v1`
 - **Authentication**: bearer token, see [Authentication](#authentication)
 - **Interactive documentation**: `/api/v1/docs`, and `/api/v1/redoc`
-- **Serialisation**: request and response bodies use camelCase
+- **Serialisation**: responses are camelCase. Most request bodies are too, but
+  the webhook and integration token bodies take their fields in snake_case,
+  because those models are declared without the camelCase alias the rest use.
+  Query parameters are snake_case everywhere, `page_size` rather than
+  `pageSize`, with `type` on the event list the one aliased exception.
 
 Related reading:
 
@@ -25,9 +29,16 @@ Its limits, including the absence of revocation, are recorded in
 
 Permissions follow a `resource:action` pattern and are named per route below.
 The event layer adds two of them: `events:read`, which reads events and their
-captures, and `events:manage`, which prunes events and manages webhook
-subscriptions. Both are seeded like every other permission and granted to the
-administrator role.
+captures, and `events:manage`, which prunes events, manages webhook
+subscriptions and issues integration tokens. Both are seeded like every other
+permission and granted to the administrator role.
+
+A machine client does not use a JWT. The protocol mounts described under
+[Model Context Protocol](#model-context-protocol) are authenticated with an
+integration token instead, a long lived credential bound to one client and one
+set of scopes. Why the two are different, and how a token is handled, is in
+[ADR-0017](../adr/ADR-0017-scoped-tokens-for-machine-clients.md) and
+[SEC-0009](../sec/SEC-0009-integration-tokens.md).
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -235,17 +246,17 @@ Every route is scoped to the authenticated owner, so another user's event is a
 ### List
 
 ```http
-GET /api/v1/events?type=person&since=2026-08-22T18:00:00Z&page=1&pageSize=50
+GET /api/v1/events?type=person&since=2026-08-22T18:00:00Z&page=1&page_size=50
 Authorization: Bearer <token>
 ```
 
 | Parameter | Default | Notes |
 | --- | --- | --- |
 | `page` | `1` | |
-| `pageSize` | `50` | Maximum 200 |
+| `page_size` | `50` | Maximum 200 |
 | `type` | none | A whole type, `person.departed`, or a family, `person` |
 | `since` | none | Events with `occurredAt` after this instant |
-| `subjectId` | none | Events about one catalog entry |
+| `subject_id` | none | Events about one catalog entry |
 
 `since` is the usual way to poll: ask for everything after the last event
 already seen.
@@ -339,7 +350,7 @@ capture, when the stored object is missing, or when it belongs to another owner.
 
 ### Prune
 
-`DELETE /events/prune?olderThanDays=7` deletes events older than the cutoff and
+`DELETE /events/prune?older_than_days=7` deletes events older than the cutoff and
 answers with how many went. Omitting the parameter uses
 `EVENTS_RETENTION_DAYS`. Nothing prunes on a schedule, so a deployment with a
 retention obligation calls this itself.
@@ -371,9 +382,14 @@ Content-Type: application/json
 {
   "name": "Door controller",
   "url": "https://example.internal/hooks/ximply",
-  "eventTypes": ["person"]
+  "event_types": ["person"]
 }
 ```
+
+The request takes `event_types` in snake_case and the response returns
+`eventTypes`, because the request model is declared without the alias the
+response model uses. `PUT /webhooks/{id}` takes the same fields, all optional,
+plus `is_active`.
 
 ```json
 {
@@ -426,6 +442,140 @@ failures is switched off. Re-enabling it through `PUT` clears the count.
 than a real event, updates the subscription's delivery health, and answers with
 a message saying whether it was accepted. It answers `200` either way: a failed
 test is a result, not an error.
+
+### Headers
+
+`GET /webhooks/headers` names the headers a delivery carries and the algorithm
+that signs it, so a receiver can be written without reading the source:
+
+```json
+{
+  "signature": "X-Ximply-Signature",
+  "timestamp": "X-Ximply-Timestamp",
+  "event": "X-Ximply-Event",
+  "delivery": "X-Ximply-Delivery",
+  "algorithm": "HMAC-SHA256 over the timestamp, a full stop, and the raw body"
+}
+```
+
+## Integration tokens
+
+Credentials issued to machine clients, one per client. Every route requires
+`events:manage`. See
+[ADR-0017](../adr/ADR-0017-scoped-tokens-for-machine-clients.md) and
+[SEC-0009](../sec/SEC-0009-integration-tokens.md).
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/integration-tokens` | `events:manage` | List tokens, without their values |
+| POST | `/integration-tokens` | `events:manage` | Issue one and return its value |
+| PUT | `/integration-tokens/{id}` | `events:manage` | Switch one on or off |
+| DELETE | `/integration-tokens/{id}` | `events:manage` | Revoke one permanently |
+
+### Issue
+
+```http
+POST /api/v1/integration-tokens
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Home assistant",
+  "scopes": ["events:read"],
+  "expires_in_days": 365
+}
+```
+
+```json
+{
+  "id": "0699...",
+  "name": "Home assistant",
+  "prefix": "xvt_8Kd2Qa",
+  "scopes": ["events:read"],
+  "isActive": true,
+  "lastUsedAt": null,
+  "expiresAt": "2027-08-22T18:00:00Z",
+  "createdAt": "2026-08-22T18:00:00Z",
+  "token": "xvt_8Kd2Qa..."
+}
+```
+
+As with a webhook secret, the request body is snake_case and the response is
+camelCase. `expires_in_days` is optional, between 1 and 3650; omitting it
+issues a token that lasts until it is revoked.
+
+`token` appears only in this response and is never returned again. What is
+stored is a SHA-256 digest and the ten character `prefix`, which is all the
+list endpoint returns.
+
+`scopes` may name `events:read`, `objects:read` and `events:manage`, and is
+rejected with `403` when it asks for a permission the issuing user does not
+hold. An empty list is not a narrow token but a wide one: every permission
+check then passes.
+
+### Switch off, and revoke
+
+```http
+PUT /api/v1/integration-tokens/{id}?is_active=false
+Authorization: Bearer <token>
+```
+
+`is_active` is a query parameter rather than a body field, and it is the only
+thing this route changes: a token's scopes are fixed when it is issued.
+
+`DELETE /integration-tokens/{id}` removes the record, so the value can never
+resolve again. Both take effect on the next call the client makes, because a
+token is looked up in the database every time it is presented.
+
+## Model Context Protocol
+
+An agent can read what the camera observed instead of waiting to be told. The
+server is mounted outside the versioned API, because it brings its own
+application rather than a set of routes. See
+[ADR-0016](../adr/ADR-0016-read-only-protocol-server.md) and
+[FEAT-0014](../features/FEAT-0014-integrations.md).
+
+| Mount | Transport | Auth |
+| --- | --- | --- |
+| `/mcp` | Streamable HTTP | Bearer integration token |
+| `/mcp/sse` | Server sent events, with messages at `/mcp/sse/messages/` | Bearer integration token |
+
+Both are switched off together by `MCP_ENABLED`, and their paths are set by
+`MCP_PATH` and `MCP_SSE_PATH`. Server sent events is offered for clients
+written before streamable HTTP; the tool set behind the two is the same.
+
+Authentication is a header, checked by a middleware in front of both mounts, so
+a request without a usable token reaches no tool:
+
+```http
+POST /mcp/
+Authorization: Bearer xvt_8Kd2Qa...
+Content-Type: application/json
+Accept: application/json, text/event-stream
+```
+
+A missing, unknown, inactive or expired token is a `401` with a `detail`
+message. The response to a successful `initialize` carries an `mcp-session-id`
+header, which subsequent calls send back.
+
+### Tools
+
+| Tool | Returns | Scope |
+| --- | --- | --- |
+| `list_events` | Events newest first. Optional `event_type`, whole type or family; `since_minutes`; `limit`, at most 200 | `events:read` |
+| `get_current_scene` | The last scene change with its age in seconds, who is present, and the description when one was written | `events:read` |
+| `list_known_subjects` | Catalog entries, people separated from objects. Optional `include_people` | `objects:read` |
+| `export_events_otlp` | The OTLP logs envelope. Optional `since_minutes`, 60 by default, and `limit`, at most 1000 | `events:read` |
+| `get_status` | Acceleration, description model and segmentation status | `events:read` |
+
+`list_events` returns records in the same shape a webhook delivery carries, and
+`export_events_otlp` produces exactly what `GET /events/otlp` produces, from
+the same function. Every tool is filtered by the owner of the token that called
+it, and a tool whose scope the token does not carry is refused rather than
+answered.
+
+No tool writes anything, and none returns an image: a capture stays behind
+`GET /events/{id}/capture` and a user session.
 
 ## Users
 

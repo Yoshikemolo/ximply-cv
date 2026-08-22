@@ -78,6 +78,15 @@ failing is switched off rather than retried forever. A subscription can ask for 
 type or a whole family. The same events can be read back over the API, including an OTLP
 export at `/api/v1/events/otlp`.
 
+**Answers an agent's questions.** A webhook tells a system what happened; it cannot be
+asked anything. So the same observations are also served over a Model Context Protocol
+server, mounted at `/mcp`, where an assistant can ask what happened this morning, who is
+in front of the camera now, which people and objects this instance knows, and whether the
+models are running on the GPU. Every tool reads and none of them writes: an agent
+connected to a camera should not be able to rename a person or empty the catalog because
+of a sentence it was fed. Access is a scoped token issued per client, shown once and
+revocable on its own, not a borrowed user session.
+
 **Runs on your hardware.** Object detection, face recognition and segmentation move onto
 an NVIDIA GPU when there is one, and fall back to the processor when there is not, with
 no flag to set either way. A badge in the header says which is happening.
@@ -102,6 +111,12 @@ the built in webcam, a USB camera, or a capture device.
 - **Events and webhooks**: arrivals, departures and scene changes recorded as
   OpenTelemetry log records, readable over the API and delivered to signed webhook
   subscriptions.
+- **Integrations**: a page for connecting this instance to other systems. Register a
+  webhook client, filter which events it receives, send it a signed test delivery,
+  rotate its secret and watch its delivery health; or issue a scoped token for an agent
+  and copy the configuration for the client you use. Ready to paste receivers for
+  Node.js, NestJS, Python, Java Spring and .NET 9 come with it, each verifying the
+  signature before trusting the body.
 - **i18n and theming**: English and Spanish, dark and light themes.
 
 ## Requirements
@@ -301,7 +316,16 @@ ximply-cv/
 - [API reference](doc/infrastructure/api.md)
 - [Deployment guide](doc/operations/deployment.md)
 
-All API endpoints are versioned under `/api/v1/`.
+The event and integration layer runs across several of those: what is raised and
+delivered in [FEAT-0013](doc/features/FEAT-0013-events-and-webhooks.md), the page that
+manages it in [FEAT-0014](doc/features/FEAT-0014-integrations.md), the decisions behind
+it in [ADR-0013](doc/adr/ADR-0013-events-as-opentelemetry-records.md) through
+[ADR-0017](doc/adr/ADR-0017-scoped-tokens-for-machine-clients.md), and the credential
+handling in [SEC-0008](doc/sec/SEC-0008-webhook-signing.md) and
+[SEC-0009](doc/sec/SEC-0009-integration-tokens.md).
+
+All API endpoints are versioned under `/api/v1/`, apart from the protocol mounts at
+`/mcp` and `/mcp/sse`, which the protocol places at the root.
 
 ## Troubleshooting
 
@@ -324,7 +348,7 @@ images and the downloaded weights.
 
 - **An event stream**, for clients that would rather hold a connection open than receive
   callbacks or poll the event list
-- **An MCP server**, so an assistant can query the catalog and the live view directly
+- **A screen for events**, so what was observed can be browsed without an API client
 
 ## Contributing
 
