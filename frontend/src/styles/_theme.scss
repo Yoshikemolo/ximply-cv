@@ -6,9 +6,12 @@
 @use 'sass:color';
 
 // Brand colors
-$brand-primary: #6366f1;
-$brand-primary-light: #818cf8;
-$brand-primary-dark: #4f46e5;
+// Matched to the sibling Markdown application so the two read as one product.
+// primary is its light theme accent, light is its dark theme accent, which is
+// the variant this project maps onto dark surfaces.
+$brand-primary: #1e66f5;
+$brand-primary-light: #89b4fa;
+$brand-primary-dark: #2a6ef5;
 
 $brand-secondary: #8b5cf6;
 $brand-secondary-light: #a78bfa;
@@ -95,7 +98,7 @@ $color-info-dark: #2563eb;
   --overlay-dark: rgba(0, 0, 0, 0.5);
 
   // Focus ring
-  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.4);
+  --focus-ring: 0 0 0 3px #{rgba($brand-primary, 0.4)};
 
   // Shadows
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -104,8 +107,10 @@ $color-info-dark: #2563eb;
 
   // Accent (used for highlights)
   --accent-color: #{$brand-primary};
-  --accent-alpha-10: rgba(99, 102, 241, 0.1);
-  --accent-alpha-20: rgba(99, 102, 241, 0.2);
+  // Derived from the accent rather than written out, so a change to the brand
+  // colour cannot leave these two tints behind on the previous one.
+  --accent-alpha-10: #{rgba($brand-primary, 0.1)};
+  --accent-alpha-20: #{rgba($brand-primary, 0.2)};
 
   // Scrollbars
   // Translucent rather than a flat colour, so a bar reads as part of whatever
@@ -151,7 +156,7 @@ $color-info-dark: #2563eb;
   --overlay-dark: rgba(0, 0, 0, 0.7);
 
   // Focus ring
-  --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.4);
+  --focus-ring: 0 0 0 3px #{rgba($brand-primary-light, 0.4)};
 
   // Shadows (more subtle in dark mode)
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
@@ -160,8 +165,8 @@ $color-info-dark: #2563eb;
 
   // Accent
   --accent-color: #{$brand-primary-light};
-  --accent-alpha-10: rgba(129, 140, 248, 0.1);
-  --accent-alpha-20: rgba(129, 140, 248, 0.2);
+  --accent-alpha-10: #{rgba($brand-primary-light, 0.1)};
+  --accent-alpha-20: #{rgba($brand-primary-light, 0.2)};
 
   // Scrollbars: light on dark, at the same weight as their light counterparts.
   --scrollbar-track: transparent;

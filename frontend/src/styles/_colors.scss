@@ -4,9 +4,13 @@
  */
 
 // Brand colors
-$brand-primary: #6366f1;
-$brand-primary-light: #818cf8;
-$brand-primary-dark: #4f46e5;
+// Matched to the sibling Markdown application, so the two read as one product.
+// primary is its light theme accent, light is its dark theme accent: this
+// project maps the light variant onto dark surfaces, where a saturated blue
+// would be too heavy.
+$brand-primary: #1e66f5;
+$brand-primary-light: #89b4fa;
+$brand-primary-dark: #2a6ef5;
 
 $brand-secondary: #8b5cf6;
 $brand-secondary-light: #a78bfa;

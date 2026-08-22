@@ -1,31 +1,94 @@
 @use '../../../../styles/variables' as *;
 @use '../../../../styles/mixins' as *;
 
+// Laid out like the footer in the sibling Markdown application: attribution on
+// the left, then the version, then the social links pushed to the right by a
+// spacer. Everything is one row of small muted text.
 .footer {
-  height: $footer-height;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-shrink: 0;
+  padding: 6px 16px;
   background-color: var(--bg-secondary);
   border-top: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  font-size: 12px;
 
-  &__container {
-    @include flex-between;
-    height: 100%;
-    max-width: $content-max-width;
-    margin: 0 auto;
-    padding: 0 $space-4;
-
-    @include breakpoint-up(lg) {
-      padding: 0 $space-8;
-    }
+  @include breakpoint-up(lg) {
+    padding: 6px $space-8;
   }
 
   &__copyright {
-    font-size: $font-size-xs;
-    color: var(--text-tertiary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__version {
-    font-size: $font-size-xs;
-    color: var(--text-tertiary);
+    flex-shrink: 0;
     font-family: $font-family-mono;
+  }
+
+  // Pushes the social links to the far edge without needing space-between,
+  // which would spread the first three items apart from each other.
+  &__spacer {
+    flex: 1;
+  }
+
+  &__link {
+    color: var(--brand-primary);
+    text-decoration: none;
+    transition: color 0.15s;
+
+    &:hover {
+      color: var(--brand-primary-light);
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-radius: 3px;
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  &__socials {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  &__social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    transition: color 0.15s;
+
+    &:hover {
+      color: var(--brand-primary);
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-radius: 3px;
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  // The Ximplicity mark is a filled circle with the glyph cut out of it, so the
+  // cutout has to be painted in the footer's own background rather than left
+  // transparent, or the circle would show through it.
+  &__xim-circle {
+    fill: currentColor;
+    stroke: currentColor;
+    transition: fill 0.15s, stroke 0.15s;
+  }
+
+  &__xim-mark {
+    fill: var(--bg-secondary);
   }
 }
