@@ -15,6 +15,7 @@ Architecture decisions are recorded separately, in [doc/adr](../adr/README.md).
 | [SEC-0005](SEC-0005-consent-and-lawful-basis.md) | Consent and lawful basis |
 | [SEC-0006](SEC-0006-default-credentials-and-secrets.md) | Default credentials and secrets |
 | [SEC-0007](SEC-0007-container-hardening.md) | Container hardening |
+| [SEC-0008](SEC-0008-webhook-signing.md) | Webhook signing |
 
 ## Before exposing this beyond localhost
 
@@ -28,6 +29,10 @@ The short version of what the records above require:
    address ([SEC-0007](SEC-0007-container-hardening.md)).
 4. Decide a lawful basis, a notice and a retention period before any member of
    the public is recorded ([SEC-0005](SEC-0005-consent-and-lawful-basis.md)).
+5. Point webhook subscriptions at `https` endpoints and treat `events:manage` as
+   an administrative permission: a subscription URL is unconstrained and its
+   signing secret is stored in readable form
+   ([SEC-0008](SEC-0008-webhook-signing.md#known-gaps)).
 
 ## Elsewhere
 

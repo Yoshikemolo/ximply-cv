@@ -66,6 +66,18 @@ using the detections as context so it refers to people by the names in your cata
 rewrites itself when the scene changes, keyed on what is present rather than on pixels,
 so moving about leaves it alone while someone walking in does not.
 
+**Tells other systems what it saw.** Every arrival, departure and change of scene is
+recorded as an event and pushed to whoever subscribed to it, so another system can act
+on a person being enrolled or a known object appearing without polling for it. Events are
+raised on a transition and never per frame: a person who walks in and stays for ten
+minutes produces one event, not three thousand. Each one is stored as an OpenTelemetry
+log record, so a collector or log backend reads it with no translation layer, and the
+frame that raised it is kept with it. Deliveries are signed with HMAC-SHA256 using a
+secret unique to each subscription, retried with a backoff, and an endpoint that keeps
+failing is switched off rather than retried forever. A subscription can ask for one event
+type or a whole family. The same events can be read back over the API, including an OTLP
+export at `/api/v1/events/otlp`.
+
 **Runs on your hardware.** Object detection, face recognition and segmentation move onto
 an NVIDIA GPU when there is one, and fall back to the processor when there is not, with
 no flag to set either way. A badge in the header says which is happening.
@@ -87,6 +99,9 @@ the built in webcam, a USB camera, or a capture device.
   duplicates, bulk delete, inline renaming, search and filtering, with People kept in
   their own category.
 - **Admin**: user management with role based access control.
+- **Events and webhooks**: arrivals, departures and scene changes recorded as
+  OpenTelemetry log records, readable over the API and delivered to signed webhook
+  subscriptions.
 - **i18n and theming**: English and Spanish, dark and light themes.
 
 ## Requirements
@@ -307,10 +322,8 @@ images and the downloaded weights.
 
 ## Planned
 
-- **Webhooks** for scene events, so another system can be told when a person is enrolled
-  or a known object appears, without polling
-- **A subscription API** over the same events, for clients that would rather hold a
-  connection open than receive callbacks
+- **An event stream**, for clients that would rather hold a connection open than receive
+  callbacks or poll the event list
 - **An MCP server**, so an assistant can query the catalog and the live view directly
 
 ## Contributing

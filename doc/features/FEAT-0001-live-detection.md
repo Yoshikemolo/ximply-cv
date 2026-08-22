@@ -2,6 +2,7 @@
 
 - **Related**: [FEAT-0002](FEAT-0002-object-catalog.md),
   [FEAT-0009](FEAT-0009-catalog-management.md),
+  [FEAT-0013](FEAT-0013-events-and-webhooks.md),
   [ADR-0005](../adr/ADR-0005-two-confidences.md),
   [ADR-0006](../adr/ADR-0006-class-aware-suppression.md),
   [ADR-0007](../adr/ADR-0007-view-filters-applied-server-side.md),
@@ -49,3 +50,9 @@ into aggregated cards rather than replacing the list outright, described in
 - A detection below the certainty threshold, or with no catalog identity, is
   labelled as a guess rather than stated as fact
   ([ADR-0005](../adr/ADR-0005-two-confidences.md)).
+- The detection loop is also what raises events. Each frame is compared against
+  the last one and only the difference is recorded, so a detection that repeats
+  for ten minutes is one event rather than thousands; see
+  [FEAT-0013](FEAT-0013-events-and-webhooks.md) and
+  [ADR-0014](../adr/ADR-0014-events-on-transition-not-per-frame.md). A failure
+  anywhere in that work is logged and never changes the detection response.

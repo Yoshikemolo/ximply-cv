@@ -20,6 +20,9 @@ Security decisions are recorded separately, in [doc/sec](../sec/README.md).
 | [ADR-0010](ADR-0010-local-vision-language-model.md) | Describe scenes with a local vision language model |
 | [ADR-0011](ADR-0011-cache-model-weights-in-volumes.md) | Cache model weights in named volumes |
 | [ADR-0012](ADR-0012-automatic-enrolment-of-unknown-people.md) | Enrol an unknown person automatically |
+| [ADR-0013](ADR-0013-events-as-opentelemetry-records.md) | Record events as OpenTelemetry log records |
+| [ADR-0014](ADR-0014-events-on-transition-not-per-frame.md) | An event marks a transition, never a frame |
+| [ADR-0015](ADR-0015-signed-webhook-delivery.md) | Deliver events over signed, retried webhooks |
 
 ## Elsewhere
 

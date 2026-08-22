@@ -17,6 +17,7 @@ interfaces involved, and the behaviour worth knowing before changing it.
 | [FEAT-0010](FEAT-0010-accounts-and-access.md) | Accounts and access control |
 | [FEAT-0011](FEAT-0011-hardware-acceleration.md) | Hardware acceleration |
 | [FEAT-0012](FEAT-0012-interface-and-localisation.md) | Interface and localisation |
+| [FEAT-0013](FEAT-0013-events-and-webhooks.md) | Events and webhooks |
 
 ## Elsewhere
 

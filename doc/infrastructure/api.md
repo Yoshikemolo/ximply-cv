@@ -23,6 +23,12 @@ the resolved permission list, so authorization needs no database round trip.
 Its limits, including the absence of revocation, are recorded in
 [SEC-0002](../sec/SEC-0002-authentication-and-authorization.md#known-gaps).
 
+Permissions follow a `resource:action` pattern and are named per route below.
+The event layer adds two of them: `events:read`, which reads events and their
+captures, and `events:manage`, which prunes events and manages webhook
+subscriptions. Both are seeded like every other permission and granted to the
+administrator role.
+
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | POST | `/auth/login` | No | Exchange credentials for tokens |
@@ -206,6 +212,220 @@ tell a person from an object without a request per row.
 decision with a real cost, recorded in
 [SEC-0003](../sec/SEC-0003-object-storage-exposure.md), and it must be changed
 before exposing the stack beyond localhost.
+
+## Events
+
+What the camera observed, recorded on a transition rather than per frame. See
+[FEAT-0013](../features/FEAT-0013-events-and-webhooks.md),
+[ADR-0013](../adr/ADR-0013-events-as-opentelemetry-records.md) and
+[ADR-0014](../adr/ADR-0014-events-on-transition-not-per-frame.md).
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/events` | `events:read` | List, newest first, paginated |
+| GET | `/events/otlp` | `events:read` | Export in the OTLP logs envelope |
+| GET | `/events/types` | `events:read` | The types this instance can raise |
+| GET | `/events/{id}` | `events:read` | Read one |
+| GET | `/events/{id}/capture` | `events:read` | The frame that produced it |
+| DELETE | `/events/prune` | `events:manage` | Delete events older than a cutoff |
+
+Every route is scoped to the authenticated owner, so another user's event is a
+`404` rather than a `403`.
+
+### List
+
+```http
+GET /api/v1/events?type=person&since=2026-08-22T18:00:00Z&page=1&pageSize=50
+Authorization: Bearer <token>
+```
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `page` | `1` | |
+| `pageSize` | `50` | Maximum 200 |
+| `type` | none | A whole type, `person.departed`, or a family, `person` |
+| `since` | none | Events with `occurredAt` after this instant |
+| `subjectId` | none | Events about one catalog entry |
+
+`since` is the usual way to poll: ask for everything after the last event
+already seen.
+
+The response is the paginated envelope, `items`, `total`, `page`, `pageSize` and
+`totalPages`. One item is an OpenTelemetry log record, so the field names are the
+ones the specification uses:
+
+```json
+{
+  "id": "0699...",
+  "eventName": "person.recognised",
+  "timestampNanos": 1755885851123456789,
+  "observedTimestampNanos": 1755885851123456789,
+  "traceId": null,
+  "spanId": null,
+  "severityNumber": 9,
+  "severityText": "INFO",
+  "body": {
+    "type": "person.recognised",
+    "subject": {
+      "id": "0699...",
+      "name": "Jorge",
+      "class": "person",
+      "confidence": 0.9812
+    },
+    "camera": "front-door",
+    "occurredAt": "2026-08-22T18:04:11+00:00"
+  },
+  "attributes": {
+    "event.name": "person.recognised",
+    "ximply.owner.id": "0699...",
+    "ximply.subject.id": "0699...",
+    "ximply.subject.name": "Jorge",
+    "ximply.subject.confidence": 0.9812,
+    "ximply.camera.id": "front-door"
+  },
+  "resource": {
+    "service.name": "XIMPLY Vision",
+    "service.version": "1.0.0",
+    "service.namespace": "ximply"
+  },
+  "scopeName": "app.services.event_service",
+  "scopeVersion": "1.0.0",
+  "subjectId": "0699...",
+  "subjectName": "Jorge",
+  "confidence": 0.9812,
+  "cameraId": "front-door",
+  "capturePath": "events/0699.../0699....jpg",
+  "captureUrl": "/api/v1/events/0699.../capture",
+  "occurredAt": "2026-08-22T18:04:11Z"
+}
+```
+
+`attributes` is the source of truth. The flat fields after `scopeVersion` are
+projections of it, offered because reading a dotted key out of a map is tedious
+for a client that only wants the subject. `traceId` and `spanId` are part of the
+record shape and are currently never populated; see
+[ADR-0013](../adr/ADR-0013-events-as-opentelemetry-records.md).
+
+### Types
+
+```json
+{
+  "types": [
+    "person.enrolled",
+    "person.recognised",
+    "person.departed",
+    "object.recognised",
+    "scene.changed"
+  ],
+  "families": ["object", "person", "scene"]
+}
+```
+
+### OTLP export
+
+`GET /events/otlp` takes an optional `since` and a `limit`, 500 by default and
+5000 at most. It returns `resourceLogs`, grouped by resource and by
+instrumentation scope, with values wrapped in the OTLP `AnyValue` shape, so the
+result can be posted to a collector without a translation step.
+
+### Capture
+
+`GET /events/{id}/capture` streams the JPEG frame that produced the event, and
+requires `events:read`. This is deliberately unlike the catalog image proxy at
+`/objects/files/{path}`, which requires no authentication
+([SEC-0003](../sec/SEC-0003-object-storage-exposure.md)): an event capture is a
+photograph of whoever was in front of the camera. `404` when the event has no
+capture, when the stored object is missing, or when it belongs to another owner.
+
+### Prune
+
+`DELETE /events/prune?olderThanDays=7` deletes events older than the cutoff and
+answers with how many went. Omitting the parameter uses
+`EVENTS_RETENTION_DAYS`. Nothing prunes on a schedule, so a deployment with a
+retention obligation calls this itself.
+
+## Webhooks
+
+Subscriptions that receive events as they are raised. Every route requires
+`events:manage`. See
+[ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md) and
+[SEC-0008](../sec/SEC-0008-webhook-signing.md).
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/webhooks` | `events:manage` | List subscriptions |
+| POST | `/webhooks` | `events:manage` | Create one and generate its secret |
+| PUT | `/webhooks/{id}` | `events:manage` | Update, including enable and disable |
+| POST | `/webhooks/{id}/rotate` | `events:manage` | Replace the secret |
+| POST | `/webhooks/{id}/test` | `events:manage` | Send a signed test delivery |
+| DELETE | `/webhooks/{id}` | `events:manage` | Remove one |
+| GET | `/webhooks/headers` | `events:manage` | The headers a delivery carries |
+
+### Create
+
+```http
+POST /api/v1/webhooks
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Door controller",
+  "url": "https://example.internal/hooks/ximply",
+  "eventTypes": ["person"]
+}
+```
+
+```json
+{
+  "id": "0699...",
+  "name": "Door controller",
+  "url": "https://example.internal/hooks/ximply",
+  "eventTypes": ["person"],
+  "isActive": true,
+  "lastDeliveryAt": null,
+  "lastStatus": null,
+  "lastError": null,
+  "failureCount": 0,
+  "createdAt": "2026-08-22T18:00:00Z",
+  "secret": "9f2c..."
+}
+```
+
+An empty `eventTypes` means every type. An entry may be a whole type or a
+family, so `person` delivers every person event including ones added in a later
+version. An unknown entry is a `422`.
+
+`secret` appears only here and in the rotate response. It is never returned
+again, so it has to be copied now or rotated later.
+
+### Delivery
+
+A delivery is a `POST` of the whole log record, with these headers:
+
+| Header | Value |
+| --- | --- |
+| `X-Ximply-Signature` | `sha256=` followed by the hex HMAC |
+| `X-Ximply-Timestamp` | Unix seconds at which it was signed |
+| `X-Ximply-Event` | The event type |
+| `X-Ximply-Delivery` | The delivery id, which is the event id, for deduplication |
+
+The signature is HMAC-SHA256 over the timestamp, a full stop, and the exact
+bytes of the body, keyed with the subscription secret. How to verify it, and why
+it is built that way, is in
+[SEC-0008](../sec/SEC-0008-webhook-signing.md#verifying-a-delivery).
+
+Non 2xx responses and transport errors are retried up to
+`WEBHOOK_MAX_ATTEMPTS` times with a backoff between attempts. The outcome is
+recorded on the subscription as `lastStatus`, `lastError` and `failureCount`,
+and a subscription reaching `WEBHOOK_DISABLE_AFTER_FAILURES` consecutive
+failures is switched off. Re-enabling it through `PUT` clears the count.
+
+### Test
+
+`POST /webhooks/{id}/test` sends a signed delivery with a small test body rather
+than a real event, updates the subscription's delivery health, and answers with
+a message saying whether it was accepted. It answers `200` either way: a failed
+test is a result, not an error.
 
 ## Users
 

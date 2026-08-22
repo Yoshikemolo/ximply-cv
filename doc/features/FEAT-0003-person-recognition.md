@@ -1,6 +1,7 @@
 # FEAT-0003: Recognising people
 
 - **Related**: [FEAT-0009](FEAT-0009-catalog-management.md),
+  [FEAT-0013](FEAT-0013-events-and-webhooks.md),
   [ADR-0002](../adr/ADR-0002-people-as-catalog-entries.md),
   [ADR-0003](../adr/ADR-0003-dual-embedding-person-reidentification.md),
   [ADR-0012](../adr/ADR-0012-automatic-enrolment-of-unknown-people.md),
@@ -54,3 +55,8 @@ Enrolment and the portrait are described in
 - What is stored, and what that obliges the operator to do, is in
   [SEC-0004](../sec/SEC-0004-biometric-data.md) and
   [SEC-0005](../sec/SEC-0005-consent-and-lawful-basis.md).
+- Enrolment and recognition are what raise `person.enrolled` and
+  `person.recognised`, and a person leaving view raises `person.departed` once
+  the absence grace period has passed. The event carries the name, the
+  confidence and the frame it came from, and can be delivered to a webhook; see
+  [FEAT-0013](FEAT-0013-events-and-webhooks.md).
