@@ -6,7 +6,7 @@
 
   @if (saveSuccess()) {
     <div class="success-banner">
-      <span>✅</span>
+      <span class="icon-mask icon-mask--check icon-mask--sm"></span>
       {{ 'admin.settings.saveSuccess' | translate }}
     </div>
   }
@@ -28,7 +28,7 @@
             [class.selected]="currentTheme() === 'light'"
             (click)="onThemeChange('light')"
           >
-            <span class="icon">☀️</span>
+            <span class="icon-mask icon-mask--sun"></span>
             <span>{{ 'admin.settings.appearance.light' | translate }}</span>
           </button>
           <button
@@ -36,7 +36,7 @@
             [class.selected]="currentTheme() === 'dark'"
             (click)="onThemeChange('dark')"
           >
-            <span class="icon">🌙</span>
+            <span class="icon-mask icon-mask--moon"></span>
             <span>{{ 'admin.settings.appearance.dark' | translate }}</span>
           </button>
           <button
@@ -44,7 +44,7 @@
             [class.selected]="currentTheme() === 'system'"
             (click)="onThemeChange('system')"
           >
-            <span class="icon">💻</span>
+            <span class="icon-mask icon-mask--desktop"></span>
             <span>{{ 'admin.settings.appearance.system' | translate }}</span>
           </button>
         </div>

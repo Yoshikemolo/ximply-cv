@@ -12,7 +12,7 @@
 
   <!-- Search -->
   <div class="search-box">
-    <span class="search-icon">🔍</span>
+    <span class="icon-mask icon-mask--zoom search-icon"></span>
     <input
       type="text"
       [placeholder]="'admin.users.searchPlaceholder' | translate"
@@ -67,13 +67,15 @@
               </td>
               <td class="actions">
                 <button class="icon-btn" (click)="openEditUser(user)" title="Edit">
-                  ✏️
+                  <span class="icon-mask icon-mask--pencil icon-mask--sm"></span>
                 </button>
                 <button class="icon-btn" (click)="toggleUserStatus(user)" [title]="user.isActive ? 'Deactivate' : 'Activate'">
-                  {{ user.isActive ? '🔒' : '🔓' }}
+                  <span class="icon-mask icon-mask--sm"
+                        [class.icon-mask--lock]="user.isActive"
+                        [class.icon-mask--unlock]="!user.isActive"></span>
                 </button>
                 <button class="icon-btn danger" (click)="confirmDelete(user)" title="Delete">
-                  🗑️
+                  <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
                 </button>
               </td>
             </tr>
@@ -93,7 +95,9 @@
   @if (showUserModal()) {
     <div class="modal-overlay" (click)="closeUserModal()">
       <div class="modal-content" (click)="$event.stopPropagation()">
-        <button class="modal-close" (click)="closeUserModal()">×</button>
+        <button class="modal-close" (click)="closeUserModal()">
+          <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+        </button>
 
         <h2>{{ (editingUser() ? 'admin.users.editUser' : 'admin.users.addUser') | translate }}</h2>
 
@@ -153,7 +157,9 @@
   @if (showDeleteModal()) {
     <div class="modal-overlay" (click)="cancelDelete()">
       <div class="modal-content modal-small" (click)="$event.stopPropagation()">
-        <div class="modal-icon danger">⚠️</div>
+        <div class="modal-icon danger">
+          <span class="icon-mask icon-mask--warning icon-mask--xl"></span>
+        </div>
         <h2>{{ 'admin.users.delete.title' | translate }}</h2>
         <p>{{ 'admin.users.delete.message' | translate: { name: userToDelete()?.name } }}</p>
 

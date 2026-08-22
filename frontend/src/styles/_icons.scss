@@ -180,6 +180,26 @@
     -webkit-mask-image: url('/assets/icons/sun.svg');
   }
 
+  &--users {
+    mask-image: url('/assets/icons/users.svg');
+    -webkit-mask-image: url('/assets/icons/users.svg');
+  }
+
+  &--desktop {
+    mask-image: url('/assets/icons/desktop.svg');
+    -webkit-mask-image: url('/assets/icons/desktop.svg');
+  }
+
+  &--pencil {
+    mask-image: url('/assets/icons/pencil.svg');
+    -webkit-mask-image: url('/assets/icons/pencil.svg');
+  }
+
+  &--unlock {
+    mask-image: url('/assets/icons/unlock.svg');
+    -webkit-mask-image: url('/assets/icons/unlock.svg');
+  }
+
   &--moon {
     mask-image: url('/assets/icons/moon.svg');
     -webkit-mask-image: url('/assets/icons/moon.svg');

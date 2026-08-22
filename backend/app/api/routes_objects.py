@@ -227,8 +227,8 @@ async def update_object(
     Update a catalog object.
 
     When status changes, the feature cache is updated:
-    - active → inactive: features removed from cache
-    - inactive → active: features loaded into cache
+    - active -> inactive: features removed from cache
+    - inactive -> active: features loaded into cache
 
     Args:
         object_id: Object UUID.
