@@ -56,7 +56,7 @@
         }
       </div>
 
-      @if (isStreaming() && !descriptionUnavailable()) {
+      @if (isStreaming()) {
         <div class="scene-description">
           <div class="scene-description__header">
             <h3>{{ 'view.description.title' | translate }}</h3>
@@ -72,16 +72,25 @@
             </button>
           </div>
 
-          @if (sceneDescription(); as text) {
-            <p class="scene-description__text" [class.is-stale]="isDescribing()">{{ text }}</p>
-          } @else if (isDescribing()) {
-            <p class="scene-description__placeholder">
-              {{ 'view.description.thinking' | translate }}
+          @if (descriptionUnavailable()) {
+            <p class="scene-description__placeholder scene-description__placeholder--error">
+              {{ 'view.description.unavailable' | translate }}
+              @if (descriptionError(); as reason) {
+                <span class="scene-description__reason">{{ reason }}</span>
+              }
             </p>
           } @else {
-            <p class="scene-description__placeholder">
-              {{ 'view.description.waiting' | translate }}
-            </p>
+            @if (sceneDescription(); as text) {
+              <p class="scene-description__text" [class.is-stale]="isDescribing()">{{ text }}</p>
+            } @else if (isDescribing()) {
+              <p class="scene-description__placeholder">
+                {{ 'view.description.thinking' | translate }}
+              </p>
+            } @else {
+              <p class="scene-description__placeholder">
+                {{ 'view.description.waiting' | translate }}
+              </p>
+            }
           }
 
           @if (isDescribing() && sceneDescription()) {

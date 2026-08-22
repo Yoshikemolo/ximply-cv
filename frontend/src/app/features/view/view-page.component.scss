@@ -1289,6 +1289,21 @@
     color: var(--text-secondary);
     font-size: 0.875rem;
     font-style: italic;
+
+    &--error {
+      color: var(--color-error, #ef4444);
+      font-style: normal;
+    }
+  }
+
+  &__reason {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    font-style: normal;
+    word-break: break-word;
   }
 
   &__spinner {

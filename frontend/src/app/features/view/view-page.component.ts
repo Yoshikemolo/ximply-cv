@@ -145,6 +145,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   sceneDescription = signal<string | null>(null);
   isDescribing = signal(false);
   descriptionUnavailable = signal(false);
+  descriptionError = signal<string | null>(null);
 
   /**
    * Fingerprint of the last scene that was described.
@@ -407,6 +408,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.skeletons.set([]);
     this.sceneDescription.set(null);
     this.describedScene = '';
+    this.descriptionUnavailable.set(false);
+    this.descriptionError.set(null);
     this.fps.set(0);
     this.isDetecting = false;
   }
@@ -927,6 +930,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     if (!signature || signature === this.describedScene) {
       return;
     }
+    // describedScene starts empty, so the first frame carrying anything at all
+    // produces a description rather than waiting for a change from nothing.
     if (Date.now() < this.descriptionCooldownUntil) {
       return;
     }
@@ -959,9 +964,14 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     this.detectionService.describeScene(frame, context).subscribe({
       next: (response) => {
-        if (!response.available) {
-          this.descriptionUnavailable.set(true);
-        } else if (response.description) {
+        // A refusal is reported in place rather than by hiding the panel. The
+        // model can be unavailable for a reason the user can act on, and a
+        // panel that vanishes on the first failure never comes back for the
+        // rest of the session, which is how this looked like it was missing.
+        this.descriptionUnavailable.set(!response.available);
+        this.descriptionError.set(response.status?.error ?? null);
+
+        if (response.description) {
           this.sceneDescription.set(response.description);
           this.describedScene = signature;
         }
@@ -969,6 +979,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.warn('Scene description failed:', err);
+        this.descriptionError.set(err?.error?.detail ?? null);
         this.isDescribing.set(false);
       },
     });
