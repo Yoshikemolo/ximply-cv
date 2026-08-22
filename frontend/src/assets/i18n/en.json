@@ -75,7 +75,8 @@
         "threshold": ">Threshold",
         "humans": "Humans",
         "objects": "Objects"
-      }
+      },
+      "count": "detections"
     },
     "noDetections": "No objects detected yet",
     "noCustomDetections": "No trained objects recognized",

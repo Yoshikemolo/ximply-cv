@@ -75,7 +75,8 @@
         "threshold": ">Umbral",
         "humans": "Humanos",
         "objects": "Objetos"
-      }
+      },
+      "count": "detecciones"
     },
     "noDetections": "Aún no se han detectado objetos",
     "noCustomDetections": "No se reconocen objetos entrenados",

@@ -81,7 +81,13 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   selectedCamera = signal<string>('');
   availableCameras = signal<MediaDeviceInfo[]>([]);
   errorMessage = signal<string | null>(null);
-  confidenceThreshold = signal(0.3);
+  /**
+   * Minimum detector confidence for a box to be reported.
+   *
+   * At 0.6 the list is what the model is reasonably sure of. Lower it to see
+   * what it is guessing at; those arrive labelled as guesses either way.
+   */
+  confidenceThreshold = signal(0.6);
   fps = signal(0);
 
   // Toggle to show only custom (matched) objects
@@ -91,12 +97,13 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   /**
    * Whether people are detected and shown.
    *
-   * Off by default: when someone holds an object up to the camera, the person
-   * box wraps the thing they are showing and the list fills with the holder
-   * rather than the held. The toggle reads as what it enables, so active means
-   * people are visible.
+   * On by default. Recognising people is one of the things this application is
+   * for, so hiding them out of the box meant the feature had to be discovered
+   * before it could be used. Turn it off when holding an object up to the
+   * camera: the person box wraps whatever is being shown, and the list fills
+   * with the holder rather than the held.
    */
-  showPersonDetections = signal(false);
+  showPersonDetections = signal(true);
 
   /**
    * Whether the body and hand wireframes are extracted and drawn.
@@ -118,8 +125,13 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    * a replacement for detection: Segment Anything has no idea what it is
    * looking at, so labels, catalog matches and person identities keep coming
    * from the detector either way.
+   *
+   * Silhouettes are the default. They cost around 70 ms a frame more than plain
+   * rectangles, which is affordable on an accelerator and is the difference
+   * between seeing the shape of a thing and seeing a box near it. Switch to
+   * YOLO on a machine without one.
    */
-  detectionModel = signal<'yolo' | 'sam'>('yolo');
+  detectionModel = signal<'yolo' | 'sam'>('sam');
 
   /**
    * How narrow a silhouette to accept, from 0 for the widest to 1 for the
@@ -130,7 +142,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    * chooses among them, which is what stops a silhouette swallowing whatever
    * the subject is sitting on.
    */
-  segmentationTightness = signal(0.5);
+  segmentationTightness = signal(0.6);
 
   /**
    * Whether other detections inside a box are marked as background.

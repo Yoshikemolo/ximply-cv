@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     # A box prompt is ambiguous: the rectangle around a person also holds the
     # chair behind them. Tightness picks among the granularity levels the model
     # offers, 0 keeping the widest reading and 1 the narrowest.
-    segmentation_tightness: float = 0.5
+    segmentation_tightness: float = 0.6
     # A mask covering more of its box than this has escaped onto the background.
     segmentation_max_coverage: float = 0.92
     # Feed the centres of other detections back as negative points, so the
