@@ -115,17 +115,25 @@ class Settings(BaseSettings):
     person_category_name: str = "People"
     person_name_prefix: str = "Person"
 
-    # Skeleton overlay
-    # Body keypoints follow the COCO 17 point layout, which is what every YOLO
-    # pose model emits and the format the skeleton edges below are defined for.
-    # Hand landmarks follow the 21 point MediaPipe layout.
+    # Skeleton and mesh overlay
+    # Bodies use the 33 point BlazePose layout, hands the 21 point layout and
+    # faces the 478 point mesh, all of them from the MediaPipe Tasks API. Edge
+    # lists come from the official connection constants rather than being
+    # hardcoded, so the drawing cannot drift from the points.
     pose_enabled: bool = True
-    pose_model: str = "yolo11n-pose"
+    pose_max_people: int = 4
     pose_confidence_threshold: float = 0.5
     pose_keypoint_threshold: float = 0.5
     hands_enabled: bool = True
     hands_max_number: int = 4
-    hands_confidence_threshold: float = 0.5
+    hands_confidence_threshold: float = 0.4
+    face_mesh_enabled: bool = True
+    face_mesh_max_faces: int = 4
+    face_mesh_confidence_threshold: float = 0.4
+    # "contours" draws the silhouette of each feature with about a hundred
+    # edges. "tesselation" draws the full low polygon mesh with a few thousand,
+    # which is the 3D surface rather than an outline, at a real bandwidth cost.
+    face_mesh_mode: str = "contours"
 
     # Detection display
     # Below this confidence a detection is reported as a guess, not a fact.

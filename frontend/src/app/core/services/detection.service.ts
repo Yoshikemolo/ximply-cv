@@ -47,6 +47,8 @@ export interface SkeletonKeypoint {
   name: string;
   x: number;
   y: number;
+  /** Depth relative to the subject, for shading the mesh instead of drawing it flat. */
+  z?: number;
   score: number;
 }
 
@@ -60,12 +62,14 @@ export interface SkeletonEdge {
 /**
  * A wireframe over one body or one hand.
  *
- * Bodies use the COCO 17 keypoint layout and hands the 21 landmark MediaPipe
- * layout. The edges arrive with the skeleton, so drawing never needs to know
- * which layout it is looking at.
+ * Bodies use the 33 point BlazePose layout, hands the 21 landmark layout and
+ * faces the 478 point mesh. The edges arrive with the skeleton, so drawing
+ * never needs to know which layout it is looking at. They are sent once per
+ * kind per frame, since the face mesh runs to thousands of edges that never
+ * change, so the client caches the last set it saw for each kind.
  */
 export interface SkeletonResult {
-  kind: 'body' | 'hand';
+  kind: 'body' | 'hand' | 'face';
   label?: string;
   score: number;
   bbox: BoundingBox;

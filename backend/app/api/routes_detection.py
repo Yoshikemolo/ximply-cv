@@ -759,8 +759,14 @@ async def detect_objects(
                     skeletons = [s for s in skeletons if s.kind != "body"]
                 processing_time += pose_time
 
+                # The edge list of a kind never changes and the face mesh runs to
+                # thousands of edges, so it is sent once per kind per frame and
+                # the client reuses it for the rest.
+                edges_sent = set()
                 for skeleton in skeletons:
-                    payload = skeleton.to_dict()
+                    include_edges = skeleton.kind not in edges_sent
+                    edges_sent.add(skeleton.kind)
+                    payload = skeleton.to_dict(include_edges=include_edges)
                     skeleton_results.append(
                         SkeletonResult(
                             kind=payload["kind"],

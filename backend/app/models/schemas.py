@@ -417,11 +417,14 @@ class BarcodeResult(CamelCaseModel):
 
 
 class SkeletonKeypoint(CamelCaseModel):
-    """One joint of a skeleton, in pixel coordinates of the frame."""
+    """One landmark, in pixel coordinates of the frame."""
 
     name: str
     x: float
     y: float
+    # Depth relative to the subject, as the landmark models report it. Kept so
+    # the client can shade the mesh by depth rather than drawing it flat.
+    z: float = 0.0
     score: float
 
 
@@ -437,9 +440,10 @@ class SkeletonResult(CamelCaseModel):
     """
     A wireframe over one body or one hand.
 
-    Bodies use the COCO 17 keypoint layout and hands the 21 landmark MediaPipe
-    layout. The edges travel with the skeleton so the client can draw it
-    without hardcoding either convention.
+    Bodies use the 33 point BlazePose layout, hands the 21 landmark layout and
+    faces the 478 point mesh. The edges travel with the skeleton so the client
+    can draw it without hardcoding any of those conventions, and are sent once
+    per kind per frame because they never change.
     """
 
     kind: str

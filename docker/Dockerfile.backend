@@ -47,6 +47,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     libzbar0 \
+    # The MediaPipe tasks runtime links against EGL and GLES even when it runs
+    # on CPU, and refuses to create a landmarker without them.
+    libegl1 \
+    libgles2 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -60,8 +64,13 @@ COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./
 
 # Create directories
-RUN mkdir -p /app/storage /app/models/weights && \
-    chown -R appuser:appgroup /app
+# The model caches are named volumes at runtime. Docker seeds a fresh volume
+# from the image, ownership included, so these must exist and belong to appuser
+# here, or the container is handed a root owned directory it cannot write and
+# every model download fails with a permission error.
+RUN mkdir -p /app/storage /app/models/weights \
+        /home/appuser/.insightface /home/appuser/.cache && \
+    chown -R appuser:appgroup /app /home/appuser
 
 # Switch to non-root user
 USER appuser

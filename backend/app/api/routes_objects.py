@@ -303,7 +303,16 @@ async def rename_object(
 
     obj.name = new_name
     await db.commit()
-    await db.refresh(obj, ["images"])
+
+    # commit() expires every attribute. Re-reading the row eagerly is what keeps
+    # serialisation from lazy loading inside the sync validator, which cannot
+    # await and fails with MissingGreenlet.
+    refreshed = await db.execute(
+        select(ObjectEntity)
+        .options(selectinload(ObjectEntity.images))
+        .where(ObjectEntity.id == object_id)
+    )
+    obj = refreshed.scalar_one()
 
     # Both caches key their labels by name, so they would keep announcing the
     # old one until the next reload if they were not updated here.
