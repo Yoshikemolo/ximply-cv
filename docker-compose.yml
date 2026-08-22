@@ -72,6 +72,9 @@ services:
     volumes:
       - backend-storage:/app/storage
       - model-weights:/app/models/weights
+      # The face models are a 275 MB download on first use. Without this the
+      # stack would fetch them again on every container recreate.
+      - face-models:/home/appuser/.insightface
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -104,7 +107,7 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -124,6 +127,8 @@ volumes:
     name: ximply-vision-storage
   model-weights:
     name: ximply-vision-models
+  face-models:
+    name: ximply-vision-face-models
 
 # ==============================================================================
 # Networks
