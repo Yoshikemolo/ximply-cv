@@ -9,22 +9,20 @@ services:
   # ----------------------------------------------------------------------------
   db:
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: devpassword
-      POSTGRES_DB: ximply_vision_dev
+      - "${DB_PORT:-5432}:5432"
+    # Credentials come from the base file and .env. POSTGRES_PASSWORD only takes
+    # effect when the data volume is first initialised, so hardcoding a different
+    # password here would silently break every later start.
 
   # ----------------------------------------------------------------------------
   # MinIO - Development
   # ----------------------------------------------------------------------------
   minio:
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: devadmin
-      MINIO_ROOT_PASSWORD: devpassword
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    # Credentials come from the base file and .env, so the backend and the
+    # console always agree with the stored objects.
 
   # ----------------------------------------------------------------------------
   # Backend - Development
@@ -35,19 +33,15 @@ services:
       dockerfile: docker/Dockerfile.backend
     environment:
       DEBUG: "true"
-      USE_MOCK_SERVICES: "true"
-      DATABASE_URL: postgresql+asyncpg://postgres:devpassword@db:5432/ximply_vision_dev
-      MINIO_ACCESS_KEY: devadmin
-      MINIO_SECRET_KEY: devpassword
       JWT_SECRET_KEY: dev-secret-key-not-for-production
-      CORS_ORIGINS: '["http://localhost:4200", "http://127.0.0.1:4200"]'
+      CORS_ORIGINS: '["http://localhost:${FRONTEND_PORT:-4200}", "http://127.0.0.1:${FRONTEND_PORT:-4200}"]'
     volumes:
       # Mount source code for hot reload
       - ./backend/app:/app/app:ro
       - backend-storage:/app/storage
       - model-weights:/app/models/weights
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   # ----------------------------------------------------------------------------
@@ -60,4 +54,4 @@ services:
       args:
         BUILD_CONFIGURATION: development
     ports:
-      - "4200:80"
+      - "${FRONTEND_PORT:-4200}:80"
