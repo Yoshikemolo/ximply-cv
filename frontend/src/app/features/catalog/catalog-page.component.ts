@@ -47,6 +47,7 @@ export class CatalogPageComponent implements OnInit {
   selectedObjects = signal<Set<string>>(new Set());
   showMergeModal = signal(false);
   isMerging = signal(false);
+  showDeleteSelectedModal = signal(false);
 
   // Computed: array of selected objects for the merge modal
   selectedObjectsList = computed(() => {
@@ -122,6 +123,77 @@ export class CatalogPageComponent implements OnInit {
         console.error('Rename failed:', err);
       },
     });
+  }
+
+  /**
+   * Ask before removing every selected entry.
+   */
+  confirmDeleteSelected(): void {
+    if (this.selectedObjects().size === 0) {
+      return;
+    }
+    this.showDeleteSelectedModal.set(true);
+  }
+
+  cancelDeleteSelected(): void {
+    this.showDeleteSelectedModal.set(false);
+  }
+
+  /**
+   * Delete every selected entry.
+   *
+   * Deletions are issued one by one and the outcome of each is tracked, because
+   * a partial failure must not leave the list claiming entries are gone when
+   * they are still there. Whatever actually succeeded is removed locally and
+   * the rest stay selected so the user can retry.
+   */
+  deleteSelected(): void {
+    const ids = Array.from(this.selectedObjects());
+    if (ids.length === 0) {
+      return;
+    }
+
+    this.isDeleting.set(true);
+
+    const deleted: string[] = [];
+    const failed: string[] = [];
+    let pending = ids.length;
+
+    const settle = (): void => {
+      if (--pending > 0) {
+        return;
+      }
+
+      if (deleted.length) {
+        const gone = new Set(deleted);
+        this.allObjects.update((objects) => objects.filter((obj) => !gone.has(obj.id)));
+        this.applyFilters();
+      }
+
+      this.selectedObjects.set(new Set(failed));
+      this.isDeleting.set(false);
+      this.showDeleteSelectedModal.set(false);
+
+      if (failed.length) {
+        console.error(`${failed.length} of ${ids.length} objects could not be deleted`);
+      } else {
+        this.isSelectMode.set(false);
+      }
+    };
+
+    for (const id of ids) {
+      this.objectsService.deleteObject(id).subscribe({
+        next: () => {
+          deleted.push(id);
+          settle();
+        },
+        error: (err) => {
+          console.error(`Failed to delete ${id}:`, err);
+          failed.push(id);
+          settle();
+        },
+      });
+    }
   }
 
   onSearchChange(event: Event): void {

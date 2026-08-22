@@ -823,15 +823,20 @@
 
 // Collapsing the controls hands the whole column to the detections list, which
 // is the point of View All. The card keeps its heading so it can be reopened.
+// Collapsed, only the header survives. It has to: the header carries the
+// control that expands the panel again, so hiding it would strand the user with
+// no way back.
 .control-card--collapsed {
-  > *:not(h3) {
+  flex: 0 0 auto;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+
+  > *:not(.panel-header) {
     display: none;
   }
 
-  h3 {
+  .panel-header {
     margin-bottom: 0;
-    cursor: default;
-    opacity: 0.6;
   }
 }
 

@@ -816,3 +816,25 @@
   display: inline-block;
   margin-right: 0.5rem;
 }
+
+// Naming what is about to be deleted turns a count into a decision the user can
+// actually check before confirming.
+.delete-selected-list {
+  max-height: 160px;
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  overflow-y: auto;
+  list-style: none;
+  text-align: left;
+
+  li {
+    padding: 2px 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

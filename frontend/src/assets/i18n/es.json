@@ -271,7 +271,13 @@
       "sourcesLabel": "Los demás objetos se unificarán en el seleccionado",
       "confirm": "Unificar Objetos"
     },
-    "people": "Personas"
+    "people": "Personas",
+    "deleteSelected": {
+      "button": "Borrar",
+      "title": "Borrar los elementos seleccionados",
+      "message": "Se borrarán {{count}} elementos de forma permanente. Esta acción no se puede deshacer.",
+      "confirm": "Borrarlos"
+    }
   },
   "admin": {
     "title": "Administración",

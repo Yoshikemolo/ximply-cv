@@ -17,6 +17,12 @@
               {{ 'catalog.merge.button' | translate }} ({{ selectedObjects().size }})
             </button>
           }
+          @if (selectedObjects().size >= 1) {
+            <button class="btn-danger" (click)="confirmDeleteSelected()">
+              <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
+              {{ 'catalog.deleteSelected.button' | translate }} ({{ selectedObjects().size }})
+            </button>
+          }
         } @else {
           <button class="btn-secondary" (click)="toggleSelectMode()">
             <span class="icon-mask icon-mask--select icon-mask--sm"></span>
@@ -232,6 +238,35 @@
           </button>
           <button class="btn-danger" (click)="deleteObject()">
             {{ 'catalog.actions.delete' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Delete Selected Confirmation Modal -->
+  @if (showDeleteSelectedModal()) {
+    <div class="modal-overlay" (click)="cancelDeleteSelected()">
+      <div class="modal-content modal-small" (click)="$event.stopPropagation()">
+        <span class="icon-mask icon-mask--warning icon-mask--xl modal-icon danger"></span>
+        <h2>{{ 'catalog.deleteSelected.title' | translate }}</h2>
+        <p>{{ 'catalog.deleteSelected.message' | translate: { count: selectedObjects().size } }}</p>
+
+        <ul class="delete-selected-list">
+          @for (obj of selectedObjectsList(); track obj.id) {
+            <li>{{ obj.name }}</li>
+          }
+        </ul>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" (click)="cancelDeleteSelected()" [disabled]="isDeleting()">
+            {{ 'common.cancel' | translate }}
+          </button>
+          <button class="btn-danger" (click)="deleteSelected()" [disabled]="isDeleting()">
+            @if (isDeleting()) {
+              <span class="spinner"></span>
+            }
+            {{ 'catalog.deleteSelected.confirm' | translate }}
           </button>
         </div>
       </div>

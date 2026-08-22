@@ -271,7 +271,13 @@
       "sourcesLabel": "Other objects will be merged into selected",
       "confirm": "Merge Objects"
     },
-    "people": "People"
+    "people": "People",
+    "deleteSelected": {
+      "button": "Delete",
+      "title": "Delete selected entries",
+      "message": "{{count}} entries will be permanently deleted. This cannot be undone.",
+      "confirm": "Delete them"
+    }
   },
   "admin": {
     "title": "Administration",

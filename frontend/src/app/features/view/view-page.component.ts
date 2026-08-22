@@ -34,6 +34,16 @@ const SKELETON_COLORS: Record<string, string> = {
   ring: '#60a5fa',
   pinky: '#c084fc',
   palm: '#e2e8f0',
+  mesh: 'rgba(226, 232, 240, 0.35)',
+  face_oval: '#f8fafc',
+  left_eye: '#38bdf8',
+  right_eye: '#38bdf8',
+  left_eyebrow: '#a78bfa',
+  right_eyebrow: '#a78bfa',
+  left_iris: '#22d3ee',
+  right_iris: '#22d3ee',
+  lips: '#fb7185',
+  nose: '#fbbf24',
 };
 
 // Color palette for different detection classes
@@ -196,6 +206,9 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       .map(obj => obj.name)
       .slice(0, 5);
   });
+
+  /** Last edge list seen per skeleton kind, since the server sends them once. */
+  private edgeCache = new Map<string, SkeletonResult['edges']>();
 
   private mediaStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
@@ -423,7 +436,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
             }));
             this.detections.set(newDetections);
             this.mergeDetectionCards(newDetections, video);
-            this.skeletons.set(response.skeletons ?? []);
+            this.skeletons.set(this.withCachedEdges(response.skeletons ?? []));
 
             // Convert barcodes
             const newBarcodes: Barcode[] = (response.barcodes || []).map((b, i) => ({
@@ -749,12 +762,36 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    *
    * @param ctx Canvas context of the video overlay.
    */
+  /**
+   * Fill in the edge lists the server left out.
+   *
+   * Edges never change for a given kind and the face mesh alone runs to a few
+   * thousand of them, so they arrive on the first skeleton of each kind and are
+   * remembered here for the rest.
+   *
+   * @param skeletons Skeletons as they arrived.
+   * @returns The same skeletons, each with a usable edge list.
+   */
+  private withCachedEdges(skeletons: SkeletonResult[]): SkeletonResult[] {
+    return skeletons.map((skeleton) => {
+      if (skeleton.edges?.length) {
+        this.edgeCache.set(skeleton.kind, skeleton.edges);
+        return skeleton;
+      }
+      return { ...skeleton, edges: this.edgeCache.get(skeleton.kind) ?? [] };
+    });
+  }
+
   private drawSkeletons(ctx: CanvasRenderingContext2D): void {
     for (const skeleton of this.skeletons()) {
       const points = skeleton.keypoints;
+      const isFace = skeleton.kind === 'face';
+      const isHand = skeleton.kind === 'hand';
 
       ctx.lineCap = 'round';
-      ctx.lineWidth = skeleton.kind === 'hand' ? 2 : 3;
+      // The face mesh is thousands of short edges: drawn at body thickness it
+      // becomes a solid blob, so it needs a hairline and some transparency.
+      ctx.lineWidth = isFace ? 0.6 : isHand ? 2 : 3;
 
       for (const edge of skeleton.edges) {
         const from = points[edge.from];
@@ -770,21 +807,24 @@ export class ViewPageComponent implements OnInit, OnDestroy {
         ctx.stroke();
       }
 
-      const radius = skeleton.kind === 'hand' ? 2.5 : 4;
-      for (const point of points) {
-        if (point.score <= 0) {
-          continue;
+      // Individual vertices of a 478 point mesh are noise, not information.
+      if (!isFace) {
+        const radius = isHand ? 2.5 : 4;
+        for (const point of points) {
+          if (point.score <= 0) {
+            continue;
+          }
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#0f172a';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#f8fafc';
+          ctx.stroke();
         }
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f172a';
-        ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#f8fafc';
-        ctx.stroke();
       }
 
-      if (skeleton.kind === 'hand' && skeleton.label) {
+      if (isHand && skeleton.label) {
         const { x, y } = skeleton.bbox;
         ctx.font = '12px Inter, sans-serif';
         ctx.fillStyle = '#f8fafc';
