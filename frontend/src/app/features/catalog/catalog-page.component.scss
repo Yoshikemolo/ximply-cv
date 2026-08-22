@@ -1,13 +1,40 @@
+// The routed element is a flex item of the app shell, so it has to opt into
+// filling the space before anything inside it can scroll rather than grow.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .catalog-container {
-  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: var(--content-max-width);
+  width: 100%;
   margin: 0 auto;
 }
 
+// Everything above the results is fixed in place and only the results move.
+// The alternative, scrolling the whole page, puts the search box off screen
+// exactly when a long list makes it most useful.
+.catalog-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  // Room for the card shadow and the focus ring, which a flush edge clips.
+  padding: 2px 2px 1rem;
+  margin: 0 -2px;
+}
+
 .catalog-header {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   gap: 1rem;
   flex-wrap: wrap;
 
@@ -83,10 +110,11 @@
 }
 
 .catalog-filters {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 
   @media (min-width: 768px) {
     flex-direction: row;

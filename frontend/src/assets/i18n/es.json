@@ -321,14 +321,35 @@
       "subtitle": "Gestiona cuentas de usuario y permisos",
       "add": "Añadir Usuario",
       "edit": "Editar Usuario",
-      "delete": "Eliminar Usuario",
+      "delete": {
+        "title": "Eliminar este usuario",
+        "message": "La cuenta de {{name}} se elimina y pierde el acceso de inmediato. Los objetos que enseñó al catálogo se conservan."
+      },
       "details": "Detalles del Usuario",
       "name": "Nombre",
       "email": "Correo",
       "role": "Rol",
       "status": "Estado",
       "lastLogin": "Último Acceso",
-      "createdAt": "Fecha de Creación"
+      "createdAt": "Fecha de Creación",
+      "addUser": "Añadir usuario",
+      "searchPlaceholder": "Buscar por nombre o correo",
+      "noUsers": "Ningún usuario coincide con esta búsqueda.",
+      "never": "Nunca",
+      "table": {
+        "name": "Nombre",
+        "email": "Correo",
+        "role": "Rol",
+        "status": "Estado",
+        "lastLogin": "Último acceso",
+        "actions": "Acciones"
+      },
+      "form": {
+        "name": "Nombre completo",
+        "email": "Correo",
+        "password": "Contraseña",
+        "role": "Rol"
+      }
     },
     "roles": {
       "title": "Roles",
@@ -340,15 +361,55 @@
       "name": "Nombre",
       "description": "Descripción",
       "permissions": "Permisos",
-      "usersCount": "Usuarios"
+      "usersCount": "Usuarios",
+      "selectRole": "Elige un rol para ver lo que puede hacer.",
+      "permissionsList": "Permisos",
+      "usersWithRole": "Personas con este rol",
+      "users": "Personas",
+      "system": "Del sistema",
+      "admin": "Administrador",
+      "operator": "Operador",
+      "viewer": "Observador"
     },
     "settings": {
       "title": "Configuración",
       "subtitle": "Configura los ajustes del sistema",
       "general": "General",
       "security": "Seguridad",
-      "storage": "Almacenamiento",
-      "notifications": "Notificaciones"
+      "storage": {
+        "title": "Almacenamiento",
+        "description": "Cuánto se permite que se acumulen las capturas.",
+        "maxSize": "Tamaño máximo",
+        "maxSizeDescription": "El límite para las imágenes y capturas almacenadas.",
+        "retentionDays": "Conservar las capturas durante",
+        "retentionDaysDescription": "Cuánto tiempo se guarda la captura de un evento antes de poder eliminarse.",
+        "days": "días",
+        "autoCleanup": "Eliminar capturas antiguas automáticamente",
+        "autoCleanupDescription": "Borrar las capturas que superan el periodo de conservación sin preguntar."
+      },
+      "notifications": "Notificaciones",
+      "saveSuccess": "Configuración guardada.",
+      "appearance": {
+        "title": "Apariencia",
+        "description": "Cómo se ve la interfaz y en qué idioma habla.",
+        "theme": "Tema",
+        "themeDescription": "Claro, oscuro o el que tenga configurado este dispositivo.",
+        "light": "Claro",
+        "dark": "Oscuro",
+        "system": "Seguir al dispositivo",
+        "language": "Idioma",
+        "languageDescription": "Se aplica a esta cuenta, en todos los dispositivos desde los que inicie sesión."
+      },
+      "detection": {
+        "title": "Detección",
+        "description": "Qué informa la cámara y con cuánta certeza tiene que hacerlo.",
+        "confidenceThreshold": "Umbral de confianza",
+        "confidenceThresholdDescription": "Por debajo de este valor, una detección se muestra como conjetura y no como resultado.",
+        "maxDetections": "Detecciones máximas por fotograma",
+        "maxDetectionsDescription": "Límite de objetos que puede informar un fotograma. Subirlo cuesta tiempo en una escena concurrida.",
+        "gpuAcceleration": "Aceleración por hardware",
+        "gpuAccelerationDescription": "Usar hardware dedicado cuando la máquina lo tenga. Qué partes lo usan se decide desde el distintivo de la cabecera."
+      }
     },
     "permissions": "Permisos",
     "addUser": "Añadir Usuario",
@@ -421,11 +482,27 @@
   },
   "acceleration": {
     "badge": "GPU acelerada",
+    "badgeInactive": "Ejecutando en CPU",
     "device": "Dispositivo",
     "runtime": "Runtime",
     "capability": "Cómputo",
     "backends": "Procesos acelerados",
-    "badgeInactive": "Ejecutando en CPU"
+    "noDevice": "No se ha detectado ningún acelerador",
+    "unavailable": "Esta máquina no tiene un acelerador al que el servidor pueda acceder, así que todo se ejecuta en el procesador.",
+    "readOnly": "Puedes ver en qué se ejecuta cada parte. Cambiarlo requiere el permiso de configuración de detección.",
+    "notSupported": "No disponible aquí",
+    "onGpu": "En la GPU",
+    "onCpu": "En el procesador",
+    "switching": "Cambiando, los modelos se están reconstruyendo",
+    "useGpu": "Pasar a la GPU",
+    "useCpu": "Pasar al procesador",
+    "rebuildNote": "El cambio se aplica al siguiente fotograma. Los modelos afectados se reconstruyen en el dispositivo al que pasan, lo que tarda un momento la primera vez.",
+    "failed": "El servidor no ha aplicado el cambio.",
+    "levels": {
+      "detection": "Detección de objetos",
+      "face": "Reconocimiento facial",
+      "landmarks": "Esqueleto y malla facial"
+    }
   },
   "integrations": {
     "title": "Integraciones",

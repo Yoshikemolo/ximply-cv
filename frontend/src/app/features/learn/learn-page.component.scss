@@ -1,10 +1,25 @@
+// The routed element opts into filling the space so the step panel can scroll
+// inside itself rather than growing the page past the footer.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .learn-container {
-  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-width: var(--content-max-width);
+  width: 100%;
   margin: 0 auto;
 }
 
 .learn-header {
-  margin-bottom: 1.5rem;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
 
   h1 {
     font-size: 1.75rem;
@@ -77,18 +92,19 @@
 
 // Mode Selector
 .mode-selector {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 0.875rem;
+  margin-bottom: 1rem;
 }
 
 .mode-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1.25rem 1rem;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
   background: var(--bg-elevated);
   border: 2px solid var(--border-default);
   border-radius: 12px;
@@ -132,11 +148,12 @@
 
 // Progress Steps
 .progress-steps {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 2rem;
-  padding: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.625rem 1rem;
   background: var(--bg-elevated);
   border-radius: 12px;
 }
@@ -213,17 +230,34 @@
   margin-bottom: 1.5rem;
 }
 
+// The step takes whatever height is left and scrolls inside itself. It used to
+// carry a 400px floor, which on a short window pushed the page past the footer
+// before the first image had even been chosen.
 .step-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
   border-radius: 12px;
-  padding: 2rem;
-  min-height: 400px;
+  padding: 1.5rem;
+}
+
+.upload-step,
+.annotate-step,
+.camera-step {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 // Form Group (Object Name Input)
 .form-group {
-  margin-bottom: 1.5rem;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
 
   label {
     display: flex;
@@ -272,15 +306,18 @@
 .upload-step {}
 
 .upload-zone {
+  flex: 1;
+  min-height: 120px;
   border: 2px dashed var(--border-default);
   border-radius: 12px;
-  padding: 3rem 2rem;
+  padding: 1.5rem;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 
   &:hover {
     border-color: var(--brand-primary);
@@ -288,7 +325,7 @@
   }
 
   .upload-icon {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     color: var(--text-tertiary);
   }
 
@@ -1333,7 +1370,7 @@
   }
 }
 
-:root[data-theme='dark'] .detection-kind--person {
+:host-context([data-theme='dark']) .detection-kind--person {
   color: #60a5fa;
 }
 

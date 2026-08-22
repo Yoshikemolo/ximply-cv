@@ -14,7 +14,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  max-width: 1400px;
+  max-width: var(--content-max-width);
   width: 100%;
   margin: 0 auto;
 }
@@ -219,11 +219,20 @@
 }
 
 // The visible panel takes the rest of the column and scrolls inside itself, so
-// the page never grows to accommodate it.
+// the page never grows to accommodate it. Whichever tab is showing fills the
+// same space, so switching between them does not move anything else.
 .controls-section .control-card {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+}
+
+// The hidden panel has to be told to stay hidden. [hidden] is only a user agent
+// rule of display: none, so the display: flex below outweighed it and the
+// detections panel was drawn underneath the controls instead of in place of
+// them.
+.controls-section .control-card[hidden] {
+  display: none;
 }
 
 .controls-section .detections-card {
@@ -985,7 +994,7 @@
   }
 }
 
-:root[data-theme='dark'] .detection-card__type {
+:host-context([data-theme='dark']) .detection-card__type {
   &[data-type='known'] { color: #4ade80; }
   &[data-type='human'] { color: #60a5fa; }
   &[data-type='unknown'] { color: #cbd5e1; }
@@ -1153,7 +1162,7 @@
   }
 }
 
-:root[data-theme='dark'] .detection-card__badge--guess {
+:host-context([data-theme='dark']) .detection-card__badge--guess {
   color: #fbbf24;
 }
 

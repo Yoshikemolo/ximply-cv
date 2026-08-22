@@ -321,14 +321,35 @@
       "subtitle": "Manage user accounts and permissions",
       "add": "Add User",
       "edit": "Edit User",
-      "delete": "Delete User",
+      "delete": {
+        "title": "Delete this user",
+        "message": "The account for {{name}} is removed and they lose access immediately. Objects they taught the catalogue stay."
+      },
       "details": "User Details",
       "name": "Name",
       "email": "Email",
       "role": "Role",
       "status": "Status",
       "lastLogin": "Last Login",
-      "createdAt": "Created At"
+      "createdAt": "Created At",
+      "addUser": "Add user",
+      "searchPlaceholder": "Search by name or email",
+      "noUsers": "No users match this search.",
+      "never": "Never",
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "lastLogin": "Last login",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Full name",
+        "email": "Email",
+        "password": "Password",
+        "role": "Role"
+      }
     },
     "roles": {
       "title": "Roles",
@@ -340,15 +361,55 @@
       "name": "Name",
       "description": "Description",
       "permissions": "Permissions",
-      "usersCount": "Users"
+      "usersCount": "Users",
+      "selectRole": "Choose a role to see what it can do.",
+      "permissionsList": "Permissions",
+      "usersWithRole": "People with this role",
+      "users": "People",
+      "system": "Built in",
+      "admin": "Administrator",
+      "operator": "Operator",
+      "viewer": "Viewer"
     },
     "settings": {
       "title": "Settings",
       "subtitle": "Configure system settings",
       "general": "General",
       "security": "Security",
-      "storage": "Storage",
-      "notifications": "Notifications"
+      "storage": {
+        "title": "Storage",
+        "description": "How much the captures are allowed to accumulate.",
+        "maxSize": "Maximum size",
+        "maxSizeDescription": "The ceiling for stored images and captures.",
+        "retentionDays": "Keep captures for",
+        "retentionDaysDescription": "How long an event capture is kept before it can be removed.",
+        "days": "days",
+        "autoCleanup": "Remove old captures automatically",
+        "autoCleanupDescription": "Delete captures past the retention period without being asked."
+      },
+      "notifications": "Notifications",
+      "saveSuccess": "Settings saved.",
+      "appearance": {
+        "title": "Appearance",
+        "description": "How the interface looks and which language it speaks.",
+        "theme": "Theme",
+        "themeDescription": "Light, dark, or whatever this device is set to.",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Match the device",
+        "language": "Language",
+        "languageDescription": "Applies to this account, on every device it signs in from."
+      },
+      "detection": {
+        "title": "Detection",
+        "description": "What the camera reports and how sure it has to be.",
+        "confidenceThreshold": "Confidence threshold",
+        "confidenceThresholdDescription": "Below this, a detection is shown as a guess rather than a result.",
+        "maxDetections": "Maximum detections per frame",
+        "maxDetectionsDescription": "A ceiling on how many objects one frame can report. Higher costs time on a crowded scene.",
+        "gpuAcceleration": "Hardware acceleration",
+        "gpuAccelerationDescription": "Use dedicated hardware when the machine has it. Which parts use it is set from the badge in the header."
+      }
     },
     "permissions": "Permissions",
     "addUser": "Add User",
@@ -421,11 +482,27 @@
   },
   "acceleration": {
     "badge": "GPU accelerated",
+    "badgeInactive": "Running on CPU",
     "device": "Device",
     "runtime": "Runtime",
     "capability": "Compute",
     "backends": "Accelerated backends",
-    "badgeInactive": "Running on CPU"
+    "noDevice": "No accelerator detected",
+    "unavailable": "This machine has no accelerator the server can reach, so everything runs on the processor.",
+    "readOnly": "You can see what each part runs on. Changing it needs the detection configuration permission.",
+    "notSupported": "Not supported here",
+    "onGpu": "On the GPU",
+    "onCpu": "On the processor",
+    "switching": "Switching, the models are rebuilding",
+    "useGpu": "Move to the GPU",
+    "useCpu": "Move to the processor",
+    "rebuildNote": "A change applies to the next frame. The models it affects are rebuilt on the device they move to, which takes a moment the first time.",
+    "failed": "The server would not apply that change.",
+    "levels": {
+      "detection": "Object detection",
+      "face": "Face recognition",
+      "landmarks": "Skeleton and mesh"
+    }
   },
   "integrations": {
     "title": "Integrations",

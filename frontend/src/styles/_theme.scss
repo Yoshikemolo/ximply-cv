@@ -4,6 +4,7 @@
  */
 
 @use 'sass:color';
+@use 'variables' as vars;
 
 // Brand colors
 // Matched to the sibling Markdown application so the two read as one product.
@@ -96,6 +97,11 @@ $color-info-dark: #2563eb;
   // Alpha overlays
   --overlay-light: rgba(255, 255, 255, 0.8);
   --overlay-dark: rgba(0, 0, 0, 0.5);
+
+  // Layout
+  // Exposed as a custom property so every routed page can share one column
+  // width without each stylesheet importing the variable and picking its own.
+  --content-max-width: #{vars.$content-max-width};
 
   // Focus ring
   --focus-ring: 0 0 0 3px #{rgba($brand-primary, 0.4)};

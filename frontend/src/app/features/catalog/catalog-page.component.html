@@ -76,96 +76,100 @@
     </div>
   </div>
 
-  <!-- Loading State -->
-  @if (isLoading()) {
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <p>{{ 'common.loading' | translate }}</p>
-    </div>
-  } @else {
-    <!-- Empty State -->
-    @if (filteredObjects().length === 0) {
-      <div class="empty-state">
-        <span class="icon-mask icon-mask--box icon-mask--xxl empty-icon"></span>
-        <h2>{{ 'catalog.empty.title' | translate }}</h2>
-        <p>{{ 'catalog.empty.description' | translate }}</p>
-        <a routerLink="/learn" class="btn-primary">
-          {{ 'catalog.empty.action' | translate }}
-        </a>
+  <!-- Only the results scroll. The heading, the search and the tabs stay put,
+       so filtering a long catalogue does not mean scrolling back up to change
+       the filter. -->
+  <div class="catalog-scroll">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>{{ 'common.loading' | translate }}</p>
       </div>
     } @else {
-      <!-- Objects Grid/List -->
-      <div class="catalog-content" [class.grid-view]="viewMode() === 'grid'" [class.list-view]="viewMode() === 'list'">
-        @for (obj of filteredObjects(); track obj.id) {
-          <div
-            class="object-card"
-            [class.inactive]="!obj.isActive"
-            [class.selected]="isSelected(obj)"
-            [class.select-mode]="isSelectMode()"
-            (click)="isSelectMode() ? toggleObjectSelection(obj, $event) : selectObject(obj)"
-          >
-            <!-- Selection checkbox overlay -->
-            @if (isSelectMode()) {
-              <div class="selection-checkbox" (click)="toggleObjectSelection(obj, $event)">
-                <span
-                  class="icon-mask icon-mask--sm"
-                  [class.icon-mask--checkbox]="!isSelected(obj)"
-                  [class.icon-mask--checkbox-checked]="isSelected(obj)"
-                ></span>
-              </div>
-            }
-
-            <div class="object-image">
-              @if (obj.imageUrl) {
-                <img [src]="obj.imageUrl" [alt]="obj.name" />
-              } @else {
-                <div class="placeholder-image">
-                  <span class="icon-mask icon-mask--camera icon-mask--xl"></span>
+      <!-- Empty State -->
+      @if (filteredObjects().length === 0) {
+        <div class="empty-state">
+          <span class="icon-mask icon-mask--box icon-mask--xxl empty-icon"></span>
+          <h2>{{ 'catalog.empty.title' | translate }}</h2>
+          <p>{{ 'catalog.empty.description' | translate }}</p>
+          <a routerLink="/learn" class="btn-primary">
+            {{ 'catalog.empty.action' | translate }}
+          </a>
+        </div>
+      } @else {
+        <!-- Objects Grid/List -->
+        <div class="catalog-content" [class.grid-view]="viewMode() === 'grid'" [class.list-view]="viewMode() === 'list'">
+          @for (obj of filteredObjects(); track obj.id) {
+            <div
+              class="object-card"
+              [class.inactive]="!obj.isActive"
+              [class.selected]="isSelected(obj)"
+              [class.select-mode]="isSelectMode()"
+              (click)="isSelectMode() ? toggleObjectSelection(obj, $event) : selectObject(obj)"
+            >
+              <!-- Selection checkbox overlay -->
+              @if (isSelectMode()) {
+                <div class="selection-checkbox" (click)="toggleObjectSelection(obj, $event)">
+                  <span
+                    class="icon-mask icon-mask--sm"
+                    [class.icon-mask--checkbox]="!isSelected(obj)"
+                    [class.icon-mask--checkbox-checked]="isSelected(obj)"
+                  ></span>
                 </div>
               }
-              <span class="category-badge">{{ 'catalog.categories.' + obj.category | translate }}</span>
-            </div>
 
-            <div class="object-info">
-              <h3>
-                <app-inline-rename
-                  [name]="obj.name"
-                  [takenNames]="takenNames()"
-                  (renamed)="renameObject(obj, $event)"
-                />
-              </h3>
-              <p class="description">{{ obj.description }}</p>
+              <div class="object-image">
+                @if (obj.imageUrl) {
+                  <img [src]="obj.imageUrl" [alt]="obj.name" />
+                } @else {
+                  <div class="placeholder-image">
+                    <span class="icon-mask icon-mask--camera icon-mask--xl"></span>
+                  </div>
+                }
+                <span class="category-badge">{{ 'catalog.categories.' + obj.category | translate }}</span>
+              </div>
 
-              <div class="object-meta">
-                <div class="accuracy" [class]="getAccuracyClass(obj.accuracy)">
-                  <span class="accuracy-label">{{ 'catalog.accuracy' | translate }}</span>
-                  <span class="accuracy-value">{{ (obj.accuracy * 100).toFixed(0) }}%</span>
-                </div>
+              <div class="object-info">
+                <h3>
+                  <app-inline-rename
+                    [name]="obj.name"
+                    [takenNames]="takenNames()"
+                    (renamed)="renameObject(obj, $event)"
+                  />
+                </h3>
+                <p class="description">{{ obj.description }}</p>
 
-                <div class="status">
-                  <span class="status-dot" [class.active]="obj.isActive"></span>
-                  {{ (obj.isActive ? 'catalog.status.active' : 'catalog.status.inactive') | translate }}
+                <div class="object-meta">
+                  <div class="accuracy" [class]="getAccuracyClass(obj.accuracy)">
+                    <span class="accuracy-label">{{ 'catalog.accuracy' | translate }}</span>
+                    <span class="accuracy-value">{{ (obj.accuracy * 100).toFixed(0) }}%</span>
+                  </div>
+
+                  <div class="status">
+                    <span class="status-dot" [class.active]="obj.isActive"></span>
+                    {{ (obj.isActive ? 'catalog.status.active' : 'catalog.status.inactive') | translate }}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="object-actions" (click)="$event.stopPropagation()">
-              <a [routerLink]="['/learn']" [queryParams]="{ objectId: obj.id }" class="action-btn retrain">
-                <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
-                {{ 'catalog.actions.retrain' | translate }}
-              </a>
-              <button class="action-btn" (click)="toggleObjectStatus(obj)">
-                {{ (obj.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
-              </button>
-              <button class="action-btn danger" (click)="confirmDelete(obj)">
-                {{ 'catalog.actions.delete' | translate }}
-              </button>
+              <div class="object-actions" (click)="$event.stopPropagation()">
+                <a [routerLink]="['/learn']" [queryParams]="{ objectId: obj.id }" class="action-btn retrain">
+                  <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
+                  {{ 'catalog.actions.retrain' | translate }}
+                </a>
+                <button class="action-btn" (click)="toggleObjectStatus(obj)">
+                  {{ (obj.isActive ? 'catalog.actions.deactivate' : 'catalog.actions.activate') | translate }}
+                </button>
+                <button class="action-btn danger" (click)="confirmDelete(obj)">
+                  {{ 'catalog.actions.delete' | translate }}
+                </button>
+              </div>
             </div>
-          </div>
-        }
-      </div>
+          }
+        </div>
+      }
     }
-  }
+  </div>
 
   <!-- Object Details Modal -->
   @if (selectedObject()) {

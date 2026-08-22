@@ -74,4 +74,7 @@ $header-height: 64px;
 $footer-height: 48px;
 $sidebar-width: 280px;
 $sidebar-collapsed-width: 72px;
-$content-max-width: 1440px;
+// One width for every routed page. The value used to live in each page's own
+// stylesheet, and they had drifted to four different numbers, so the column
+// between the header and the footer jumped as you moved through the menu.
+$content-max-width: 1400px;

@@ -40,11 +40,17 @@
   background: transparent;
   border: none;
   border-radius: $radius-md;
+  // A button does not inherit colour: left alone it takes the user agent's
+  // buttontext, which is black in both themes and so disappears on a dark
+  // surface. The mask icons inside are painted with currentColor, so this is
+  // the declaration that decides whether they can be seen at all.
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: background-color $transition-fast;
+  transition: background-color $transition-fast, color $transition-fast;
 
   &:hover {
     background-color: var(--accent-alpha-10);
+    color: var(--text-primary);
   }
 
   &:focus-visible {
@@ -318,6 +324,11 @@
   &--checkbox-checked {
     mask-image: url('/assets/icons/checkbox-checked.svg');
     -webkit-mask-image: url('/assets/icons/checkbox-checked.svg');
+  }
+
+  &--sargent-down {
+    mask-image: url('/assets/icons/sargent-down.svg');
+    -webkit-mask-image: url('/assets/icons/sargent-down.svg');
   }
 
   &--chevron-right {
