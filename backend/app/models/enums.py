@@ -39,6 +39,10 @@ class Permission(str, Enum):
     DETECTION_VIEW = "detection:view"
     DETECTION_CONFIGURE = "detection:configure"
 
+    # Event and integration permissions
+    EVENTS_READ = "events:read"
+    EVENTS_MANAGE = "events:manage"
+
     # Admin permissions
     ADMIN_FULL = "admin:full"
 

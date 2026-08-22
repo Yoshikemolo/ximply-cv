@@ -115,6 +115,27 @@ class Settings(BaseSettings):
     person_category_name: str = "People"
     person_name_prefix: str = "Person"
 
+    # Events
+    # Emitted on a transition, never per frame: detection runs several times a
+    # second and a per frame stream would drown any subscriber.
+    events_enabled: bool = True
+    events_store_captures: bool = True
+    events_capture_max_side: int = 1024
+    # How long a subject must be missing before a departure is raised. Without
+    # this a single dropped frame reads as someone leaving and returning.
+    events_absence_seconds: float = 4.0
+    # Floor between two scene change events, whatever the scene does.
+    events_scene_min_interval: float = 5.0
+    events_retention_days: int = 30
+
+    # Webhooks
+    # Deliveries are signed with HMAC-SHA256 so a receiver can verify the
+    # request came from this instance and was not altered in transit.
+    webhooks_enabled: bool = True
+    webhook_timeout_seconds: float = 10.0
+    webhook_max_attempts: int = 3
+    webhook_disable_after_failures: int = 20
+
     # Scene description
     # Runs locally on whatever accelerator the machine has, so no frame ever
     # leaves the host. Loaded lazily: a stack that never asks for a description

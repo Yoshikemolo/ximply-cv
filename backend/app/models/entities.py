@@ -9,6 +9,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -300,6 +301,111 @@ class PersonEmbeddingEntity(Base):
     )
 
     person: Mapped["ObjectEntity"] = relationship("ObjectEntity", back_populates="embeddings")
+
+
+class EventEntity(Base):
+    """
+    Something the camera observed, recorded as an OpenTelemetry log record.
+
+    The shape is not invented here. It follows the OpenTelemetry logs data
+    model, so an event can be exported to any collector, backend or tracing tool
+    that speaks OTLP without a translation layer, and correlated with traces
+    from the rest of a system by trace and span id.
+
+    Top level fields map one to one onto the specification: EventName,
+    Timestamp, ObservedTimestamp, TraceId, SpanId, TraceFlags, SeverityNumber,
+    SeverityText, Body, Attributes, Resource and InstrumentationScope.
+    Severity numbers follow the specified bands, where 9 to 12 is informational.
+
+    The domain columns below the standard ones are a deliberate duplication.
+    Attributes hold the same values in the standard form, and these exist only
+    so the database can index and filter on them, which a JSON blob does poorly.
+    Attributes remain the source of truth for anything delivered.
+
+    Events are emitted on a transition, never per frame. Detection runs several
+    times a second, so a per frame record would produce tens of thousands of
+    identical entries an hour and make any subscriber useless.
+    """
+
+    __tablename__ = "events"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+
+    # OpenTelemetry log record fields
+    event_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Nanoseconds since the Unix epoch, as the specification requires. Stored
+    # separately from occurred_at because a timestamp column cannot hold that
+    # precision, and losing it would make correlation with traces imprecise.
+    timestamp_nanos: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    observed_timestamp_nanos: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    trace_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
+    span_id: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    trace_flags: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    severity_number: Mapped[int] = mapped_column(Integer, default=9, nullable=False)
+    severity_text: Mapped[str] = mapped_column(String(16), default="INFO", nullable=False)
+    body: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    attributes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    resource: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    scope_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    scope_version: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+
+    # Projections of the attributes above, for indexing and filtering only.
+    owner_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    subject_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("objects.id", ondelete="SET NULL"), nullable=True
+    )
+    subject_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    camera_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    capture_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class WebhookSubscriptionEntity(Base):
+    """
+    A client that wants events delivered to it.
+
+    The secret is used to sign every delivery so the receiver can verify the
+    request came from this instance and was not altered in transit. It is stored
+    because it has to be used on every send; see the security record for what
+    that implies.
+    """
+
+    __tablename__ = "webhook_subscriptions"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    secret: Mapped[str] = mapped_column(String(128), nullable=False)
+
+    # Event types this client wants. Empty means every type.
+    event_types: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    owner_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+
+    # Delivery health, so a subscriber that has been failing is visible without
+    # reading logs.
+    last_delivery_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class DetectionLogEntity(Base):

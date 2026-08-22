@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes_auth import router as auth_router
 from app.api.routes_detection import router as detection_router
+from app.api.routes_events import router as events_router, webhooks as webhooks_router
 from app.api.routes_health import router as health_router
 from app.api.routes_objects import router as objects_router
 from app.api.routes_users import router as users_router
@@ -118,6 +119,8 @@ async def root():
 # Register API routers
 app.include_router(health_router, prefix=settings.api_prefix)
 app.include_router(auth_router, prefix=settings.api_prefix)
+app.include_router(events_router, prefix=settings.api_prefix)
+app.include_router(webhooks_router, prefix=settings.api_prefix)
 app.include_router(objects_router, prefix=settings.api_prefix)
 app.include_router(detection_router, prefix=settings.api_prefix)
 app.include_router(users_router, prefix=settings.api_prefix)

@@ -39,6 +39,7 @@ dependencies = [
     # Async utilities
     "aiofiles>=23.2.0",
     "sse-starlette>=2.0.0",
+    "httpx>=0.26.0",  # Webhook delivery
 
     # UUID7 support
     "uuid7>=0.1.0",

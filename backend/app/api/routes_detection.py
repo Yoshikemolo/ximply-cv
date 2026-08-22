@@ -53,6 +53,8 @@ from app.services.person_recognition_service import get_person_recognition_servi
 from app.services.pose_service import get_pose_service
 from app.services.segmentation_service import get_segmentation_service
 from app.services.description_service import get_description_service
+from app.services.event_service import get_event_service
+from app.services.webhook_service import get_webhook_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -294,6 +296,10 @@ class DetectRequest(BaseModel):
     # "sam". Absent means the server side defaults apply.
     segmentationTightness: Optional[float] = None
     segmentationExcludeSiblings: Optional[bool] = None
+    # Which camera produced the frame. Events are tracked per camera, so a
+    # deployment with more than one does not report a subject as leaving simply
+    # because a different camera is now looking somewhere else.
+    cameraId: Optional[str] = None
 
 
 class CaptureDetectionRequest(BaseModel):
@@ -835,6 +841,33 @@ async def detect_objects(
                     )
             except Exception as e:
                 logger.debug(f"Skeleton extraction failed: {e}")
+
+        # Raise events for whatever changed since the last frame, and deliver
+        # them. Emission is on a transition, not per frame; see the event
+        # service for why that is the only workable rule here.
+        try:
+            event_service = get_event_service()
+            raised = await event_service.observe(
+                db,
+                owner_id=UUID(current_user.sub),
+                detections=filtered_detections,
+                frame=image_array,
+                camera_id=request.cameraId,
+            )
+            if raised:
+                await db.commit()
+                for event in raised:
+                    await db.refresh(event)
+                # Delivery is awaited but never blocks the next frame: the
+                # client is already free to send one, and a slow subscriber
+                # delays only this response.
+                await get_webhook_service().dispatch(
+                    db, UUID(current_user.sub), raised
+                )
+                await db.commit()
+        except Exception as e:
+            await db.rollback()
+            logger.warning(f"Event emission failed: {e}")
 
         return DetectionResponse(
             detections=filtered_detections,
