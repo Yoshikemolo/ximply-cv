@@ -16,6 +16,7 @@ export interface CatalogObject {
   reference?: string;
   status: 'draft' | 'active' | 'archived' | 'training';
   categoryId?: string;
+  categoryName?: string;
   thumbnailPath?: string;
   thumbnailUrl?: string;
   trainingSamples: number;
@@ -167,6 +168,16 @@ export class ObjectsService {
    */
   updateObject(id: string, updates: Partial<CreateObjectRequest>): Observable<CatalogObject> {
     return this.http.put<CatalogObject>(`${this.apiUrl}/${id}`, updates);
+  }
+
+  /**
+   * Rename an object or a person.
+   *
+   * The backend validates the name and answers 409 when another entry of the
+   * same owner already uses it, so the caller can surface the reason inline.
+   */
+  renameObject(id: string, name: string): Observable<CatalogObject> {
+    return this.http.patch<CatalogObject>(`${this.apiUrl}/${id}/name`, { name });
   }
 
   /**

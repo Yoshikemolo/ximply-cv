@@ -1,0 +1,147 @@
+.inline-rename {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+
+  &--editing {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    width: 100%;
+  }
+
+  &__pencil {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
+
+    &:hover:not(:disabled) {
+      background-color: var(--accent-alpha-10);
+      color: var(--accent);
+    }
+
+    &:focus-visible {
+      outline: none;
+      opacity: 1;
+      box-shadow: var(--focus-ring);
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0;
+    }
+  }
+
+  &__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    padding: 0 2px 0 0.25rem;
+    background-color: var(--bg-input, var(--bg-secondary));
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+
+    &:focus-within {
+      border-color: var(--accent);
+      box-shadow: var(--focus-ring);
+    }
+
+    // The red border is the primary signal that the name cannot be saved, so it
+    // must win over the focus ring the field carries while being typed into.
+    &--invalid,
+    &--invalid:focus-within {
+      border-color: var(--danger, #ef4444);
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+    }
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.3;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--accent-alpha-10);
+      color: var(--text-primary);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  &__error {
+    margin: 0;
+    padding-left: 2px;
+    color: var(--danger, #ef4444);
+    font-size: 11px;
+    line-height: 1.3;
+  }
+}
+
+// The pencil stays out of the way until the row is pointed at or focused,
+// so a dense list is not a wall of icons.
+:host-context(.detection-card:hover),
+:host-context(.detection-card:focus-within),
+:host-context(.object-card:hover),
+:host-context(.object-card:focus-within),
+:host-context(tr:hover),
+:host-context(tr:focus-within) {
+  .inline-rename__pencil {
+    opacity: 1;
+  }
+}
+
+// Touch devices have no hover, so the control must always be reachable.
+@media (hover: none) {
+  .inline-rename__pencil {
+    opacity: 1;
+  }
+}

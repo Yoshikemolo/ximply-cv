@@ -1,0 +1,47 @@
+@if (isEditing()) {
+  <div class="inline-rename inline-rename--editing" (click)="$event.stopPropagation()">
+    <div class="inline-rename__field" [class.inline-rename__field--invalid]="isInvalid() || serverError()">
+      <input
+        #nameInput
+        type="text"
+        class="inline-rename__input"
+        [ngModel]="draft()"
+        (ngModelChange)="onDraftChange($event)"
+        (keydown)="onKeydown($event)"
+        [attr.aria-invalid]="isInvalid() || !!serverError()"
+        [attr.aria-describedby]="errorMessage() ? 'rename-error' : null"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button
+        type="button"
+        class="inline-rename__clear"
+        (click)="clearDraft()"
+        [title]="'common.rename.clear' | translate"
+        [attr.aria-label]="'common.rename.clear' | translate"
+      >
+        <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+      </button>
+    </div>
+
+    @if (errorMessage(); as message) {
+      <p class="inline-rename__error" id="rename-error" role="alert">
+        {{ message | translate }}
+      </p>
+    }
+  </div>
+} @else {
+  <span class="inline-rename">
+    <button
+      type="button"
+      class="inline-rename__pencil"
+      [disabled]="disabled()"
+      (click)="$event.stopPropagation(); startEditing()"
+      [title]="'common.rename.edit' | translate"
+      [attr.aria-label]="'common.rename.edit' | translate"
+    >
+      <span class="icon-mask icon-mask--pencil icon-mask--sm"></span>
+    </button>
+    <span class="inline-rename__name" [class]="nameClass">{{ name() }}</span>
+  </span>
+}
