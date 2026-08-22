@@ -1,29 +1,94 @@
 # XIMPLY Vision
 
-Real-time object detection, custom object recognition and catalog management.
+Real-time computer vision that learns your own objects and people, and runs entirely on
+your machine.
 
-XIMPLY Vision streams a camera feed, detects objects with YOLO, matches them against a
-catalog of objects you have taught it, and lets you manage that catalog with full
-metadata. The backend is FastAPI, the frontend is Angular 19, and the whole stack runs
-with a single Docker command.
+XIMPLY Vision takes any video source, detects what is in front of it, and matches what
+it sees against a catalog you built yourself. It recognises people it has met before and
+calls them by name, traces the real outline of an object rather than a box around it,
+reads barcodes and QR codes, draws body, hand and face wireframes, and writes a sentence
+describing the scene whenever the scene changes.
+
+Nothing leaves the machine. Every model runs locally: no cloud service, no API key, no
+token, no per request billing, and no frame sent anywhere. The whole thing is open source
+and free to use.
+
+![A recognised person, outlined by Segment Anything and named from the catalog](doc/images/recognition-and-silhouette.png)
+
+*A person the application has met before, matched at 98 percent and shown by name. The
+green outline is the real silhouette rather than a bounding box, and the face mesh is
+drawn over it.*
+
+## What it does
+
+**Teaches itself your catalog.** The detector knows the eighty generic classes it was
+trained on, which is rarely what you care about. Point the camera at your own object,
+name it, and it is recognised from then on. Two ways to teach it, and they can be mixed
+on the same entry:
+
+- **Upload a gallery.** Drop in images in any common format, draw a box around the thing
+  that matters, and add the metadata you need: description, reference, weight,
+  dimensions, price, colour and materials.
+- **Capture live.** Point the camera at the object and save the detection straight into
+  the catalog. Retrain later by adding more views of the same entry, from either source.
+
+**Recognises people, not just bodies.** A face seen for the first time becomes "Person 1"
+and is remembered. Rename it and the name follows that person from then on. Two
+fingerprints are stored per person because each covers the other's blind spot: the face
+embedding survives a change of clothes and a different camera but degrades behind a mask,
+while the body embedding is unaffected by a cap, glasses or a mask and works from behind,
+but does not survive a change of clothes. People live in their own **People** category,
+kept apart from objects.
+
+**Sees more than boxes.** Bounding boxes are the floor, not the ceiling:
+
+- **Silhouettes** through Segment Anything, prompted with the detector's own boxes, with
+  a slider that controls how tightly the outline hugs the subject.
+- **Skeletons** for bodies and hands: 33 body landmarks and 21 per hand, enough to read
+  a gesture rather than just locate a wrist.
+- **Face mesh**, 478 landmarks drawn as feature contours or as the full low polygon mesh.
+- **Barcodes and QR codes**, read from the same frame as everything else.
+
+![Hand and body skeleton with the facial feature mesh drawn over the frame](doc/images/skeleton-and-face-mesh.png)
+
+*Hand landmarks, coloured per finger, and the facial feature mesh. The overlays are
+toggled independently and switching one off stops the work rather than hiding it.*
+
+**Describes what it sees.** A vision language model writes a sentence about the scene,
+using the detections as context so it refers to people by the names in your catalog. It
+rewrites itself when the scene changes, keyed on what is present rather than on pixels,
+so moving about leaves it alone while someone walking in does not.
+
+**Runs on your hardware.** Object detection, face recognition and segmentation move onto
+an NVIDIA GPU when there is one, and fall back to the processor when there is not, with
+no flag to set either way. A badge in the header says which is happening.
+
+**Knows who is using it.** Registration and login, several users, and role based access
+control, so who can view, teach, edit the catalog or manage users is a decision you make
+rather than something everyone shares.
+
+**Takes any video source.** Every camera the system exposes is listed and selectable:
+the built in webcam, a USB camera, or a capture device.
 
 ## Features
 
-- **View**: real-time detection from a camera feed, with bounding boxes, labels and
-  confidence percentages. Barcode and QR reading through ZBar.
-- **Learn**: teach new objects from uploads or live capture, with annotation tools
-  (draw, resize and move bounding boxes) and rich metadata: name, description, weight,
-  dimensions, price, reference, color and materials.
-- **Catalog**: full CRUD over learned objects, retraining with new images, merging
-  duplicates, search and filtering.
-- **Admin**: user management with role-based access control.
+- **View**: live detection with labels and confidence, catalog and person matches,
+  silhouettes, skeletons, face mesh, barcode reading and the scene description.
+- **Learn**: teach new objects and people from uploaded galleries or live capture, with
+  annotation tools and rich metadata.
+- **Catalog**: full CRUD over learned entries, retraining with new images, merging
+  duplicates, bulk delete, inline renaming, search and filtering, with People kept in
+  their own category.
+- **Admin**: user management with role based access control.
 - **i18n and theming**: English and Spanish, dark and light themes.
 
 ## Requirements
 
 - Docker Engine 24 or later with the Compose v2 plugin (`docker compose version`)
 - Roughly 6 GB of free disk space for images, model weights and volumes
-- A webcam, and a browser that grants camera access to `http://localhost`
+- A video source: the built in webcam, a USB camera or a capture device
+- A browser that grants camera access to `http://localhost`
+- Optionally an NVIDIA GPU, which the application uses when it finds one
 
 Nothing else is needed. Python, Node and the ML dependencies all live inside the images.
 
@@ -155,17 +220,39 @@ npm install
 npm start
 ```
 
+## The models, and what each one is for
+
+Every model below runs locally. Weights are downloaded once on first use and cached in a
+volume; after that the application works with no network at all.
+
+| Model | Job | Why this one |
+| --- | --- | --- |
+| **YOLO11** | Finds things and says what class they are | Fast enough for live video and the only model here that produces a label. Everything else refines or describes what it found |
+| **ORB features** | Matches a detection against your catalog of objects | Classical descriptors, no training step: add photos of an object and it is recognisable immediately, rather than after a fine tuning run |
+| **InsightFace, ArcFace** | Face embedding, the identity of a person | Survives a change of clothes, a different camera and a different day, which is what carries a name across sessions |
+| **ResNet50 backbone** | Body embedding, appearance of a whole person | Works behind a cap, glasses or a mask, and from behind, where a face model has nothing to look at |
+| **Segment Anything 2.1** | The exact outline of a detected object | Turns a rectangle into a silhouette. It cannot classify, so it is prompted with the detector's boxes and never replaces it |
+| **MediaPipe Pose** | 33 body landmarks | Denser than the classic 17 point layout: feet gain a heel and a toe, wrists gain finger anchors, so the arm continues into the hand |
+| **MediaPipe Hands** | 21 landmarks per hand | The body model only anchors the wrist. This is what carries a gesture |
+| **MediaPipe Face Landmarker** | 478 face landmarks | Feature contours or the full low polygon mesh, drawn over the face |
+| **pyzbar, ZBar** | Barcodes and QR codes | Reads the code from the same frame as everything else, no separate mode to switch into |
+| **SmolVLM2** | Writes the scene description | Small enough to sit alongside the others on one GPU, and takes an arbitrary prompt, so the detections can be fed to it as context |
+
+Object detection, face recognition and segmentation run on an NVIDIA GPU when one is
+available. The rest run on the processor, which is where they are cheapest.
+
 ## Technology stack
 
 | Layer           | Technology                                               |
 | --------------- | -------------------------------------------------------- |
 | Backend         | Python 3.11, FastAPI, SQLAlchemy async, Pydantic v2       |
-| Computer vision | Ultralytics YOLO11, OpenCV, ORB feature matching, pyzbar  |
+| Computer vision | Ultralytics YOLO11 and SAM 2.1, MediaPipe, InsightFace, OpenCV, pyzbar |
+| Language model  | SmolVLM2 through Transformers, running locally            |
 | Database        | PostgreSQL 16                                             |
 | Object storage  | MinIO                                                     |
 | Frontend        | Angular 19 standalone components, Signals, SCSS           |
 | Auth            | JWT with refresh rotation and RBAC                        |
-| Infrastructure  | Docker Compose, Nginx                                     |
+| Infrastructure  | Docker Compose, Nginx, CUDA when present                  |
 
 ## Project structure
 
