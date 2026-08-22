@@ -115,6 +115,19 @@ class Settings(BaseSettings):
     person_category_name: str = "People"
     person_name_prefix: str = "Person"
 
+    # Scene description
+    # Runs locally on whatever accelerator the machine has, so no frame ever
+    # leaves the host. Loaded lazily: a stack that never asks for a description
+    # should not pay several gigabytes of download and VRAM for one.
+    description_enabled: bool = True
+    description_model: str = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
+    description_max_tokens: int = 120
+    description_max_side: int = 768
+    description_prompt: str = (
+        "Describe this scene in two or three sentences. Say what the people are "
+        "doing and what the setting looks like, not just what is present."
+    )
+
     # Object silhouettes
     # Segment Anything says exactly where an edge runs but not what the thing
     # is, so it never replaces the detector: it is prompted with the boxes the

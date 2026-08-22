@@ -138,6 +138,12 @@
     "panels": {
       "expand": "Expand",
       "collapse": "Collapse"
+    },
+    "description": {
+      "title": "Scene description",
+      "refresh": "Refresh",
+      "thinking": "Reading the scene...",
+      "waiting": "Waiting for something to describe."
     }
   },
   "learn": {

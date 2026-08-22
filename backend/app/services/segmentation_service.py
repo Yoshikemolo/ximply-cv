@@ -344,21 +344,38 @@ class SegmentationService:
                         (chosen_masks, chosen_scores), image, [frame]
                     )
 
+                    # The mask is taken rather than the ready made outline: the
+                    # library builds that one by concatenating every disconnected
+                    # region into a single point list, which drawn as one polygon
+                    # sends lines slashing across the interior from one blob to
+                    # the next. Tracing the largest region alone gives the clean
+                    # closed shape the overlay actually wants.
                     contour = None
                     for result in results:
                         result_masks = getattr(result, "masks", None)
-                        if (
-                            result_masks is not None
-                            and result_masks.xy is not None
-                            and len(result_masks.xy)
-                        ):
-                            contour = max(result_masks.xy, key=len)
-                            break
+                        if result_masks is None or result_masks.data is None:
+                            continue
+                        data = result_masks.data
+                        if data.shape[0] == 0:
+                            continue
 
-                    if contour is None:
+                        binary = (
+                            data[0].detach().cpu().numpy().astype(np.uint8)
+                            if hasattr(data, "detach")
+                            else np.asarray(data[0]).astype(np.uint8)
+                        )
+                        found, _ = cv2.findContours(
+                            binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                        )
+                        if not found:
+                            continue
+                        contour = max(found, key=cv2.contourArea).reshape(-1, 2)
+                        break
+
+                    if contour is None or len(contour) < 3:
                         continue
 
-                    polygons[index] = self._simplify(np.asarray(contour))
+                    polygons[index] = self._simplify(contour)
 
         except Exception as e:
             logger.debug(f"Segmentation failed: {e}")

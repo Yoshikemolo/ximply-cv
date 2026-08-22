@@ -52,6 +52,7 @@ from app.services.person_catalog import (
 from app.services.person_recognition_service import get_person_recognition_service
 from app.services.pose_service import get_pose_service
 from app.services.segmentation_service import get_segmentation_service
+from app.services.description_service import get_description_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -1014,6 +1015,79 @@ async def capture_detection(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to capture detection: {str(e)}",
         )
+
+
+class DescribeRequest(BaseModel):
+    """Request body for the scene description endpoint."""
+
+    image: str
+    # The detections the client is already showing. Passing them saves running
+    # detection twice and, more importantly, fixes the names the description
+    # uses to the ones on screen.
+    detections: List[dict] = []
+
+
+@router.post("/describe")
+async def describe_scene(
+    request: DescribeRequest,
+    current_user: TokenData = Depends(get_current_user),
+) -> dict:
+    """
+    Write a short description of what the camera is looking at.
+
+    The detector has already worked out what is in the frame and who the people
+    are, so that list is handed to the model as context. It fixes the names,
+    keeps the model from inventing objects, and lets the prose refer to a person
+    by the name the rest of the application uses.
+
+    Args:
+        request: The frame and the detections already found in it.
+        current_user: Authenticated user.
+
+    Returns:
+        dict: The description, or the reason there is not one.
+    """
+    service = get_description_service()
+
+    if not service.available:
+        return {
+            "description": None,
+            "available": False,
+            "status": service.describe_status(),
+        }
+
+    image_array = None
+    try:
+        image_data = request.image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image = Image.open(BytesIO(base64.b64decode(image_data)))
+        image_array = np.array(image)
+        if len(image_array.shape) == 3 and image_array.shape[2] == 3:
+            image_array = image_array[:, :, ::-1].copy()
+    except Exception as e:
+        logger.warning(f"Could not decode the frame to describe: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The image could not be decoded",
+        )
+
+    description, elapsed = service.describe(image_array, request.detections)
+
+    return {
+        "description": description,
+        "available": service.available,
+        "processingTimeMs": elapsed,
+        "status": service.describe_status(),
+    }
+
+
+@router.get("/describe/status")
+async def description_status(
+    current_user: TokenData = Depends(get_current_user),
+) -> dict:
+    """Report whether the description model is loaded and usable."""
+    return get_description_service().describe_status()
 
 
 @router.get("/status")

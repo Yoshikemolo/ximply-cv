@@ -71,6 +71,12 @@ ml = [
 
     # Hand landmarks for the skeleton overlay
     "mediapipe>=0.10.0",
+
+    # Vision language model for scene descriptions
+    "transformers>=4.45.0",
+    "accelerate>=0.30.0",
+    # Required by the SmolVLM processor, which spells numbers out
+    "num2words>=0.5.13",
 ]
 
 # Swaps the ONNX runtime for the build that carries the CUDA execution

@@ -138,6 +138,12 @@
     "panels": {
       "expand": "Expandir",
       "collapse": "Colapsar"
+    },
+    "description": {
+      "title": "Descripción de la escena",
+      "refresh": "Actualizar",
+      "thinking": "Leyendo la escena...",
+      "waiting": "Esperando algo que describir."
     }
   },
   "learn": {

@@ -64,6 +64,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# On a GPU build, PyTorch reaches Triton, which compiles its CUDA helper module
+# from C source the first time it is used and fails outright without a compiler.
+# Attention was switched to eager and the compiled backends disabled to avoid
+# this, and neither was enough, so the toolchain is installed rather than
+# pretended away. Only on the GPU image: a CPU install never reaches that path
+# and should not carry the weight.
+ARG INSTALL_GPU=false
+RUN if [ "$INSTALL_GPU" = "true" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+            gcc g++ python3-dev \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -79,7 +92,7 @@ COPY backend/alembic.ini ./
 # here, or the container is handed a root owned directory it cannot write and
 # every model download fails with a permission error.
 RUN mkdir -p /app/storage /app/models/weights \
-        /home/appuser/.insightface /home/appuser/.cache && \
+        /home/appuser/.insightface /home/appuser/.cache/huggingface && \
     chown -R appuser:appgroup /app /home/appuser
 
 # Switch to non-root user
@@ -88,7 +101,12 @@ USER appuser
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    # Keep PyTorch off its compiled backends. They invoke a C compiler at run
+    # time through Triton, which a slim runtime image has no reason to ship,
+    # and the speedup is not worth the weight for a paragraph of text.
+    TORCHINDUCTOR_DISABLE=1 \
+    TORCHDYNAMO_DISABLE=1
 
 # Expose port
 EXPOSE 8000

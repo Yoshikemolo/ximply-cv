@@ -75,6 +75,9 @@ services:
       # The face models are a 275 MB download on first use. Without this the
       # stack would fetch them again on every container recreate.
       - face-models:/home/appuser/.insightface
+      # The description model is several gigabytes. Without this it would be
+      # fetched again on every container recreate.
+      - vlm-models:/home/appuser/.cache/huggingface
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -129,6 +132,8 @@ volumes:
     name: ximply-vision-models
   face-models:
     name: ximply-vision-face-models
+  vlm-models:
+    name: ximply-vision-vlm-models
 
 # ==============================================================================
 # Networks

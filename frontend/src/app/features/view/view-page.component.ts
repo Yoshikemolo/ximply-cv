@@ -15,6 +15,14 @@ import { Subscription } from 'rxjs';
  */
 const CERTAINTY_THRESHOLD = 0.7;
 
+/**
+ * Shortest gap between two scene descriptions.
+ *
+ * The model takes a while and holds the accelerator while it runs, so even a
+ * genuinely changing scene is described at most this often.
+ */
+const DESCRIPTION_COOLDOWN_MS = 8000;
+
 /** A card with no fresh sighting for this long is dropped from the list. */
 const CARD_TTL_MS = 4000;
 
@@ -81,8 +89,15 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   showOnlyCustomObjects = signal(false);
   isRefreshingFeatures = signal(false);
 
-  // Toggle to hide person detections (useful when holding objects)
-  hidePersonDetections = signal(true);
+  /**
+   * Whether people are detected and shown.
+   *
+   * Off by default: when someone holds an object up to the camera, the person
+   * box wraps the thing they are showing and the list fills with the holder
+   * rather than the held. The toggle reads as what it enables, so active means
+   * people are visible.
+   */
+  showPersonDetections = signal(false);
 
   /**
    * Whether the body and hand wireframes are extracted and drawn.
@@ -126,13 +141,32 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    */
   segmentationExcludeSiblings = signal(true);
 
+  /** The written description of the current scene, once one has been produced. */
+  sceneDescription = signal<string | null>(null);
+  isDescribing = signal(false);
+  descriptionUnavailable = signal(false);
+
+  /**
+   * Fingerprint of the last scene that was described.
+   *
+   * Comparing the set of names present, rather than the pixels, is what makes
+   * automatic redescription bearable: moving about or shifting the lighting
+   * leaves it unchanged, while someone walking in or an object appearing does
+   * not. Describing on every frame would occupy the accelerator permanently for
+   * a paragraph that hardly changes.
+   */
+  private describedScene = '';
+  private descriptionCooldownUntil = 0;
+
   // Filtered detections based on toggles
   filteredDetections = computed(() => {
     let result = this.detections();
 
-    // Filter out person detections if toggle is enabled
-    if (this.hidePersonDetections()) {
-      result = result.filter(d => d.label.toLowerCase() !== 'person');
+    // Filter out person detections when the toggle is off. A recognised person
+    // carries their catalog name in label, so the detector's class is what
+    // decides here.
+    if (!this.showPersonDetections()) {
+      result = result.filter((d) => !this.isPerson(d.rawLabel, d.objectName ?? d.label));
     }
 
     // Only show custom objects if toggle is enabled
@@ -371,6 +405,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.detections.set([]);
     this.detectionCards.set([]);
     this.skeletons.set([]);
+    this.sceneDescription.set(null);
+    this.describedScene = '';
     this.fps.set(0);
     this.isDetecting = false;
   }
@@ -401,7 +437,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   }
 
   togglePersonDetections(): void {
-    this.hidePersonDetections.set(!this.hidePersonDetections());
+    this.showPersonDetections.set(!this.showPersonDetections());
   }
 
   toggleSkeletons(): void {
@@ -493,7 +529,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       // Send to backend for detection
       this.currentSubscription = this.detectionService
         .detect(imageBase64, this.confidenceThreshold(), {
-          hidePersonDetections: this.hidePersonDetections(),
+          // The API asks whether to hide them, the control offers to show them.
+          hidePersonDetections: !this.showPersonDetections(),
           showOnlyCustomObjects: this.showOnlyCustomObjects(),
           includeSkeletons: this.showSkeletons(),
           includeFaceMesh: this.showFaceMesh(),
@@ -507,6 +544,11 @@ export class ViewPageComponent implements OnInit, OnDestroy {
             const newDetections: Detection[] = response.detections.map((d, i) => ({
               id: `${d.label}-${i}-${Date.now()}`,
               label: d.objectName || d.label,
+              // The detector's own class, kept because label above becomes the
+              // catalog name once something is recognised. Without it a person
+              // renamed to "Jorge" stops looking like a person to every filter
+              // that asks, and slips past the toggle meant to hide people.
+              rawLabel: d.label,
               confidence: d.confidence,
               bbox: d.bbox,
               color: DETECTION_COLORS[d.classId ? d.classId % DETECTION_COLORS.length : i % DETECTION_COLORS.length],
@@ -517,6 +559,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
             }));
             this.detections.set(newDetections);
             this.mergeDetectionCards(newDetections, video);
+            this.maybeDescribeScene();
             this.skeletons.set(this.withCachedEdges(response.skeletons ?? []));
 
             // Convert barcodes
@@ -574,19 +617,35 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    * @returns The type used by the filter and shown as a badge.
    */
   cardType(card: DetectionCard): DetectionCardType {
-    const label = (card.objectName ?? card.label).toLowerCase();
-    const rawLabel = card.label.toLowerCase();
-
-    if (rawLabel === 'person' || label.startsWith('person ')) {
+    // People first: a recognised person is both known and human, and human is
+    // the answer that matters, otherwise the Humans tab loses everyone the
+    // catalog has a name for.
+    if (this.isPerson(card.rawLabel, card.objectName ?? card.label)) {
       return 'human';
     }
     if (card.objectId) {
       return 'known';
     }
-    if (rawLabel) {
+    if (card.label) {
       return 'unknown';
     }
     return 'other';
+  }
+
+  /**
+   * Whether a detection is a person.
+   *
+   * Asks the detector's own class first, since that survives a rename. The name
+   * is only a fallback for entries that arrived without one.
+   *
+   * @param rawLabel The class the detector reported.
+   * @param displayName The name shown on screen.
+   */
+  private isPerson(rawLabel: string | undefined, displayName: string): boolean {
+    if (rawLabel) {
+      return rawLabel.toLowerCase() === 'person';
+    }
+    return displayName.toLowerCase().startsWith('person ');
   }
 
   /**
@@ -663,6 +722,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
         byKey.set(key, {
           key,
           label: detection.label,
+          rawLabel: detection.rawLabel,
           objectId: detection.objectId,
           objectName: detection.objectName,
           confidence: detection.confidence,
@@ -685,6 +745,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
         existing.confidence = detection.confidence;
         existing.matchConfidence = detection.matchConfidence;
         existing.label = detection.label;
+        existing.rawLabel = detection.rawLabel;
         existing.bbox = detection.bbox;
         existing.color = detection.color;
         const thumbnail = this.cropThumbnail(video, detection.bbox);
@@ -836,6 +897,88 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       objectId: card.objectId,
       objectName: card.objectName,
     });
+  }
+
+  /**
+   * A stable signature of what is currently on screen.
+   *
+   * Built from the identities and labels present, sorted, so the same scene in
+   * a different order produces the same signature.
+   */
+  private sceneSignature(): string {
+    return [...new Set(this.detectionCards().map((card) => card.objectName ?? card.label))]
+      .sort()
+      .join('|');
+  }
+
+  /**
+   * Describe the scene again when what is in it has changed.
+   *
+   * A cooldown sits on top of the signature check, because a detector that
+   * flickers between two readings of the same object would otherwise trigger a
+   * description every time it changed its mind.
+   */
+  private maybeDescribeScene(): void {
+    if (this.descriptionUnavailable() || this.isDescribing() || !this.isStreaming()) {
+      return;
+    }
+
+    const signature = this.sceneSignature();
+    if (!signature || signature === this.describedScene) {
+      return;
+    }
+    if (Date.now() < this.descriptionCooldownUntil) {
+      return;
+    }
+
+    this.describeScene(signature);
+  }
+
+  /**
+   * Ask the model for a description of the current frame.
+   *
+   * @param signature The scene signature this description will correspond to.
+   */
+  private describeScene(signature: string): void {
+    const video = this.videoElement?.nativeElement;
+    if (!video || video.videoWidth === 0) {
+      return;
+    }
+
+    this.isDescribing.set(true);
+    this.descriptionCooldownUntil = Date.now() + DESCRIPTION_COOLDOWN_MS;
+
+    const frame = this.detectionService.captureFrame(video, 0.8);
+    const context = this.detections().map((detection) => ({
+      label: detection.label,
+      objectId: detection.objectId,
+      objectName: detection.objectName,
+      confidence: detection.confidence,
+      matchConfidence: detection.matchConfidence,
+    })) as DetectionResult[];
+
+    this.detectionService.describeScene(frame, context).subscribe({
+      next: (response) => {
+        if (!response.available) {
+          this.descriptionUnavailable.set(true);
+        } else if (response.description) {
+          this.sceneDescription.set(response.description);
+          this.describedScene = signature;
+        }
+        this.isDescribing.set(false);
+      },
+      error: (err) => {
+        console.warn('Scene description failed:', err);
+        this.isDescribing.set(false);
+      },
+    });
+  }
+
+  /** Force a fresh description of whatever is on screen right now. */
+  refreshDescription(): void {
+    this.describedScene = '';
+    this.descriptionCooldownUntil = 0;
+    this.maybeDescribeScene();
   }
 
   private renderDetections(): void {
@@ -1138,6 +1281,14 @@ interface Detection {
   matchConfidence?: number;
   /** Outline of the object, when segmentation produced one. */
   polygon?: number[][];
+  /**
+   * The class the detector reported, before any catalog name replaced it.
+   *
+   * Kept because `label` becomes the catalog name once something is recognised.
+   * Without it a person renamed to "Jorge" stops looking like a person to every
+   * filter that asks, and slips past the toggle meant to hide people.
+   */
+  rawLabel?: string;
 }
 
 /**
@@ -1156,6 +1307,8 @@ type DetectionTab = 'all' | 'threshold' | 'humans' | 'objects';
 interface DetectionCard {
   key: string;
   label: string;
+  /** The class the detector reported, before any catalog name replaced it. */
+  rawLabel?: string;
   objectId?: string;
   objectName?: string;
   confidence: number;

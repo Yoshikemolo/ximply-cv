@@ -174,6 +174,23 @@ export class DetectionService {
   }
 
   /**
+   * Ask for a written description of a frame.
+   *
+   * The detections already on screen travel with the request, so the model is
+   * told what was found rather than left to rediscover it, and the prose uses
+   * the same names the rest of the interface shows.
+   *
+   * @param image - Base64 encoded frame.
+   * @param detections - Detections the client is currently displaying.
+   */
+  describeScene(image: string, detections: DetectionResult[]): Observable<SceneDescription> {
+    return this.http.post<SceneDescription>(`${this.apiUrl}/describe`, {
+      image,
+      detections,
+    });
+  }
+
+  /**
    * Capture a detected object and add it to the catalog.
    *
    * @param request - Capture request with image, bounding box, and object name.
@@ -242,4 +259,19 @@ export class DetectionService {
     ctx.drawImage(video, 0, 0);
     return canvas.toDataURL('image/jpeg', quality);
   }
+}
+
+/** What the description endpoint answers. */
+export interface SceneDescription {
+  description: string | null;
+  available: boolean;
+  processingTimeMs?: number;
+  status?: {
+    enabled: boolean;
+    available: boolean;
+    loaded: boolean;
+    loading: boolean;
+    model: string;
+    error: string | null;
+  };
 }

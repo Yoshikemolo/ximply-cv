@@ -55,6 +55,40 @@
           </div>
         }
       </div>
+
+      @if (isStreaming() && !descriptionUnavailable()) {
+        <div class="scene-description">
+          <div class="scene-description__header">
+            <h3>{{ 'view.description.title' | translate }}</h3>
+            <button
+              type="button"
+              class="scene-description__refresh"
+              (click)="refreshDescription()"
+              [disabled]="isDescribing()"
+              [title]="'view.description.refresh' | translate"
+            >
+              <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
+              {{ 'view.description.refresh' | translate }}
+            </button>
+          </div>
+
+          @if (sceneDescription(); as text) {
+            <p class="scene-description__text" [class.is-stale]="isDescribing()">{{ text }}</p>
+          } @else if (isDescribing()) {
+            <p class="scene-description__placeholder">
+              {{ 'view.description.thinking' | translate }}
+            </p>
+          } @else {
+            <p class="scene-description__placeholder">
+              {{ 'view.description.waiting' | translate }}
+            </p>
+          }
+
+          @if (isDescribing() && sceneDescription()) {
+            <span class="scene-description__spinner"></span>
+          }
+        </div>
+      }
     </div>
 
     <div class="controls-section" [class.controls-section--expanded]="detectionsExpanded()">
@@ -180,20 +214,20 @@
 
           <button
             class="toggle-row"
-            [class.active]="hidePersonDetections()"
+            [class.active]="showPersonDetections()"
             (click)="togglePersonDetections()"
-            [title]="(hidePersonDetections() ? 'view.controls.clickToShowPersons' : 'view.controls.clickToHidePersons') | translate"
+            [title]="(showPersonDetections() ? 'view.controls.clickToHidePersons' : 'view.controls.clickToShowPersons') | translate"
           >
             <span
               class="icon-mask icon-mask--lg"
-              [class.icon-mask--toggle-on]="hidePersonDetections()"
-              [class.icon-mask--toggle-off]="!hidePersonDetections()"
+              [class.icon-mask--toggle-on]="showPersonDetections()"
+              [class.icon-mask--toggle-off]="!showPersonDetections()"
             ></span>
             <span class="toggle-row__text">
-              @if (hidePersonDetections()) {
-                {{ 'view.controls.hidingPersons' | translate }}
-              } @else {
+              @if (showPersonDetections()) {
                 {{ 'view.controls.showingPersons' | translate }}
+              } @else {
+                {{ 'view.controls.hidingPersons' | translate }}
               }
             </span>
           </button>

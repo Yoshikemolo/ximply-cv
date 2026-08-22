@@ -822,32 +822,43 @@
   }
 }
 
-// Tabs sit above the list in both states, collapsed and expanded, because
-// which slice you are looking at is part of reading the list at all, not a
-// refinement you reach for only once it is open.
+// Tabs sit above the list in both states, collapsed and expanded, because which
+// slice you are looking at is part of reading the list at all, not a refinement
+// you reach for only once it is open.
+//
+// Drawn as one joined segmented control rather than underlined labels: the four
+// options are a single choice over the same list, and a shared track says that
+// far better than four separate items with a line under one of them.
 .detection-tabs {
   display: flex;
-  gap: 2px;
   margin-bottom: 0.625rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .detection-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 5px 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s;
 
-  &:hover {
+  &:hover:not(.detection-tab--active) {
     color: var(--text-primary);
   }
 
@@ -857,14 +868,19 @@
   }
 
   &--active {
-    border-bottom-color: var(--accent);
-    color: var(--accent);
+    background: var(--brand-primary);
+    color: white;
     font-weight: 600;
+
+    .detection-tab__count {
+      background-color: rgba(255, 255, 255, 0.25);
+      color: white;
+    }
   }
 
   &__count {
-    padding: 0 5px;
-    background-color: var(--bg-secondary);
+    padding: 0 4px;
+    background-color: var(--bg-tertiary, var(--bg-primary));
     border-radius: 9999px;
     font-size: 10px;
     font-variant-numeric: tabular-nums;
@@ -1197,4 +1213,93 @@
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1.35;
+}
+
+// The description sits directly under the video, where it reads as a caption of
+// what is on screen rather than as another panel competing with the controls.
+.scene-description {
+  position: relative;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+
+    h3 {
+      margin: 0;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  &__refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+
+    &:hover:not(:disabled) {
+      color: var(--accent);
+    }
+
+    &:disabled {
+      cursor: progress;
+      opacity: 0.5;
+    }
+
+    &:focus-visible {
+      outline: none;
+      border-radius: 4px;
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  &__text {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    transition: opacity 0.2s;
+
+    // A description being replaced is dimmed rather than blanked: the previous
+    // one is still broadly true while the next is being written.
+    &.is-stale {
+      opacity: 0.55;
+    }
+  }
+
+  &__placeholder {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-style: italic;
+  }
+
+  &__spinner {
+    position: absolute;
+    top: 0.875rem;
+    right: 5.5rem;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border-default);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
 }
