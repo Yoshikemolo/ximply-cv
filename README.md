@@ -276,11 +276,15 @@ ximply-cv/
 
 ## Documentation
 
-- [Architecture](doc/infrastructure/architecture.md)
+- [Features](doc/features/README.md), one document per feature: what it does,
+  how it was built, and the patterns behind it
+- [Architecture decisions](doc/adr/README.md), each decision with its context
+  and what it costs
+- [Security decisions](doc/sec/README.md), including the gaps, and what must be
+  changed before exposing the stack beyond localhost
+- [System architecture](doc/infrastructure/architecture.md)
 - [API reference](doc/infrastructure/api.md)
-- [Deployment](doc/operations/deployment.md)
-- [View feature](doc/features/view.md)
-- [Learn feature](doc/features/learn.md)
+- [Deployment guide](doc/operations/deployment.md)
 
 All API endpoints are versioned under `/api/v1/`.
 

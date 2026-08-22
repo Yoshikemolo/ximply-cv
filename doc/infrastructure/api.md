@@ -2,343 +2,281 @@
 
 ## Overview
 
-The XIMPLY Vision API is a RESTful API built with FastAPI. All endpoints are versioned and require authentication unless otherwise noted.
+A REST API built with FastAPI. Every endpoint is versioned and requires a bearer
+token unless stated otherwise.
 
-**Base URL:** `/api/v1`
+- **Base URL**: `/api/v1`
+- **Authentication**: bearer token, see [Authentication](#authentication)
+- **Interactive documentation**: `/api/v1/docs`, and `/api/v1/redoc`
+- **Serialisation**: request and response bodies use camelCase
 
-**Authentication:** Bearer Token (JWT)
+Related reading:
+
+- [Accounts and access control](../features/FEAT-0010-accounts-and-access.md)
+- [Authentication and authorization](../sec/SEC-0002-authentication-and-authorization.md)
+- [System architecture](architecture.md)
 
 ## Authentication
 
+Tokens are JSON Web Tokens. The access token carries the subject, the roles and
+the resolved permission list, so authorization needs no database round trip.
+Its limits, including the absence of revocation, are recorded in
+[SEC-0002](../sec/SEC-0002-authentication-and-authorization.md#known-gaps).
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/auth/login` | No | Exchange credentials for tokens |
+| POST | `/auth/register` | No | Create an account |
+| POST | `/auth/refresh` | No | Exchange a refresh token for a new access token |
+| GET | `/auth/me` | Yes | The authenticated user |
+| POST | `/auth/logout` | Yes | End the session on the client |
+
 ### Login
-Authenticate user and receive JWT tokens.
 
-**Endpoint:** `POST /auth/login`
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
 
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "SecurePass123"
-}
+{ "email": "admin@ximply.com", "password": "Admin1234" }
 ```
 
-**Response:**
 ```json
 {
-  "accessToken": "eyJ...",
-  "refreshToken": "eyJ...",
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
   "tokenType": "bearer",
   "expiresIn": 1800,
-  "user": {
-    "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
-    "email": "user@example.com",
-    "fullName": "John Doe",
-    "status": "active",
-    "roles": [{"id": "...", "name": "operator"}]
-  }
+  "user": { "id": "...", "email": "...", "fullName": "...", "roles": ["admin"] }
 }
 ```
 
-### Register
-Create a new user account.
-
-**Endpoint:** `POST /auth/register`
-
-**Request:**
-```json
-{
-  "email": "newuser@example.com",
-  "password": "SecurePass123",
-  "fullName": "Jane Smith"
-}
-```
-
-### Refresh Token
-Get a new access token using refresh token.
-
-**Endpoint:** `POST /auth/refresh`
-
-**Request:**
-```json
-{
-  "refreshToken": "eyJ..."
-}
-```
-
-### Get Current User
-Get authenticated user information.
-
-**Endpoint:** `GET /auth/me`
-
-**Headers:** `Authorization: Bearer <token>`
-
-## Objects
-
-### List Objects
-Get paginated list of objects.
-
-**Endpoint:** `GET /objects`
-
-**Query Parameters:**
-- `page` (int): Page number (default: 1)
-- `pageSize` (int): Items per page (default: 20, max: 100)
-- `search` (string): Search by name or reference
-- `categoryId` (UUID): Filter by category
-- `status` (string): Filter by status
-
-**Response:**
-```json
-{
-  "items": [
-    {
-      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
-      "name": "Sample Object",
-      "reference": "REF001",
-      "status": "active",
-      "thumbnailPath": "objects/.../thumb.jpg",
-      "trainingSamples": 15,
-      "modelConfidence": 0.92,
-      "createdAt": "2024-01-15T10:30:00Z"
-    }
-  ],
-  "total": 100,
-  "page": 1,
-  "pageSize": 20,
-  "totalPages": 5
-}
-```
-
-### Create Object
-Create a new catalog object.
-
-**Endpoint:** `POST /objects`
-
-**Request:**
-```json
-{
-  "name": "New Product",
-  "description": "Product description",
-  "reference": "PROD001",
-  "categoryId": "0190a1b2-...",
-  "weight": 1.5,
-  "weightUnit": "kg",
-  "dimensions": {
-    "width": 10,
-    "height": 20,
-    "depth": 5,
-    "unit": "cm"
-  },
-  "price": 29.99,
-  "currency": "EUR",
-  "color": "Blue",
-  "materials": ["plastic", "metal"]
-}
-```
-
-### Get Object
-Get single object by ID.
-
-**Endpoint:** `GET /objects/{objectId}`
-
-### Update Object
-Update object properties.
-
-**Endpoint:** `PUT /objects/{objectId}`
-
-### Delete Object
-Delete object and associated images.
-
-**Endpoint:** `DELETE /objects/{objectId}`
-
-### Upload Object Image
-Upload training image for object.
-
-**Endpoint:** `POST /objects/{objectId}/images`
-
-**Content-Type:** `multipart/form-data`
-
-**Form Fields:**
-- `file`: Image file (JPEG, PNG, WebP)
-- `isPrimary`: Set as primary image (boolean)
-
-### List Object Images
-Get all images for an object.
-
-**Endpoint:** `GET /objects/{objectId}/images`
-
-### Delete Object Image
-Delete specific image.
-
-**Endpoint:** `DELETE /objects/{objectId}/images/{imageId}`
-
-## Categories
-
-### List Categories
-Get all categories.
-
-**Endpoint:** `GET /categories`
-
-### Create Category
-Create new category.
-
-**Endpoint:** `POST /categories`
-
-**Request:**
-```json
-{
-  "name": "Electronics",
-  "description": "Electronic devices",
-  "parentId": null
-}
-```
-
-### Update Category
-**Endpoint:** `PUT /categories/{categoryId}`
-
-### Delete Category
-**Endpoint:** `DELETE /categories/{categoryId}`
+The default administrator credentials are documented, shared by every
+unconfigured deployment, and reset on each start. See
+[SEC-0006](../sec/SEC-0006-default-credentials-and-secrets.md).
 
 ## Detection
 
-### Start Detection
-Start detection session.
+The endpoints behind the live view. See
+[FEAT-0001](../features/FEAT-0001-live-detection.md).
 
-**Endpoint:** `POST /detection/start`
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/detection/detect` | Detect in one frame |
+| POST | `/detection/capture` | Save a detection into the catalog |
+| POST | `/detection/describe` | Describe the scene in a frame |
+| GET | `/detection/describe/status` | Whether the description model is usable |
+| GET | `/detection/status` | Detection service status |
+| GET | `/detection/config` | Read the detection configuration |
+| PUT | `/detection/config` | Update the detection configuration |
+| POST | `/detection/catalog/load` | Load every catalog entry into the matcher |
+| POST | `/detection/catalog/refresh/{objectId}` | Reload one entry |
+| GET | `/detection/stream` | Server sent event stream |
+| POST | `/detection/start` | Start a detection session |
+| POST | `/detection/stop` | Stop a detection session |
 
-**Request:**
-```json
+### Detect
+
+```http
+POST /api/v1/detection/detect
+Authorization: Bearer <token>
+Content-Type: application/json
+
 {
-  "cameraId": "default"
+  "image": "data:image/jpeg;base64,...",
+  "confidenceThreshold": 0.6,
+  "hidePersonDetections": false,
+  "showOnlyCustomObjects": false,
+  "includeSkeletons": true,
+  "includeFaceMesh": true,
+  "detectionModel": "sam",
+  "segmentationTightness": 0.6,
+  "segmentationExcludeSiblings": true
 }
 ```
 
-### Stop Detection
-Stop detection session.
+The view toggles travel with the request rather than filtering the response.
+Filtering afterwards is not equivalent, and an overlay that is switched off is
+not computed at all; see
+[ADR-0007](../adr/ADR-0007-view-filters-applied-server-side.md).
 
-**Endpoint:** `POST /detection/stop`
-
-### Detection Stream (SSE)
-Real-time detection events.
-
-**Endpoint:** `GET /detection/stream`
-
-**Event Format:**
-```
-event: detection
-data: {"detections":[{"label":"object","confidence":0.95,"bbox":{"x":100,"y":100,"width":200,"height":150}}],"timestamp":"2024-01-15T10:30:00Z"}
-```
-
-### Get Detection Config
-**Endpoint:** `GET /detection/config`
-
-### Update Detection Config
-**Endpoint:** `PUT /detection/config`
-
-**Request:**
 ```json
 {
-  "confidenceThreshold": 0.5,
-  "iouThreshold": 0.45
+  "detections": [
+    {
+      "label": "person",
+      "confidence": 0.94,
+      "bbox": { "x": 338, "y": 29, "width": 415, "height": 631 },
+      "classId": 0,
+      "objectId": "0699...",
+      "objectName": "Jorge",
+      "matchConfidence": 0.98,
+      "polygon": [[344, 31], [352, 44]]
+    }
+  ],
+  "barcodes": [],
+  "skeletons": [],
+  "frameWidth": 1000,
+  "frameHeight": 667,
+  "processingTimeMs": 48.2,
+  "timestamp": "2026-08-22T18:04:11Z"
 }
 ```
 
-## Training
+Two confidences are reported because two models answer two questions.
+`confidence` is how sure the detector is that something is there;
+`matchConfidence` is how sure the matcher is that it is this particular entry.
+See [ADR-0005](../adr/ADR-0005-two-confidences.md).
 
-### Start Training
-Start model training for object.
+`polygon` is present only when `detectionModel` is `sam` and the outline could
+be traced. Its absence means the bounding box is what should be drawn. See
+[FEAT-0004](../features/FEAT-0004-silhouettes.md).
 
-**Endpoint:** `POST /training/start`
+`skeletons` carries body, hand and face landmarks with the edges connecting
+them. Edges are sent on the first skeleton of each kind per frame and reused for
+the rest; see [ADR-0008](../adr/ADR-0008-published-landmark-layouts.md).
 
-**Request:**
-```json
-{
-  "objectId": "0190a1b2-...",
-  "epochs": 10,
-  "batchSize": 16,
-  "learningRate": 0.001
-}
+### Capture
+
+Saves a detected region into the catalog. A name that already exists adds an
+image to that entry rather than creating a duplicate, and the entry's
+descriptors are reloaded immediately so it is recognisable on the next frame.
+See [FEAT-0008](../features/FEAT-0008-teaching-the-catalog.md).
+
+### Describe
+
+```http
+POST /api/v1/detection/describe
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "image": "data:image/jpeg;base64,...", "detections": [] }
 ```
 
-### Get Training Status
-**Endpoint:** `GET /training/{jobId}/status`
+The detections already on screen are passed as context so the description uses
+the names in the catalog. A model that cannot be loaded answers with
+`available: false` and the reason, rather than an error. See
+[FEAT-0007](../features/FEAT-0007-scene-description.md).
 
-**Response:**
-```json
-{
-  "jobId": "0190a1b2-...",
-  "objectId": "0190a1b2-...",
-  "status": "training",
-  "progress": 0.45,
-  "currentEpoch": 5,
-  "totalEpochs": 10,
-  "startedAt": "2024-01-15T10:30:00Z"
-}
+## Objects
+
+Catalog entries. People are entries too, in a system category; see
+[ADR-0002](../adr/ADR-0002-people-as-catalog-entries.md).
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/objects` | `objects:read` | List, paginated and filterable |
+| POST | `/objects` | `objects:write` | Create |
+| GET | `/objects/{id}` | `objects:read` | Read one |
+| PATCH | `/objects/{id}/name` | `objects:write` | Rename |
+| PUT | `/objects/{id}` | `objects:write` | Update |
+| DELETE | `/objects/{id}` | `objects:delete` | Delete one |
+| DELETE | `/objects/all` | `objects:delete` | Delete every entry |
+| POST | `/objects/merge` | `objects:write` | Merge several into one |
+| POST | `/objects/{id}/images` | `objects:write` | Upload a training image |
+| GET | `/objects/{id}/images` | `objects:read` | List images |
+| DELETE | `/objects/{id}/images/{imageId}` | `objects:delete` | Delete an image |
+| GET | `/objects/files/{path}` | **None** | Serve a stored image |
+
+### Rename
+
+```http
+PATCH /api/v1/objects/{id}/name
+Content-Type: application/json
+
+{ "name": "Jorge" }
 ```
 
-### Cancel Training
-**Endpoint:** `POST /training/{jobId}/cancel`
+- `422` when the name is empty.
+- `409` when another entry of the same owner already uses it. Comparison ignores
+  case and surrounding spaces, because two entries differing only in those are
+  indistinguishable in a list.
 
-## Users (Admin)
+Both caches are updated on success, since a cache keyed by name that is not
+updated keeps announcing the old one. See
+[FEAT-0009](../features/FEAT-0009-catalog-management.md#renaming).
 
-### List Users
-**Endpoint:** `GET /users`
+### List
 
-**Required Permission:** `users:read`
+`GET /objects` returns `categoryName` alongside `categoryId`, so a client can
+tell a person from an object without a request per row.
 
-### Create User
-**Endpoint:** `POST /users`
+### Serving stored images
 
-**Required Permission:** `users:write`
+`GET /objects/files/{path}` requires no authentication. This is a deliberate
+decision with a real cost, recorded in
+[SEC-0003](../sec/SEC-0003-object-storage-exposure.md), and it must be changed
+before exposing the stack beyond localhost.
 
-### Get User
-**Endpoint:** `GET /users/{userId}`
+## Users
 
-### Update User
-**Endpoint:** `PUT /users/{userId}`
+Administration. See
+[FEAT-0010](../features/FEAT-0010-accounts-and-access.md).
 
-### Delete User
-**Endpoint:** `DELETE /users/{userId}`
-
-**Required Permission:** `users:delete`
+| Method | Path | Permission |
+| --- | --- | --- |
+| GET | `/users` | `users:read` |
+| POST | `/users` | `users:write` |
+| GET | `/users/{id}` | `users:read` |
+| PUT | `/users/{id}` | `users:write` |
+| DELETE | `/users/{id}` | `users:delete` |
 
 ## Health
 
-### Health Check
-**Endpoint:** `GET /health`
+Unauthenticated, because they describe the server rather than any user data.
 
-**Response:**
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Service and dependency status |
+| GET | `/health/live` | Liveness probe |
+| GET | `/health/ready` | Readiness probe, checks the database |
+| GET | `/health/acceleration` | Which backends run on dedicated hardware |
+
+### Acceleration
+
 ```json
 {
-  "status": "healthy",
-  "version": "1.0.0",
-  "database": "healthy",
-  "minio": "healthy",
-  "timestamp": "2024-01-15T10:30:00Z"
+  "available": true,
+  "active": true,
+  "deviceName": "NVIDIA GeForce RTX 5090",
+  "deviceMemoryMb": 32606,
+  "driver": "13.0",
+  "computeCapability": "12.0",
+  "backends": [
+    { "name": "Object detection", "accelerated": true, "device": "cuda" },
+    { "name": "Face recognition", "accelerated": true, "device": "cuda" },
+    { "name": "Skeleton and mesh", "accelerated": false, "device": "cpu" }
+  ]
 }
 ```
 
-### Liveness Probe
-**Endpoint:** `GET /health/live`
+Each backend is reported separately because they fail independently. See
+[ADR-0009](../adr/ADR-0009-discover-acceleration-at-runtime.md) and
+[FEAT-0011](../features/FEAT-0011-hardware-acceleration.md).
 
-### Readiness Probe
-**Endpoint:** `GET /health/ready`
+## Error responses
 
-## Error Responses
-
-All errors follow this format:
 ```json
-{
-  "detail": "Error message",
-  "code": "ERROR_CODE"
-}
+{ "detail": "Object not found" }
 ```
 
-### HTTP Status Codes
-- `400` - Bad Request
-- `401` - Unauthorized
-- `403` - Forbidden
-- `404` - Not Found
-- `409` - Conflict
-- `422` - Validation Error
-- `500` - Internal Server Error
+| Status | Meaning |
+| --- | --- |
+| 400 | The request could not be parsed, or an image could not be decoded |
+| 401 | Missing, malformed or expired token |
+| 403 | Authenticated, but the role lacks the required permission |
+| 404 | No such resource, or it belongs to another owner |
+| 409 | Conflict, such as a duplicate name |
+| 422 | The body failed validation |
+| 500 | Unhandled error, logged with a stack trace |
+| 503 | A model or dependency is unavailable |
+
+Ownership is enforced by filtering on the owner rather than by a separate check,
+so a request for another user's entry is a `404` rather than a `403`. This is
+deliberate: a `403` would confirm the entry exists.
+
+## Elsewhere
+
+- [Features](../features/README.md)
+- [Architecture decisions](../adr/README.md)
+- [Security decisions](../sec/README.md)
+- [Deployment guide](../operations/deployment.md)

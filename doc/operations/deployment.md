@@ -2,12 +2,21 @@
 
 ## Prerequisites
 
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- Domain name (for production)
-- SSL certificate (for production)
-- Minimum 4GB RAM
-- 20GB disk space
+- Docker Engine 24 or later, with the Compose v2 plugin
+- A video source: the built in webcam, a USB camera or a capture device
+- Roughly 6 GB of disk for images, model weights and volumes, and more if the
+  catalog grows
+- 8 GB of RAM, since the models are held in memory once loaded
+- For production: a domain name and a certificate
+- Optionally an NVIDIA GPU with the NVIDIA Container Toolkit, which the
+  application uses when it finds one. See [GPU deployment](#gpu-deployment)
+
+Related reading:
+
+- [Hardware acceleration](../features/FEAT-0011-hardware-acceleration.md)
+- [Security decisions](../sec/README.md), and in particular what must change
+  before exposing the stack
+- [System architecture](../infrastructure/architecture.md)
 
 ## Development Deployment
 
@@ -63,12 +72,29 @@ docker-compose exec backend bash
 
 ### Pre-deployment Checklist
 
+Configuration:
+
 - [ ] Domain name configured
-- [ ] SSL certificate obtained
-- [ ] Strong passwords generated
-- [ ] JWT secret key generated (64+ characters)
-- [ ] Firewall rules configured
-- [ ] Backup strategy defined
+- [ ] Certificate obtained. Camera access needs a secure context: on any host
+      other than localhost the browser refuses to open the camera over plain HTTP
+- [ ] `JWT_SECRET_KEY` generated. With the placeholder in place anyone can mint
+      a token for any user with any permission
+      ([SEC-0006](../sec/SEC-0006-default-credentials-and-secrets.md))
+- [ ] Database and object store credentials changed from the defaults
+- [ ] Administrator address changed, and a real password set. Note that the seed
+      resets the default account's password on every start
+- [ ] Firewall rules configured, and the published ports bound to the loopback
+      address rather than every interface
+      ([SEC-0007](../sec/SEC-0007-container-hardening.md))
+- [ ] Backup strategy defined, covering the database and the object store
+
+Before any member of the public is recorded:
+
+- [ ] The image proxy authenticated, or replaced with scoped signed URLs
+      ([SEC-0003](../sec/SEC-0003-object-storage-exposure.md))
+- [ ] A lawful basis, a notice and a retention period decided. The software
+      enrols people automatically and has no retention policy of its own
+      ([SEC-0005](../sec/SEC-0005-consent-and-lawful-basis.md))
 
 ### Environment Setup
 
@@ -158,6 +184,60 @@ server {
     }
 }
 ```
+
+## GPU deployment
+
+Reserving a GPU device fails outright on a machine without one, so it lives in a
+separate override rather than the base configuration
+([ADR-0009](../adr/ADR-0009-discover-acceleration-at-runtime.md)).
+
+Check the toolkit is in place first:
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
+```
+
+Then add the override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+```
+
+Combine it with the development override when needed:
+
+```bash
+docker compose -f docker-compose.yml                -f docker-compose.dev.yml                -f docker-compose.gpu.yml up -d --build
+```
+
+Confirm what is actually accelerated:
+
+```bash
+curl -s http://localhost:8000/api/v1/health/acceleration
+```
+
+Each backend is reported separately because they fail independently: a machine
+can have a working CUDA runtime for PyTorch while the ONNX runtime installed is
+the processor only build. The application header shows the same state.
+
+The GPU image additionally installs a C compiler, which the processor only image
+does not; the reason is in
+[SEC-0007](../sec/SEC-0007-container-hardening.md#accepted-exceptions).
+
+## Model weights
+
+Weights are downloaded from their publishers on first use and cached in named
+volumes, so a redeploy is fast and works with no network access once the caches
+are warm ([ADR-0011](../adr/ADR-0011-cache-model-weights-in-volumes.md)).
+
+| Volume | Holds |
+| --- | --- |
+| `ximply-vision-models` | Detection, pose, segmentation and landmark weights |
+| `ximply-vision-face-models` | The face recognition bundle |
+| `ximply-vision-vlm-models` | The description model |
+
+Deleting a volume forces a re-download, which is the intended way to pick up new
+weights. The first request that needs a model pays its download, so the first
+detection and the first description of a fresh deployment are slow.
 
 ## Scaling
 
@@ -287,3 +367,11 @@ docker image prune -a
 2. Update .env file
 3. Restart services
 4. Verify functionality
+
+## Elsewhere
+
+- [Readme](../../README.md)
+- [Features](../features/README.md)
+- [Architecture decisions](../adr/README.md)
+- [Security decisions](../sec/README.md)
+- [API reference](../infrastructure/api.md)
