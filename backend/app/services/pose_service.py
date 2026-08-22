@@ -32,6 +32,7 @@ import numpy as np
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.acceleration_service import get_acceleration_service
 
 logger = get_logger(__name__)
 
@@ -350,7 +351,17 @@ class PoseService:
                     self._unavailable[kind] = True
                     return None
 
-                base = mp_python.BaseOptions(model_asset_path=str(model_path))
+                # The GPU delegate needs a GL context that a headless container
+                # usually lacks, so a failure here falls back to CPU rather than
+                # taking the overlay down with it.
+                delegate = (
+                    mp_python.BaseOptions.Delegate.GPU
+                    if get_acceleration_service().mediapipe_gpu
+                    else mp_python.BaseOptions.Delegate.CPU
+                )
+                base = mp_python.BaseOptions(
+                    model_asset_path=str(model_path), delegate=delegate
+                )
 
                 if kind == "pose":
                     landmarker = vision.PoseLandmarker.create_from_options(

@@ -30,6 +30,7 @@ import numpy as np
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.acceleration_service import get_acceleration_service
 
 logger = get_logger(__name__)
 
@@ -153,12 +154,13 @@ class FaceEmbedder:
             try:
                 from insightface.app import FaceAnalysis
 
+                acceleration = get_acceleration_service()
                 app = FaceAnalysis(
                     name=settings.person_face_model,
                     allowed_modules=["detection", "recognition"],
-                    providers=["CPUExecutionProvider"],
+                    providers=acceleration.onnx_providers,
                 )
-                app.prepare(ctx_id=-1, det_size=(640, 640))
+                app.prepare(ctx_id=acceleration.insightface_ctx_id, det_size=(640, 640))
                 self._app = app
                 logger.info(f"Face model ready: {settings.person_face_model}")
                 return True
@@ -237,6 +239,7 @@ class BodyEmbedder:
         self._session = None
         self._input_name: Optional[str] = None
         self._torch_model = None
+        self._torch_device = "cpu"
         self._unavailable = False
         self._lock = threading.Lock()
 
@@ -264,7 +267,7 @@ class BodyEmbedder:
                     import onnxruntime
 
                     self._session = onnxruntime.InferenceSession(
-                        model_path, providers=["CPUExecutionProvider"]
+                        model_path, providers=get_acceleration_service().onnx_providers
                     )
                     self._input_name = self._session.get_inputs()[0].name
                     logger.info(f"Body re-identification model ready: {model_path}")
@@ -283,8 +286,12 @@ class BodyEmbedder:
                 # Drop the classifier: the pooled features are the descriptor.
                 model.fc = torch.nn.Identity()
                 model.eval()
+                self._torch_device = get_acceleration_service().torch_device
+                model.to(self._torch_device)
                 self._torch_model = model
-                logger.info("Body appearance backbone ready: torchvision resnet50")
+                logger.info(
+                    f"Body appearance backbone ready: torchvision resnet50 on {self._torch_device}"
+                )
                 return True
             except Exception as e:
                 self._unavailable = True
@@ -327,8 +334,9 @@ class BodyEmbedder:
                 import torch
 
                 with torch.no_grad():
-                    output = self._torch_model(torch.from_numpy(batch))
-                vector = output.numpy().reshape(-1)
+                    tensor = torch.from_numpy(batch).to(self._torch_device)
+                    output = self._torch_model(tensor)
+                vector = output.detach().cpu().numpy().reshape(-1)
 
             # A crop with more pixels carries a more reliable descriptor.
             height, width = person_crop.shape[:2]

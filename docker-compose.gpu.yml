@@ -1,0 +1,48 @@
+# ==============================================================================
+# XIMPLY Vision - GPU Acceleration Overrides
+# ==============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# Combine with the development override when needed:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+#                  -f docker-compose.gpu.yml up -d --build
+#
+# Requirements on the host:
+#   - An NVIDIA GPU with a current driver
+#   - The NVIDIA Container Toolkit, so that "docker info" lists an nvidia runtime
+#
+# Verify with:
+#   docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
+#
+# This is a separate file rather than part of the base configuration because
+# reserving a GPU device fails outright on a machine that has none, which would
+# make the default install unusable for everyone without one. The backend
+# itself needs no flag: it detects the accelerator at startup and falls back to
+# the CPU on its own.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        # Brings in the CUDA build of the ONNX runtime, which is what moves face
+        # recognition onto the GPU. Object detection and the body descriptor run
+        # through PyTorch and are accelerated without it.
+        INSTALL_GPU: "true"
+    environment:
+      ACCELERATION_ENABLED: "true"
+      # The MediaPipe GPU delegate needs a GL context that a headless container
+      # usually lacks. Off by default: the landmark models are cheap on CPU, and
+      # a failed delegate takes the whole overlay down with it.
+      ACCELERATION_MEDIAPIPE_GPU: "false"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

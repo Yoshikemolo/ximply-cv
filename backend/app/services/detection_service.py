@@ -16,6 +16,7 @@ from PIL import Image
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.acceleration_service import get_acceleration_service
 
 logger = get_logger(__name__)
 
@@ -153,12 +154,13 @@ class DetectionService:
 
         start_time = time.perf_counter()
 
-        # Run inference
+        # Run inference on whatever accelerator the machine turned out to have
         results = self.model(
             frame,
             conf=conf,
             iou=iou,
             verbose=False,
+            device=get_acceleration_service().ultralytics_device,
         )
 
         processing_time = (time.perf_counter() - start_time) * 1000

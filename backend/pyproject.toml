@@ -73,6 +73,13 @@ ml = [
     "mediapipe>=0.10.0",
 ]
 
+# Swaps the ONNX runtime for the build that carries the CUDA execution
+# provider, which is what moves face recognition onto the GPU. Kept apart from
+# "ml" so a CPU only install does not pull a large GPU wheel it cannot use.
+gpu = [
+    "onnxruntime-gpu>=1.17.0",
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"

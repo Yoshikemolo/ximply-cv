@@ -24,8 +24,18 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
+# INSTALL_GPU swaps the ONNX runtime for the build carrying the CUDA execution
+# provider, which is what moves face recognition onto the GPU. A build argument
+# rather than a runtime check, because the two wheels cannot coexist and a CPU
+# only image should not carry a GPU wheel it can never use.
+ARG INSTALL_GPU=false
+
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir ".[ml]"
+    pip install --no-cache-dir ".[ml]" && \
+    if [ "$INSTALL_GPU" = "true" ]; then \
+        pip uninstall -y onnxruntime && \
+        pip install --no-cache-dir ".[gpu]"; \
+    fi
 
 # ------------------------------------------------------------------------------
 # Stage 2: Production

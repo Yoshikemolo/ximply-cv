@@ -135,6 +135,13 @@ class Settings(BaseSettings):
     # which is the 3D surface rather than an outline, at a real bandwidth cost.
     face_mesh_mode: str = "contours"
 
+    # Hardware acceleration
+    # Detected at runtime rather than configured, so the same image runs on a
+    # workstation with a GPU and on a laptop without one. These only switch the
+    # detection off or narrow it.
+    acceleration_enabled: bool = True
+    acceleration_mediapipe_gpu: bool = False
+
     # Detection display
     # Below this confidence a detection is reported as a guess, not a fact.
     detection_certainty_threshold: float = 0.7

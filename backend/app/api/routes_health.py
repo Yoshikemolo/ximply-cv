@@ -85,3 +85,19 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)) -> dict:
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
         return {"status": "not_ready", "reason": str(e)}
+
+
+@router.get("/acceleration")
+async def acceleration_status() -> dict:
+    """
+    Report whether inference is running on dedicated hardware.
+
+    Public because it describes the server itself rather than any user data, and
+    because the client shows it before the first frame is ever sent.
+
+    Returns:
+        dict: Device details and the state of each inference backend.
+    """
+    from app.services.acceleration_service import get_acceleration_service
+
+    return get_acceleration_service().report().to_dict()

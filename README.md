@@ -93,6 +93,30 @@ Hot reload for the backend, development build for the frontend:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
+### GPU acceleration
+
+Detection runs on the CPU by default and needs no configuration. On a machine
+with an NVIDIA GPU and the NVIDIA Container Toolkit installed, add the GPU
+override to move object detection and face recognition onto it:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+```
+
+Check the toolkit is in place first:
+
+```bash
+docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
+```
+
+The application shows a badge on its main page when acceleration is active,
+naming the device and listing which backends are using it. The same state is
+available at `/api/v1/health/acceleration`.
+
+The override is a separate file because reserving a GPU device fails outright on
+a machine without one. The backend needs no flag either way: it probes the
+hardware at startup and falls back to the CPU on its own.
+
 ### Production mode
 
 Resource limits, log rotation and no debug. This override has no fallback defaults, so a
