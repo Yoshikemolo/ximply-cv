@@ -1,0 +1,348 @@
+<div class="integrations">
+  <div class="integrations__header">
+    <h1>{{ 'integrations.title' | translate }}</h1>
+    <p class="subtitle">{{ 'integrations.subtitle' | translate }}</p>
+  </div>
+
+  @if (message(); as msg) {
+    <div class="banner banner--ok" (click)="dismiss()">{{ msg | translate }}</div>
+  }
+  @if (errorMessage(); as err) {
+    <div class="banner banner--error" (click)="dismiss()">{{ err | translate }}</div>
+  }
+
+  <div class="side-tabs integrations__tabs" role="tablist">
+    <button
+      type="button"
+      class="side-tab"
+      role="tab"
+      [class.side-tab--active]="tab() === 'webhooks'"
+      [attr.aria-selected]="tab() === 'webhooks'"
+      (click)="selectTab('webhooks')"
+    >
+      {{ 'integrations.webhooks.title' | translate }}
+      <span class="side-tab__count">{{ webhooks().length }}</span>
+    </button>
+    <button
+      type="button"
+      class="side-tab"
+      role="tab"
+      [class.side-tab--active]="tab() === 'mcp'"
+      [attr.aria-selected]="tab() === 'mcp'"
+      (click)="selectTab('mcp')"
+    >
+      {{ 'integrations.mcp.title' | translate }}
+      <span class="side-tab__count">{{ tokens().length }}</span>
+    </button>
+  </div>
+
+  @if (tab() === 'webhooks') {
+    <section class="panel">
+      <div class="panel__head">
+        <div>
+          <h2>{{ 'integrations.webhooks.title' | translate }}</h2>
+          <p class="panel__hint">{{ 'integrations.webhooks.hint' | translate }}</p>
+        </div>
+        <span class="state" [class.state--on]="webhooksActive()">
+          <span class="state__dot"></span>
+          {{ (webhooksActive() ? 'integrations.active' : 'integrations.inactive') | translate }}
+        </span>
+      </div>
+
+      <h3 class="panel__section">{{ 'integrations.webhooks.clients' | translate }}</h3>
+
+      @if (webhooks().length === 0) {
+        <p class="empty">{{ 'integrations.webhooks.empty' | translate }}</p>
+      } @else {
+        <ul class="clients">
+          @for (hook of webhooks(); track hook.id) {
+            <li class="client" [class.client--off]="!hook.isActive">
+              <button
+                type="button"
+                class="client__toggle"
+                (click)="setWebhookActive(hook, !hook.isActive)"
+                [title]="(hook.isActive ? 'integrations.disable' : 'integrations.enable') | translate"
+              >
+                <span
+                  class="icon-mask icon-mask--lg"
+                  [class.icon-mask--toggle-on]="hook.isActive"
+                  [class.icon-mask--toggle-off]="!hook.isActive"
+                ></span>
+              </button>
+
+              <div class="client__body">
+                <span class="client__name">{{ hook.name }}</span>
+                <span class="client__url">{{ hook.url }}</span>
+                <span class="client__meta">
+                  @if (hook.eventTypes.length) {
+                    <span class="chip">{{ hook.eventTypes.join(', ') }}</span>
+                  } @else {
+                    <span class="chip">{{ 'integrations.webhooks.allEvents' | translate }}</span>
+                  }
+                  @if (hook.lastStatus) {
+                    <span class="chip" [class.chip--bad]="hook.failureCount > 0">
+                      HTTP {{ hook.lastStatus }}
+                    </span>
+                  }
+                  @if (hook.failureCount > 0) {
+                    <span class="chip chip--bad">
+                      {{ 'integrations.webhooks.failures' | translate: { count: hook.failureCount } }}
+                    </span>
+                  }
+                </span>
+              </div>
+
+              <div class="client__actions">
+                <button type="button" class="link" (click)="testWebhook(hook)">
+                  {{ 'integrations.webhooks.test' | translate }}
+                </button>
+                <button type="button" class="link" (click)="rotateSecret(hook)">
+                  {{ 'integrations.webhooks.rotate' | translate }}
+                </button>
+                <button type="button" class="link link--danger" (click)="deleteWebhook(hook)">
+                  {{ 'integrations.delete' | translate }}
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+
+      <h3 class="panel__section">{{ 'integrations.webhooks.add' | translate }}</h3>
+      <div class="form">
+        <input
+          type="text"
+          [ngModel]="newName()"
+          (ngModelChange)="newName.set($event)"
+          [placeholder]="'integrations.webhooks.namePlaceholder' | translate"
+        />
+        <input
+          type="url"
+          [ngModel]="newUrl()"
+          (ngModelChange)="newUrl.set($event)"
+          [placeholder]="'integrations.webhooks.urlPlaceholder' | translate"
+        />
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="createWebhook()"
+          [disabled]="!newName().trim() || !newUrl().trim()"
+        >
+          {{ 'integrations.webhooks.create' | translate }}
+        </button>
+      </div>
+
+      <p class="form__hint">{{ 'integrations.webhooks.typesHint' | translate }}</p>
+      <div class="chips">
+        @for (family of eventFamilies(); track family) {
+          <button
+            type="button"
+            class="chip chip--selectable"
+            [class.chip--on]="newTypes().includes(family)"
+            (click)="toggleType(family)"
+          >{{ family }}</button>
+        }
+        @for (type of eventTypes(); track type) {
+          <button
+            type="button"
+            class="chip chip--selectable"
+            [class.chip--on]="newTypes().includes(type)"
+            (click)="toggleType(type)"
+          >{{ type }}</button>
+        }
+      </div>
+
+      @if (revealedSecret(); as secret) {
+        <div class="reveal">
+          <div class="reveal__head">
+            <strong>{{ 'integrations.webhooks.secretShown' | translate }}</strong>
+            <button type="button" class="link" (click)="hideCredentials()">
+              {{ 'integrations.hide' | translate }}
+            </button>
+          </div>
+          <p class="reveal__warning">{{ 'integrations.secretWarning' | translate }}</p>
+          <app-code-snippet
+            [code]="secret"
+            language="bash"
+            [caption]="'integrations.webhooks.secretCaption' | translate"
+          />
+        </div>
+      }
+
+      <h3 class="panel__section">{{ 'integrations.webhooks.examples' | translate }}</h3>
+      <p class="panel__hint">{{ 'integrations.webhooks.examplesHint' | translate }}</p>
+
+      <div class="side-tabs example-tabs" role="tablist">
+        @for (example of webhookSnippets(); track example.id) {
+          <button
+            type="button"
+            class="side-tab"
+            role="tab"
+            [class.side-tab--active]="selectedWebhookExample() === example.id"
+            [attr.aria-selected]="selectedWebhookExample() === example.id"
+            (click)="selectedWebhookExample.set(example.id)"
+          >{{ example.label }}</button>
+        }
+      </div>
+
+      @if (currentWebhookSnippet(); as snippet) {
+        <app-code-snippet
+          [code]="snippet.code"
+          [language]="snippet.language"
+          [caption]="snippet.caption"
+        />
+      }
+    </section>
+  }
+
+  @if (tab() === 'mcp') {
+    <section class="panel">
+      <div class="panel__head">
+        <div>
+          <h2>{{ 'integrations.mcp.title' | translate }}</h2>
+          <p class="panel__hint">{{ 'integrations.mcp.hint' | translate }}</p>
+        </div>
+        <span class="state" [class.state--on]="mcpActive()">
+          <span class="state__dot"></span>
+          {{ (mcpActive() ? 'integrations.active' : 'integrations.inactive') | translate }}
+        </span>
+      </div>
+
+      <h3 class="panel__section">{{ 'integrations.mcp.tokens' | translate }}</h3>
+
+      @if (tokens().length === 0) {
+        <p class="empty">{{ 'integrations.mcp.empty' | translate }}</p>
+      } @else {
+        <ul class="clients">
+          @for (token of tokens(); track token.id) {
+            <li class="client" [class.client--off]="!token.isActive">
+              <button
+                type="button"
+                class="client__toggle"
+                (click)="setTokenActive(token, !token.isActive)"
+                [title]="(token.isActive ? 'integrations.disable' : 'integrations.enable') | translate"
+              >
+                <span
+                  class="icon-mask icon-mask--lg"
+                  [class.icon-mask--toggle-on]="token.isActive"
+                  [class.icon-mask--toggle-off]="!token.isActive"
+                ></span>
+              </button>
+
+              <div class="client__body">
+                <span class="client__name">{{ token.name }}</span>
+                <span class="client__url">{{ token.prefix }}...</span>
+                <span class="client__meta">
+                  @for (scope of token.scopes; track scope) {
+                    <span class="chip">{{ scope }}</span>
+                  }
+                  @if (token.scopes.length === 0) {
+                    <span class="chip">{{ 'integrations.mcp.allScopes' | translate }}</span>
+                  }
+                  @if (token.lastUsedAt) {
+                    <span class="chip">{{ 'integrations.mcp.lastUsed' | translate }}</span>
+                  } @else {
+                    <span class="chip">{{ 'integrations.mcp.neverUsed' | translate }}</span>
+                  }
+                </span>
+              </div>
+
+              <div class="client__actions">
+                <button type="button" class="link link--danger" (click)="deleteToken(token)">
+                  {{ 'integrations.mcp.revoke' | translate }}
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+
+      <h3 class="panel__section">{{ 'integrations.mcp.add' | translate }}</h3>
+      <div class="form">
+        <input
+          type="text"
+          [ngModel]="newTokenName()"
+          (ngModelChange)="newTokenName.set($event)"
+          [placeholder]="'integrations.mcp.namePlaceholder' | translate"
+        />
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="createToken()"
+          [disabled]="!newTokenName().trim()"
+        >
+          {{ 'integrations.mcp.create' | translate }}
+        </button>
+      </div>
+
+      <p class="form__hint">{{ 'integrations.mcp.scopesHint' | translate }}</p>
+      <div class="chips">
+        @for (scope of availableScopes; track scope) {
+          <button
+            type="button"
+            class="chip chip--selectable"
+            [class.chip--on]="newTokenScopes().includes(scope)"
+            (click)="toggleScope(scope)"
+          >{{ scope }}</button>
+        }
+      </div>
+
+      @if (revealedToken(); as token) {
+        <div class="reveal">
+          <div class="reveal__head">
+            <strong>{{ 'integrations.mcp.tokenShown' | translate }}</strong>
+            <button type="button" class="link" (click)="hideCredentials()">
+              {{ 'integrations.hide' | translate }}
+            </button>
+          </div>
+          <p class="reveal__warning">{{ 'integrations.secretWarning' | translate }}</p>
+          <app-code-snippet
+            [code]="token"
+            language="bash"
+            [caption]="'integrations.mcp.tokenCaption' | translate"
+          />
+        </div>
+      }
+
+      <h3 class="panel__section">{{ 'integrations.mcp.address' | translate }}</h3>
+      <p class="panel__hint">{{ 'integrations.mcp.addressHint' | translate }}</p>
+      <div class="form">
+        <input type="url" [ngModel]="baseUrl()" (ngModelChange)="baseUrl.set($event)" />
+      </div>
+
+      <h3 class="panel__section">{{ 'integrations.mcp.examples' | translate }}</h3>
+      <p class="panel__hint">{{ 'integrations.mcp.examplesHint' | translate }}</p>
+
+      <div class="side-tabs example-tabs" role="tablist">
+        @for (example of mcpSnippets(); track example.id) {
+          <button
+            type="button"
+            class="side-tab"
+            role="tab"
+            [class.side-tab--active]="selectedMcpExample() === example.id"
+            [attr.aria-selected]="selectedMcpExample() === example.id"
+            (click)="selectedMcpExample.set(example.id)"
+          >{{ example.label }}</button>
+        }
+      </div>
+
+      @if (currentMcpSnippet(); as snippet) {
+        <app-code-snippet
+          [code]="snippet.code"
+          [language]="snippet.language"
+          [caption]="snippet.caption"
+        />
+      }
+
+      <h3 class="panel__section">{{ 'integrations.mcp.tools' | translate }}</h3>
+      <ul class="tools">
+        <li><code>list_events</code> {{ 'integrations.mcp.toolEvents' | translate }}</li>
+        <li><code>get_current_scene</code> {{ 'integrations.mcp.toolScene' | translate }}</li>
+        <li><code>list_known_subjects</code> {{ 'integrations.mcp.toolSubjects' | translate }}</li>
+        <li><code>export_events_otlp</code> {{ 'integrations.mcp.toolOtlp' | translate }}</li>
+        <li><code>get_status</code> {{ 'integrations.mcp.toolStatus' | translate }}</li>
+      </ul>
+      <p class="panel__hint">{{ 'integrations.mcp.readOnly' | translate }}</p>
+    </section>
+  }
+</div>

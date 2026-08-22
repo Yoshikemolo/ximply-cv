@@ -68,6 +68,7 @@ export class HeaderComponent {
     { path: '/view', labelKey: 'nav.view', permission: 'detection:view' },
     { path: '/learn', labelKey: 'nav.learn', permission: 'objects:write' },
     { path: '/catalog', labelKey: 'nav.catalog', permission: 'objects:read' },
+    { path: '/integrations', labelKey: 'nav.integrations', permission: 'events:manage' },
     { path: '/admin', labelKey: 'nav.admin', permission: 'admin:full' },
   ];
 

@@ -1,0 +1,25 @@
+<figure class="snippet">
+  <figcaption class="snippet__bar">
+    <button
+      type="button"
+      class="snippet__copy"
+      (click)="copy()"
+      [class.snippet__copy--done]="copied()"
+      [title]="'integrations.copy' | translate"
+    >
+      <span
+        class="icon-mask icon-mask--sm"
+        [class.icon-mask--check]="copied()"
+        [class.icon-mask--clipboard]="!copied()"
+      ></span>
+      {{ (copied() ? 'integrations.copied' : 'integrations.copy') | translate }}
+    </button>
+
+    @if (caption()) {
+      <span class="snippet__caption">{{ caption() }}</span>
+    }
+    <span class="snippet__language">{{ language() }}</span>
+  </figcaption>
+
+  <pre class="snippet__code"><code [innerHTML]="highlighted()"></code></pre>
+</figure>

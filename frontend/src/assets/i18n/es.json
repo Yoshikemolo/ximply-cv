@@ -7,6 +7,7 @@
     "view": "Ver",
     "learn": "Aprender",
     "catalog": "Catálogo",
+    "integrations": "Integraciones",
     "admin": "Admin"
   },
   "auth": {
@@ -425,5 +426,70 @@
     "capability": "Cómputo",
     "backends": "Procesos acelerados",
     "badgeInactive": "Ejecutando en CPU"
+  },
+  "integrations": {
+    "title": "Integraciones",
+    "subtitle": "Conecta lo que observa esta instancia con los sistemas que necesitan saberlo.",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "enable": "Activar",
+    "disable": "Desactivar",
+    "delete": "Eliminar",
+    "hide": "Ocultar",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "secretWarning": "Cópialo ahora. Se guarda cifrado y no se puede volver a mostrar. Si se pierde, emite uno nuevo.",
+    "webhooks": {
+      "title": "Webhooks",
+      "hint": "Cada evento se envía a tu endpoint como un registro de OpenTelemetry, firmado con HMAC-SHA256 para que el receptor pueda comprobar que procede de aquí.",
+      "clients": "Clientes",
+      "empty": "Todavía no hay clientes registrados.",
+      "add": "Añadir un cliente",
+      "namePlaceholder": "Nombre del cliente",
+      "urlPlaceholder": "https://ejemplo.com/ximply/events",
+      "create": "Registrar",
+      "created": "Cliente registrado.",
+      "typesHint": "Elige qué eventos enviar. Si no seleccionas ninguno, el cliente los recibe todos.",
+      "allEvents": "Todos los eventos",
+      "failures": "{{count}} fallos consecutivos",
+      "test": "Probar",
+      "rotate": "Rotar secreto",
+      "rotated": "Secreto sustituido. Actualiza el receptor antes del próximo evento.",
+      "secretShown": "Secreto de firma",
+      "secretCaption": "Se muestra una sola vez",
+      "examples": "Recibir los envíos",
+      "examplesHint": "Verifica la firma antes de confiar en el cuerpo. Un endpoint que acepta cualquier POST es un endpoint que cualquiera puede alimentar."
+    },
+    "mcp": {
+      "title": "MCP",
+      "hint": "Permite que un agente externo pregunte qué ha visto la cámara. Solo lectura: nada de lo que puede invocar modifica el catálogo, los usuarios ni la detección en curso.",
+      "tokens": "Tokens",
+      "empty": "Todavía no se ha emitido ningún token.",
+      "add": "Emitir un token",
+      "namePlaceholder": "Para qué agente es",
+      "create": "Emitir",
+      "created": "Token emitido.",
+      "scopesHint": "Un token solo puede hacer lo que permiten sus ámbitos. Concede el conjunto más reducido que funcione.",
+      "allScopes": "Todos los ámbitos",
+      "lastUsed": "Usado",
+      "neverUsed": "Nunca usado",
+      "revoke": "Revocar",
+      "tokenShown": "Token de integración",
+      "tokenCaption": "Se muestra una sola vez",
+      "address": "Dirección",
+      "addressHint": "Dónde debe alcanzar el agente a esta instancia. Por defecto es la dirección que usa tu navegador, que no sirve si el agente se ejecuta en otra máquina.",
+      "examples": "Conectar un agente",
+      "examplesHint": "Configuración para los clientes habituales. El token va en la cabecera Authorization.",
+      "tools": "Herramientas disponibles",
+      "toolEvents": "eventos registrados, filtrados por tipo, sujeto o momento.",
+      "toolScene": "qué hay delante de la cámara ahora mismo.",
+      "toolSubjects": "las personas y objetos que esta instancia sabe reconocer.",
+      "toolOtlp": "los mismos eventos en formato OTLP, para un colector.",
+      "toolStatus": "qué modelos están cargados y si el hardware está acelerado.",
+      "readOnly": "No hay ninguna herramienta que escriba. Un agente puede leer lo observado y nada más."
+    },
+    "errors": {
+      "failed": "La petición ha fallado."
+    }
   }
 }

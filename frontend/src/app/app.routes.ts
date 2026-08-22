@@ -47,6 +47,15 @@ export const routes: Routes = [
     data: { requiredPermissions: ['objects:read'] },
   },
   {
+    path: 'integrations',
+    loadComponent: () =>
+      import('@features/integrations/integrations-page.component').then(
+        (m) => m.IntegrationsPageComponent
+      ),
+    canActivate: [authGuard],
+    data: { requiredPermissions: ['events:manage'] },
+  },
+  {
     path: 'admin',
     loadChildren: () =>
       import('@features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),

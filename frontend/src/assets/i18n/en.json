@@ -7,6 +7,7 @@
     "view": "View",
     "learn": "Learn",
     "catalog": "Catalog",
+    "integrations": "Integrations",
     "admin": "Admin"
   },
   "auth": {
@@ -425,5 +426,70 @@
     "capability": "Compute",
     "backends": "Accelerated backends",
     "badgeInactive": "Running on CPU"
+  },
+  "integrations": {
+    "title": "Integrations",
+    "subtitle": "Connect what this instance observes to the systems that need to know about it.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "enable": "Enable",
+    "disable": "Disable",
+    "delete": "Delete",
+    "hide": "Hide",
+    "copy": "Copy",
+    "copied": "Copied",
+    "secretWarning": "Copy it now. It is stored hashed and cannot be shown again. If it is lost, issue a new one.",
+    "webhooks": {
+      "title": "Webhooks",
+      "hint": "Each event is pushed to your endpoint as an OpenTelemetry log record, signed with HMAC-SHA256 so the receiver can prove it came from here.",
+      "clients": "Clients",
+      "empty": "No clients registered yet.",
+      "add": "Add a client",
+      "namePlaceholder": "Client name",
+      "urlPlaceholder": "https://example.com/ximply/events",
+      "create": "Register",
+      "created": "Client registered.",
+      "typesHint": "Choose which events to send. With nothing selected the client receives all of them.",
+      "allEvents": "All events",
+      "failures": "{{count}} consecutive failures",
+      "test": "Test",
+      "rotate": "Rotate secret",
+      "rotated": "Secret replaced. Update the receiver before the next event.",
+      "secretShown": "Signing secret",
+      "secretCaption": "Shown once",
+      "examples": "Receiving the deliveries",
+      "examplesHint": "Verify the signature before trusting the body. An endpoint that accepts any POST it receives is an endpoint anyone can feed."
+    },
+    "mcp": {
+      "title": "MCP",
+      "hint": "Lets an external agent ask what the camera has seen. Read only: nothing it can call changes the catalogue, the users or the running detection.",
+      "tokens": "Tokens",
+      "empty": "No tokens issued yet.",
+      "add": "Issue a token",
+      "namePlaceholder": "Which agent is this for",
+      "create": "Issue",
+      "created": "Token issued.",
+      "scopesHint": "A token can do only what its scopes allow. Grant the narrowest set that works.",
+      "allScopes": "All scopes",
+      "lastUsed": "Used",
+      "neverUsed": "Never used",
+      "revoke": "Revoke",
+      "tokenShown": "Integration token",
+      "tokenCaption": "Shown once",
+      "address": "Address",
+      "addressHint": "Where the agent should reach this instance. The default is the address your browser is using, which is wrong when the agent runs elsewhere.",
+      "examples": "Connecting an agent",
+      "examplesHint": "Configuration for the common clients. The token goes in the Authorization header.",
+      "tools": "Available tools",
+      "toolEvents": "recorded events, filtered by type, subject or time.",
+      "toolScene": "what is in front of the camera right now.",
+      "toolSubjects": "the people and objects this instance can recognise.",
+      "toolOtlp": "the same events in OTLP form, for a collector.",
+      "toolStatus": "which models are loaded and whether the hardware is accelerated.",
+      "readOnly": "There is no tool that writes. An agent can read what was observed and nothing else."
+    },
+    "errors": {
+      "failed": "The request failed."
+    }
   }
 }

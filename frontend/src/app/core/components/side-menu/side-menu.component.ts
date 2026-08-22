@@ -90,6 +90,12 @@ export class SideMenuComponent {
       permission: 'objects:read',
     },
     {
+      path: '/integrations',
+      labelKey: 'nav.integrations',
+      icon: 'link',
+      permission: 'events:manage',
+    },
+    {
       path: '/admin',
       labelKey: 'nav.admin',
       icon: 'settings',

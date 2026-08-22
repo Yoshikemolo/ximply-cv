@@ -1,0 +1,172 @@
+// A snippet exists to be taken away, so its text is selectable even though the
+// rest of the interface is not, and the copy button sits where the eye lands
+// first rather than hidden at the far end of the block.
+.snippet {
+  margin: 0 0 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  overflow: hidden;
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 6px 10px;
+    background: var(--bg-tertiary, var(--bg-primary));
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  &__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    background: transparent;
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+      border-color: var(--brand-primary);
+      color: var(--brand-primary);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    // Confirmation is the button changing, not a message elsewhere: the eye is
+    // already here, and a toast in a corner is missed.
+    &--done {
+      border-color: var(--color-success, #22c55e);
+      color: var(--color-success, #22c55e);
+    }
+  }
+
+  &__caption {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__language {
+    margin-left: auto;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__code {
+    margin: 0;
+    padding: 0.875rem 1rem;
+    max-height: 420px;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    tab-size: 2;
+
+    code {
+      user-select: text;
+      white-space: pre;
+    }
+  }
+}
+
+// Highlighting tokens, defined against the theme rather than pulled from a
+// stylesheet of the library, so a snippet belongs to this interface in both
+// themes instead of importing a palette from somewhere else.
+//
+// The palette is held in custom properties and the rules that use it are
+// pierced with ::ng-deep, because the highlighted markup is set through
+// innerHTML: those elements are created by the browser, not by the template, so
+// they never carry the attribute that scoped styles match on. Custom properties
+// inherit into them all the same, which is what keeps the theme switch working.
+:host {
+  --code-comment: var(--text-tertiary);
+  --code-keyword: #c084fc;
+  --code-string: #4ade80;
+  --code-number: #fbbf24;
+  --code-title: var(--brand-primary);
+  --code-meta: #38bdf8;
+}
+
+// Light needs darker inks: the pastels above are chosen against a dark panel
+// and fall below a readable contrast on a pale one.
+:host-context([data-theme='light']) {
+  --code-keyword: #7c3aed;
+  --code-string: #15803d;
+  --code-number: #b45309;
+  --code-meta: #0369a1;
+}
+
+.snippet__code {
+  color: var(--text-primary);
+}
+
+:host ::ng-deep {
+  .hljs-comment,
+  .hljs-quote {
+    color: var(--code-comment);
+    font-style: italic;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-type {
+    color: var(--code-keyword);
+  }
+
+  .hljs-string,
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-selector-attr,
+  .hljs-addition {
+    color: var(--code-string);
+  }
+
+  .hljs-number,
+  .hljs-symbol,
+  .hljs-built_in,
+  .hljs-bullet {
+    color: var(--code-number);
+  }
+
+  .hljs-title,
+  .hljs-function,
+  .hljs-name,
+  .hljs-section,
+  .hljs-title.class_,
+  .hljs-title.function_ {
+    color: var(--code-title);
+  }
+
+  .hljs-meta,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-params,
+  .hljs-property {
+    color: var(--code-meta);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: 600;
+  }
+}
