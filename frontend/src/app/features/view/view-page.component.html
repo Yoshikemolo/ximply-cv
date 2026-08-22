@@ -296,6 +296,22 @@
           </button>
         </div>
 
+        <div class="detection-tabs" role="tablist">
+          @for (tab of detectionTabs; track tab) {
+            <button
+              type="button"
+              class="detection-tab"
+              [class.detection-tab--active]="detectionTab() === tab"
+              role="tab"
+              [attr.aria-selected]="detectionTab() === tab"
+              (click)="selectTab(tab)"
+            >
+              {{ tabLabel(tab) | translate }}
+              <span class="detection-tab__count">{{ tabCount(tab) }}</span>
+            </button>
+          }
+        </div>
+
         @if (detectionsExpanded()) {
           <div class="detections-filters">
             <div class="detections-search">
@@ -315,19 +331,6 @@
                   [attr.aria-label]="'common.clear' | translate"
                 >
                   <span class="icon-mask icon-mask--close icon-mask--sm"></span>
-                </button>
-              }
-            </div>
-
-            <div class="detections-types">
-              @for (type of detectionTypes; track type) {
-                <button
-                  type="button"
-                  class="detections-type"
-                  [class.detections-type--active]="detectionTypeFilter() === type"
-                  (click)="onDetectionTypeChange(type)"
-                >
-                  {{ cardTypeLabel(type) | translate }}
                 </button>
               }
             </div>

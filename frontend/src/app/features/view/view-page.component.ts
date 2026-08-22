@@ -161,16 +161,16 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   /** Free text applied to the name, the type and the percentage of a card. */
   detectionQuery = signal('');
 
-  /** Type filter, matching the kinds reported by cardType. */
-  detectionTypeFilter = signal<DetectionCardType | 'all'>('all');
+  /**
+   * Which slice of the detections the list is showing.
+   *
+   * "threshold" is the one that earns its place: below the certainty threshold
+   * a detection is a guess, and being able to hide the guesses in one click is
+   * the difference between a readable list and a wall of maybes.
+   */
+  detectionTab = signal<DetectionTab>('all');
 
-  readonly detectionTypes: Array<DetectionCardType | 'all'> = [
-    'all',
-    'known',
-    'human',
-    'unknown',
-    'other',
-  ];
+  readonly detectionTabs: DetectionTab[] = ['all', 'threshold', 'humans', 'objects'];
 
   /**
    * Aggregated detections, one card per distinct thing.
@@ -193,10 +193,10 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    */
   visibleDetectionCards = computed(() => {
     const query = this.detectionQuery().trim().toLowerCase();
-    const type = this.detectionTypeFilter();
+    const tab = this.detectionTab();
 
     return this.detectionCards().filter((card) => {
-      if (type !== 'all' && this.cardType(card) !== type) {
+      if (!this.matchesTab(card, tab)) {
         return false;
       }
 
@@ -592,17 +592,48 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   /**
    * Translation key for the badge of a card type.
    */
-  cardTypeLabel(type: DetectionCardType | 'all'): string {
+  cardTypeLabel(type: DetectionCardType): string {
     return `view.detections.types.${type}`;
+  }
+
+  /**
+   * Whether a card belongs in the selected tab.
+   *
+   * @param card The card under consideration.
+   * @param tab The tab currently selected.
+   */
+  matchesTab(card: DetectionCard, tab: DetectionTab): boolean {
+    switch (tab) {
+      case 'threshold':
+        return this.cardCertainty(card) >= CERTAINTY_THRESHOLD;
+      case 'humans':
+        return this.cardType(card) === 'human';
+      case 'objects':
+        return this.cardType(card) !== 'human';
+      default:
+        return true;
+    }
+  }
+
+  /** Translation key for a tab label. */
+  tabLabel(tab: DetectionTab): string {
+    return `view.detections.tabs.${tab}`;
+  }
+
+  /** How many cards the given tab would show, for its counter. */
+  tabCount(tab: DetectionTab): number {
+    return this.detectionCards().filter((card) => this.matchesTab(card, tab)).length;
+  }
+
+  selectTab(tab: DetectionTab): void {
+    this.detectionTab.set(tab);
   }
 
   onDetectionQueryChange(value: string): void {
     this.detectionQuery.set(value);
   }
 
-  onDetectionTypeChange(type: DetectionCardType | 'all'): void {
-    this.detectionTypeFilter.set(type);
-  }
+
 
   /**
    * Fold this frame's detections into the card list.
@@ -1116,8 +1147,11 @@ interface Detection {
  * newest one, together with the thumbnail cut from the frame where it looked
  * clearest.
  */
-/** How a detection is classified for the type filter and the badge. */
+/** How a detection is classified for the badge. */
 type DetectionCardType = 'known' | 'human' | 'unknown' | 'other';
+
+/** The slices of the detection list offered as tabs. */
+type DetectionTab = 'all' | 'threshold' | 'humans' | 'objects';
 
 interface DetectionCard {
   key: string;

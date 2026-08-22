@@ -169,13 +169,13 @@ class SegmentationService:
                 points.append([cx, cy])
         return points
 
-    def _choose_mask(
+    def _choose_index(
         self,
         masks: np.ndarray,
         scores: np.ndarray,
         box_area: float,
         tightness: float,
-    ) -> Optional[np.ndarray]:
+    ) -> Optional[int]:
         """
         Pick one of the candidate masks according to the tightness setting.
 
@@ -193,7 +193,7 @@ class SegmentationService:
             tightness: 0 keeps the widest candidate, 1 the narrowest.
 
         Returns:
-            The chosen mask as a boolean array, or None when nothing is usable.
+            Index of the chosen candidate, or None when nothing is usable.
         """
         if masks.size == 0:
             return None
@@ -225,7 +225,7 @@ class SegmentationService:
         candidates.sort(key=lambda candidate: candidate[0])
         clamped = min(1.0, max(0.0, tightness))
         position = int(round((1.0 - clamped) * (len(candidates) - 1)))
-        return masks[candidates[position][2]] > 0
+        return candidates[position][2]
 
     def segment_boxes(
         self,
@@ -312,36 +312,53 @@ class SegmentationService:
                         multimask_output=True,
                     )
 
-                    candidates = masks.detach().float().cpu().numpy()
-                    candidates = candidates.reshape(
-                        -1, candidates.shape[-2], candidates.shape[-1]
-                    )
-                    candidate_scores = scores.detach().float().cpu().numpy().reshape(-1)
+                    # Candidates arrive at model resolution. Choosing one here
+                    # and letting the library map it back is what keeps the
+                    # outline aligned with the frame: that mapping undoes the
+                    # exact preprocessing which produced the mask, and a plain
+                    # resize does not, which shifts every silhouette.
+                    flat = masks.detach().float().cpu().numpy()
+                    flat = flat.reshape(-1, flat.shape[-2], flat.shape[-1])
+                    flat_scores = scores.detach().float().cpu().numpy().reshape(-1)
 
-                    # Candidates come at model resolution, so the box is scaled
-                    # the same way before the coverage ceiling is applied.
-                    scale = (candidates.shape[-1] / width) * (candidates.shape[-2] / height)
+                    scale = (flat.shape[-1] / width) * (flat.shape[-2] / height)
                     box_area = max(1.0, (box[2] - box[0]) * (box[3] - box[1])) * scale
 
-                    chosen = self._choose_mask(
-                        candidates, candidate_scores, box_area, tightness
-                    )
-                    if chosen is None:
+                    position = self._choose_index(flat, flat_scores, box_area, tightness)
+                    if position is None:
                         continue
 
-                    full = cv2.resize(
-                        chosen.astype(np.uint8),
-                        (width, height),
-                        interpolation=cv2.INTER_NEAREST,
+                    # The candidate axis is the first one when a single prompt is
+                    # sent and the second when several are batched, so both
+                    # layouts are handled rather than assuming one.
+                    if masks.dim() == 3:
+                        chosen_masks = masks[position : position + 1]
+                    else:
+                        chosen_masks = masks[:, position : position + 1]
+                    if scores.dim() == 1:
+                        chosen_scores = scores[position : position + 1]
+                    else:
+                        chosen_scores = scores[:, position : position + 1]
+
+                    results = predictor.postprocess(
+                        (chosen_masks, chosen_scores), image, [frame]
                     )
-                    contours, _ = cv2.findContours(
-                        full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-                    )
-                    if not contours:
+
+                    contour = None
+                    for result in results:
+                        result_masks = getattr(result, "masks", None)
+                        if (
+                            result_masks is not None
+                            and result_masks.xy is not None
+                            and len(result_masks.xy)
+                        ):
+                            contour = max(result_masks.xy, key=len)
+                            break
+
+                    if contour is None:
                         continue
 
-                    largest = max(contours, key=cv2.contourArea)
-                    polygons[index] = self._simplify(largest.reshape(-1, 2))
+                    polygons[index] = self._simplify(np.asarray(contour))
 
         except Exception as e:
             logger.debug(f"Segmentation failed: {e}")

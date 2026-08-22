@@ -69,6 +69,12 @@
         "human": "Humano",
         "unknown": "Desconocido",
         "other": "Otros"
+      },
+      "tabs": {
+        "all": "Todo",
+        "threshold": ">Umbral",
+        "humans": "Humanos",
+        "objects": "Objetos"
       }
     },
     "noDetections": "Aún no se han detectado objetos",
