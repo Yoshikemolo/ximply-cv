@@ -18,7 +18,7 @@
             </button>
           }
           @if (selectedObjects().size >= 1) {
-            <button class="btn-danger" (click)="confirmDeleteSelected()">
+            <button class="btn-danger-action" (click)="confirmDeleteSelected()">
               <span class="icon-mask icon-mask--trash icon-mask--sm"></span>
               {{ 'catalog.deleteSelected.button' | translate }} ({{ selectedObjects().size }})
             </button>
