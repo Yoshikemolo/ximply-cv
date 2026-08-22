@@ -84,6 +84,18 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   // Toggle to hide person detections (useful when holding objects)
   hidePersonDetections = signal(true);
 
+  /**
+   * Whether the body and hand wireframes are extracted and drawn.
+   *
+   * The flag travels to the server rather than only filtering on arrival: the
+   * landmark models are the expensive part of a frame, so switching the overlay
+   * off should stop the work, not just hide its result.
+   */
+  showSkeletons = signal(true);
+
+  /** Whether the facial feature mesh is extracted and drawn. */
+  showFaceMesh = signal(true);
+
   // Filtered detections based on toggles
   filteredDetections = computed(() => {
     let result = this.detections();
@@ -362,6 +374,20 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.hidePersonDetections.set(!this.hidePersonDetections());
   }
 
+  toggleSkeletons(): void {
+    this.showSkeletons.set(!this.showSkeletons());
+    if (!this.showSkeletons()) {
+      this.skeletons.update((all) => all.filter((s) => s.kind === 'face'));
+    }
+  }
+
+  toggleFaceMesh(): void {
+    this.showFaceMesh.set(!this.showFaceMesh());
+    if (!this.showFaceMesh()) {
+      this.skeletons.update((all) => all.filter((s) => s.kind !== 'face'));
+    }
+  }
+
   private refreshFeatureCache(): void {
     this.isRefreshingFeatures.set(true);
 
@@ -421,6 +447,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
         .detect(imageBase64, this.confidenceThreshold(), {
           hidePersonDetections: this.hidePersonDetections(),
           showOnlyCustomObjects: this.showOnlyCustomObjects(),
+          includeSkeletons: this.showSkeletons(),
+          includeFaceMesh: this.showFaceMesh(),
         })
         .subscribe({
           next: (response) => {

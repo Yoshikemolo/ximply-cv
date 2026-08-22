@@ -60,7 +60,7 @@
     <div class="controls-section" [class.controls-section--expanded]="detectionsExpanded()">
       <div class="control-card" [class.control-card--collapsed]="controlsCollapsed()">
         <div class="panel-header">
-          <h3>{{ 'view.controls.camera' | translate }}</h3>
+          <h3>{{ 'view.controls.title' | translate }}</h3>
           <button
             type="button"
             class="panel-toggle"
@@ -106,13 +106,13 @@
           />
         </div>
 
-        <div class="control-group toggle-group">
+        <div class="toggle-list">
           <button
-            class="toggle-button"
+            class="toggle-row"
             [class.active]="showOnlyCustomObjects()"
-            [class.loading]="isRefreshingFeatures()"
             [disabled]="isRefreshingFeatures()"
             (click)="toggleCustomObjectsOnly()"
+            [title]="(showOnlyCustomObjects() ? 'view.controls.clickToShowAll' : 'view.controls.clickToFilter') | translate"
           >
             @if (isRefreshingFeatures()) {
               <span class="spinner-small"></span>
@@ -123,36 +123,73 @@
                 [class.icon-mask--toggle-off]="!showOnlyCustomObjects()"
               ></span>
             }
-            <span class="toggle-content">
+            <span class="toggle-row__text">
               @if (isRefreshingFeatures()) {
-                <span class="toggle-text">{{ 'view.controls.refreshingCache' | translate }}</span>
+                {{ 'view.controls.refreshingCache' | translate }}
               } @else if (showOnlyCustomObjects()) {
-                <span class="toggle-text">{{ 'view.controls.showingCustom' | translate }}</span>
-                <span class="toggle-hint">{{ 'view.controls.clickToShowAll' | translate }}</span>
+                {{ 'view.controls.showingCustom' | translate }}
               } @else {
-                <span class="toggle-text">{{ 'view.controls.showingAll' | translate }}</span>
-                <span class="toggle-hint">{{ 'view.controls.clickToFilter' | translate }}</span>
+                {{ 'view.controls.showingAll' | translate }}
               }
             </span>
           </button>
 
           <button
-            class="toggle-button"
+            class="toggle-row"
             [class.active]="hidePersonDetections()"
             (click)="togglePersonDetections()"
+            [title]="(hidePersonDetections() ? 'view.controls.clickToShowPersons' : 'view.controls.clickToHidePersons') | translate"
           >
             <span
               class="icon-mask icon-mask--lg"
               [class.icon-mask--toggle-on]="hidePersonDetections()"
               [class.icon-mask--toggle-off]="!hidePersonDetections()"
             ></span>
-            <span class="toggle-content">
+            <span class="toggle-row__text">
               @if (hidePersonDetections()) {
-                <span class="toggle-text">{{ 'view.controls.hidingPersons' | translate }}</span>
-                <span class="toggle-hint">{{ 'view.controls.clickToShowPersons' | translate }}</span>
+                {{ 'view.controls.hidingPersons' | translate }}
               } @else {
-                <span class="toggle-text">{{ 'view.controls.showingPersons' | translate }}</span>
-                <span class="toggle-hint">{{ 'view.controls.clickToHidePersons' | translate }}</span>
+                {{ 'view.controls.showingPersons' | translate }}
+              }
+            </span>
+          </button>
+
+          <button
+            class="toggle-row"
+            [class.active]="showSkeletons()"
+            (click)="toggleSkeletons()"
+            [title]="(showSkeletons() ? 'view.controls.clickToHideSkeleton' : 'view.controls.clickToShowSkeleton') | translate"
+          >
+            <span
+              class="icon-mask icon-mask--lg"
+              [class.icon-mask--toggle-on]="showSkeletons()"
+              [class.icon-mask--toggle-off]="!showSkeletons()"
+            ></span>
+            <span class="toggle-row__text">
+              @if (showSkeletons()) {
+                {{ 'view.controls.showingSkeleton' | translate }}
+              } @else {
+                {{ 'view.controls.hidingSkeleton' | translate }}
+              }
+            </span>
+          </button>
+
+          <button
+            class="toggle-row"
+            [class.active]="showFaceMesh()"
+            (click)="toggleFaceMesh()"
+            [title]="(showFaceMesh() ? 'view.controls.clickToHideFace' : 'view.controls.clickToShowFace') | translate"
+          >
+            <span
+              class="icon-mask icon-mask--lg"
+              [class.icon-mask--toggle-on]="showFaceMesh()"
+              [class.icon-mask--toggle-off]="!showFaceMesh()"
+            ></span>
+            <span class="toggle-row__text">
+              @if (showFaceMesh()) {
+                {{ 'view.controls.showingFace' | translate }}
+              } @else {
+                {{ 'view.controls.hidingFace' | translate }}
               }
             </span>
           </button>

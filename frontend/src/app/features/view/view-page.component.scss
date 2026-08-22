@@ -192,10 +192,65 @@
 }
 
 // Toggle button styles
-.toggle-group {
+// Four toggles in boxes made the controls column taller than the video beside
+// it. Rows share one border instead of carrying a card each, and the hint that
+// used to sit under every label is now the tooltip.
+.toggle-list {
   margin-top: 0.5rem;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--border-default);
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.3rem 0.25rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.7;
+  }
+
+  &.active {
+    color: var(--text-primary);
+    font-weight: 500;
+
+    .icon-mask {
+      background-color: var(--brand-primary);
+    }
+  }
+
+  .icon-mask {
+    flex-shrink: 0;
+  }
+
+  &__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .toggle-button {

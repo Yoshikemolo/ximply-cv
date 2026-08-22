@@ -584,12 +584,25 @@ class PoseService:
 
         return skeletons
 
-    def extract(self, frame: np.ndarray) -> Tuple[List[Skeleton], float]:
+    def extract(
+        self,
+        frame: np.ndarray,
+        include_bodies: bool = True,
+        include_hands: bool = True,
+        include_faces: bool = True,
+    ) -> Tuple[List[Skeleton], float]:
         """
-        Extract every overlay in a frame.
+        Extract the requested overlays from a frame.
+
+        Each kind is skipped rather than filtered afterwards, because running a
+        landmark model and throwing the result away is the whole cost for none
+        of the benefit.
 
         Args:
             frame: Full BGR frame.
+            include_bodies: Whether to run the body model.
+            include_hands: Whether to run the hand model.
+            include_faces: Whether to run the face model.
 
         Returns:
             Tuple of (skeletons, processing time in milliseconds).
@@ -598,7 +611,13 @@ class PoseService:
             return [], 0.0
 
         start = time.perf_counter()
-        skeletons = self.extract_bodies(frame) + self.extract_hands(frame) + self.extract_faces(frame)
+        skeletons: List[Skeleton] = []
+        if include_bodies:
+            skeletons += self.extract_bodies(frame)
+        if include_hands:
+            skeletons += self.extract_hands(frame)
+        if include_faces:
+            skeletons += self.extract_faces(frame)
         elapsed = (time.perf_counter() - start) * 1000
         return skeletons, elapsed
 

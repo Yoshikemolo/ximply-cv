@@ -26,13 +26,12 @@ export interface AccelerationStatus {
 /**
  * Badge reporting whether detection is running on dedicated hardware.
  *
- * Shown only when there is something to report. On a machine without an
- * accelerator the badge stays out of the way entirely rather than announcing an
- * absence, which is the normal case and not news.
+ * Green means dedicated hardware is doing the work, amber means the processor
+ * is. The colour answers the only question the badge exists to answer, so it is
+ * never spent on anything else.
  *
- * Hovering reveals which backends are actually accelerated, because they can
- * differ: object detection can be on the GPU while face recognition is not,
- * and a single green light over that would be misleading.
+ * Clicking reveals which backends are actually accelerated, because they can
+ * differ: object detection can be on the GPU while the landmark models are not.
  */
 @Component({
   selector: 'app-acceleration-badge',
@@ -73,12 +72,6 @@ export class AccelerationBadgeComponent implements OnInit {
 
   totalCount(): number {
     return this.status()?.backends.length ?? 0;
-  }
-
-  /** True when the accelerator is present but not every backend uses it. */
-  isPartial(): boolean {
-    const total = this.totalCount();
-    return total > 0 && this.acceleratedCount() > 0 && this.acceleratedCount() < total;
   }
 
   toggleDetails(): void {

@@ -89,7 +89,16 @@
       "hidingPersons": "Hiding person detections",
       "showingPersons": "Showing person detections",
       "clickToShowPersons": "Click to show persons",
-      "clickToHidePersons": "Click to hide persons"
+      "clickToHidePersons": "Click to hide persons",
+      "title": "Controls",
+      "showingSkeleton": "Skeleton on",
+      "hidingSkeleton": "Skeleton off",
+      "clickToShowSkeleton": "Click to detect and draw the body and hand skeleton",
+      "clickToHideSkeleton": "Click to stop detecting and drawing the skeleton",
+      "showingFace": "Face mesh on",
+      "hidingFace": "Face mesh off",
+      "clickToShowFace": "Click to detect and draw the facial features",
+      "clickToHideFace": "Click to stop detecting and drawing the facial features"
     },
     "capture": {
       "title": "Save Object to Catalog",
@@ -390,6 +399,7 @@
     "device": "Device",
     "runtime": "Runtime",
     "capability": "Compute",
-    "backends": "Accelerated backends"
+    "backends": "Accelerated backends",
+    "badgeInactive": "Running on CPU"
   }
 }

@@ -93,6 +93,8 @@ export interface DetectRequest {
   iouThreshold?: number;
   hidePersonDetections?: boolean;
   showOnlyCustomObjects?: boolean;
+  includeSkeletons?: boolean;
+  includeFaceMesh?: boolean;
 }
 
 export interface CaptureDetectionRequest {
@@ -130,7 +132,12 @@ export class DetectionService {
   detect(
     image: string,
     confidenceThreshold?: number,
-    options?: { hidePersonDetections?: boolean; showOnlyCustomObjects?: boolean }
+    options?: {
+      hidePersonDetections?: boolean;
+      showOnlyCustomObjects?: boolean;
+      includeSkeletons?: boolean;
+      includeFaceMesh?: boolean;
+    }
   ): Observable<DetectionResponse> {
     const request: DetectRequest = {
       image,
@@ -140,6 +147,11 @@ export class DetectionService {
       // a hidden box suppress a visible one and leave a gap on screen.
       hidePersonDetections: options?.hidePersonDetections ?? false,
       showOnlyCustomObjects: options?.showOnlyCustomObjects ?? false,
+      // Sent rather than filtered on arrival: the landmark models are the
+      // expensive part of a frame, so an overlay that is switched off should
+      // not be computed at all.
+      includeSkeletons: options?.includeSkeletons ?? true,
+      includeFaceMesh: options?.includeFaceMesh ?? true,
     };
 
     return this.http.post<DetectionResponse>(`${this.apiUrl}/detect`, request);

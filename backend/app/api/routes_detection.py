@@ -279,6 +279,11 @@ class DetectRequest(BaseModel):
     iouThreshold: Optional[float] = None
     hidePersonDetections: bool = False
     showOnlyCustomObjects: bool = False
+    # An overlay the client is not drawing is not computed. The landmark models
+    # dominate the cost of a frame, so switching one off has to stop the work
+    # rather than discard its result.
+    includeSkeletons: bool = True
+    includeFaceMesh: bool = True
 
 
 class CaptureDetectionRequest(BaseModel):
@@ -749,10 +754,16 @@ async def detect_objects(
 
         # Skeleton overlay for people and hands
         skeleton_results = []
-        if image_array is not None:
+        wants_overlay = request.includeSkeletons or request.includeFaceMesh
+        if image_array is not None and wants_overlay:
             try:
                 pose_service = get_pose_service()
-                skeletons, pose_time = pose_service.extract(image_array)
+                skeletons, pose_time = pose_service.extract(
+                    image_array,
+                    include_bodies=request.includeSkeletons,
+                    include_hands=request.includeSkeletons,
+                    include_faces=request.includeFaceMesh,
+                )
                 if request.hidePersonDetections:
                     # Hiding people hides their wireframe as well; hands stay,
                     # since a hand is what the user is pointing at the camera.

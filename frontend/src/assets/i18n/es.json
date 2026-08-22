@@ -89,7 +89,16 @@
       "hidingPersons": "Ocultando detecciones de personas",
       "showingPersons": "Mostrando detecciones de personas",
       "clickToShowPersons": "Clic para mostrar personas",
-      "clickToHidePersons": "Clic para ocultar personas"
+      "clickToHidePersons": "Clic para ocultar personas",
+      "title": "Controles",
+      "showingSkeleton": "Esqueleto activo",
+      "hidingSkeleton": "Esqueleto inactivo",
+      "clickToShowSkeleton": "Pulsa para detectar y dibujar el esqueleto del cuerpo y las manos",
+      "clickToHideSkeleton": "Pulsa para dejar de detectar y dibujar el esqueleto",
+      "showingFace": "Malla facial activa",
+      "hidingFace": "Malla facial inactiva",
+      "clickToShowFace": "Pulsa para detectar y dibujar los rasgos faciales",
+      "clickToHideFace": "Pulsa para dejar de detectar y dibujar los rasgos faciales"
     },
     "capture": {
       "title": "Guardar Objeto en Catálogo",
@@ -390,6 +399,7 @@
     "device": "Dispositivo",
     "runtime": "Runtime",
     "capability": "Cómputo",
-    "backends": "Procesos acelerados"
+    "backends": "Procesos acelerados",
+    "badgeInactive": "Ejecutando en CPU"
   }
 }

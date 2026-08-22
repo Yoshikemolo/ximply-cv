@@ -26,9 +26,10 @@
     box-shadow: var(--focus-ring);
   }
 
-  // Amber when the accelerator is present but some backend still runs on CPU:
-  // a plain green light over a partial state would overstate it.
-  &--partial {
+  // Amber says the work is on the processor. Green is reserved for the case
+  // where dedicated hardware is actually doing it, so the colour answers the
+  // only question the badge exists to answer.
+  &--inactive {
     background-color: rgba(245, 158, 11, 0.12);
     border-color: rgba(245, 158, 11, 0.45);
     color: #b45309;
@@ -146,7 +147,7 @@
   .accel-badge {
     color: #4ade80;
 
-    &--partial {
+    &--inactive {
       color: #fbbf24;
     }
   }
