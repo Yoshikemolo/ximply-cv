@@ -217,7 +217,28 @@ curl -s http://localhost:8000/api/v1/health/acceleration
 
 Each backend is reported separately because they fail independently: a machine
 can have a working CUDA runtime for PyTorch while the ONNX runtime installed is
-the processor only build. The application header shows the same state.
+the processor only build. Each carries `supported`, whether this machine could
+accelerate it, `enabled`, whether it has been asked to, and `accelerated`, what
+is happening. The badge in the application header shows the same state and
+opens a panel with a switch per backend.
+
+The override is what puts a device inside the container. Which of the three
+backends uses it is decided at runtime, from that panel or with a `PUT` to the
+same endpoint, and takes effect on the next frame rather than at the next
+restart ([ADR-0018](../adr/ADR-0018-acceleration-assigned-per-backend.md)):
+
+```bash
+curl -s -X PUT http://localhost:8000/api/v1/health/acceleration \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"backend": "landmarks", "enabled": true}'
+```
+
+Two things to know before relying on it. The preferences are held in memory, so
+a restart returns to the defaults and `ACCELERATION_MEDIAPIPE_GPU` is what sets
+where the landmark models start. And the service is a singleton per process
+while the production override runs four workers, so a change reaches one worker
+only: move a backend with a single worker running.
 
 The GPU image additionally installs a C compiler, which the processor only image
 does not; the reason is in

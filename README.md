@@ -89,7 +89,11 @@ revocable on its own, not a borrowed user session.
 
 **Runs on your hardware.** Object detection, face recognition and segmentation move onto
 an NVIDIA GPU when there is one, and fall back to the processor when there is not, with
-no flag to set either way. A badge in the header says which is happening.
+no flag to set either way. A badge in the header says which is happening, and opens a
+panel with a switch for each of the three parts: detection, face recognition, and the
+skeleton and mesh overlays. They move independently and they move while the server is
+running, so working out whether the GPU is helping a particular part is one click rather
+than an environment variable and a restart.
 
 **Knows who is using it.** Registration and login, several users, and role based access
 control, so who can view, teach, edit the catalog or manage users is a decision you make
@@ -211,13 +215,24 @@ Check the toolkit is in place first:
 docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
 ```
 
-The application shows a badge on its main page when acceleration is active,
-naming the device and listing which backends are using it. The same state is
-available at `/api/v1/health/acceleration`.
+The application shows a badge on its main page when acceleration is active.
+Opening it names the device and gives each backend a switch, so detection, face
+recognition and the landmark overlays can be moved between the GPU and the
+processor without restarting anything. The models affected rebuild on the next
+frame. Changing a switch needs the `detection:configure` permission and applies
+to the whole server; reading the same state needs nothing and is also available
+at `/api/v1/health/acceleration`.
+
+The skeleton and mesh overlays start on the processor even where the GPU is
+available, because their delegate needs a real graphics context that a container
+usually lacks. `ACCELERATION_MEDIAPIPE_GPU` sets where they start; the switch in
+the panel is how to try them on the GPU on a machine that can provide one.
 
 The override is a separate file because reserving a GPU device fails outright on
-a machine without one. The backend needs no flag either way: it probes the
-hardware at startup and falls back to the CPU on its own.
+a machine without one, and it is still what puts a device inside the container:
+the switches decide how an accelerator is used, not whether there is one. The
+backend needs no flag either way: it probes the hardware at startup and falls
+back to the CPU on its own.
 
 ### Production mode
 
@@ -275,8 +290,11 @@ volume; after that the application works with no network at all.
 | **pyzbar, ZBar** | Barcodes and QR codes | Reads the code from the same frame as everything else, no separate mode to switch into |
 | **SmolVLM2** | Writes the scene description | Small enough to sit alongside the others on one GPU, and takes an arbitrary prompt, so the detections can be fed to it as context |
 
-Object detection, face recognition and segmentation run on an NVIDIA GPU when one is
-available. The rest run on the processor, which is where they are cheapest.
+Object detection, face recognition, segmentation and the scene description run on an
+NVIDIA GPU when one is available. The landmark models start on the processor and can be
+moved from the panel behind the badge, on a machine whose graphics stack supports their
+delegate. Feature matching and barcode reading stay on the processor, which is where
+they are cheapest.
 
 ## Technology stack
 

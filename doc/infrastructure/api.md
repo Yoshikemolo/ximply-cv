@@ -592,14 +592,17 @@ Administration. See
 
 ## Health
 
-Unauthenticated, because they describe the server rather than any user data.
+Reading these needs no authentication, because they describe the server rather
+than any user data. Changing where inference runs does, and is the one route
+here that is not public.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Service and dependency status |
-| GET | `/health/live` | Liveness probe |
-| GET | `/health/ready` | Readiness probe, checks the database |
-| GET | `/health/acceleration` | Which backends run on dedicated hardware |
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/health` | No | Service and dependency status |
+| GET | `/health/live` | No | Liveness probe |
+| GET | `/health/ready` | No | Readiness probe, checks the database |
+| GET | `/health/acceleration` | No | What each backend can use and is using |
+| PUT | `/health/acceleration` | `detection:configure` | Move one backend between the processor and the accelerator |
 
 ### Acceleration
 
@@ -612,15 +615,75 @@ Unauthenticated, because they describe the server rather than any user data.
   "driver": "13.0",
   "computeCapability": "12.0",
   "backends": [
-    { "name": "Object detection", "accelerated": true, "device": "cuda" },
-    { "name": "Face recognition", "accelerated": true, "device": "cuda" },
-    { "name": "Skeleton and mesh", "accelerated": false, "device": "cpu" }
+    {
+      "key": "detection",
+      "name": "Object detection",
+      "accelerated": true,
+      "device": "cuda",
+      "detail": "2.6.0+cu124",
+      "supported": true,
+      "enabled": true
+    },
+    {
+      "key": "face",
+      "name": "Face recognition",
+      "accelerated": true,
+      "device": "cuda",
+      "detail": "1.20.1",
+      "supported": true,
+      "enabled": true
+    },
+    {
+      "key": "landmarks",
+      "name": "Skeleton and mesh",
+      "accelerated": false,
+      "device": "cpu",
+      "detail": "GPU delegate available. It needs a real graphics context, which a container usually lacks, and falls back to the processor when it cannot start.",
+      "supported": true,
+      "enabled": false
+    }
   ]
 }
 ```
 
-Each backend is reported separately because they fail independently. See
-[ADR-0009](../adr/ADR-0009-discover-acceleration-at-runtime.md) and
+Each backend is reported separately because they fail independently. Three
+fields describe each one rather than a single flag, and they are not the same
+question:
+
+| Field | Means |
+| --- | --- |
+| `supported` | This machine could accelerate this backend |
+| `enabled` | It has been asked to |
+| `accelerated` | It is actually happening |
+
+The landmark row above is the case that needs all three: supported by the
+hardware, deliberately switched off, and therefore on the processor. `key` is
+stable and is what the `PUT` sends back. `available` is whether the machine has
+an accelerator at all; `active` is whether any backend is using it, so
+switching every backend off makes `active` false while `available` stays true.
+
+### Changing where a backend runs
+
+```http
+PUT /api/v1/health/acceleration
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "backend": "landmarks", "enabled": true }
+```
+
+`backend` is one of `detection`, `face` or `landmarks`; an unknown key is a
+`422`. The response is the whole status document above, after the change,
+rather than an acknowledgement: the setting is server wide, so it decides what
+every viewer's frames run on and not just the caller's, and the client should
+draw what the server holds rather than what it hoped for.
+
+The models the backend owns are dropped and rebuilt on the next frame that
+needs them, which takes a moment. A rebuild that fails does not fail the
+request, because the preference was applied either way; the backend then
+reports `enabled` true and `accelerated` false. See
+[ADR-0009](../adr/ADR-0009-discover-acceleration-at-runtime.md),
+[ADR-0018](../adr/ADR-0018-acceleration-assigned-per-backend.md) and
 [FEAT-0011](../features/FEAT-0011-hardware-acceleration.md).
 
 ## Error responses

@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Related**: [ADR-0001](ADR-0001-run-every-model-locally.md),
   [ADR-0011](ADR-0011-cache-model-weights-in-volumes.md),
+  [ADR-0018](ADR-0018-acceleration-assigned-per-backend.md),
   [Deployment, Production Deployment](../operations/deployment.md#production-deployment),
   [Readme, GPU acceleration](../../README.md#gpu-acceleration)
 

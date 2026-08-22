@@ -25,6 +25,7 @@ Security decisions are recorded separately, in [doc/sec](../sec/README.md).
 | [ADR-0015](ADR-0015-signed-webhook-delivery.md) | Deliver events over signed, retried webhooks |
 | [ADR-0016](ADR-0016-read-only-protocol-server.md) | Serve observations over a read only protocol server |
 | [ADR-0017](ADR-0017-scoped-tokens-for-machine-clients.md) | Authenticate machine clients with scoped tokens |
+| [ADR-0018](ADR-0018-acceleration-assigned-per-backend.md) | Assign acceleration per backend at runtime |
 
 ## Elsewhere
 
