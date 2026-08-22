@@ -33,9 +33,16 @@ services:
         INSTALL_GPU: "true"
     environment:
       ACCELERATION_ENABLED: "true"
-      # The MediaPipe GPU delegate needs a GL context that a headless container
-      # usually lacks. Off by default: the landmark models are cheap on CPU, and
-      # a failed delegate takes the whole overlay down with it.
+      # The MediaPipe GPU delegate is off, and measurement is why. Asked for it,
+      # all three landmarkers refuse to start with "GPU emulation detected, but
+      # not supported": the delegate needs a physical GL context, and a
+      # container on a virtualised graphics stack does not have one. The frame
+      # time appeared to fall from 42 ms to 8 ms, which was not a speedup but
+      # the overlay being absent, since the models had failed to load.
+      #
+      # Turn this on only where the container is given a real GL context. It
+      # fails soft either way: an unavailable delegate loses the overlay, not
+      # detection.
       ACCELERATION_MEDIAPIPE_GPU: "false"
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility

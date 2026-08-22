@@ -408,6 +408,48 @@ class WebhookSubscriptionEntity(Base):
     )
 
 
+class IntegrationTokenEntity(Base):
+    """
+    A credential issued to one external client.
+
+    Agents and scripts need to reach the API without a password and without a
+    session that expires every half hour. A token per client is what makes that
+    safe: it can be scoped narrowly, revoked on its own, and its last use is
+    visible, none of which is true of a shared password.
+
+    Only the hash is stored. A token that can be read back out of the database
+    is a token that leaks through every screen and backup that touches it, so
+    the value is shown once at creation and never again. The prefix is kept in
+    the clear purely so a person can tell two tokens apart in a list.
+    """
+
+    __tablename__ = "integration_tokens"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+
+    # Permission codes this token may exercise. Never more than its owner holds,
+    # which is checked at issue time and again on every request.
+    scopes: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    owner_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class DetectionLogEntity(Base):
     """
     Detection event log entity.

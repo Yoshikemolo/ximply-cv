@@ -215,6 +215,23 @@ async def export_otlp(
         .limit(limit)
     )
     events = list(result.scalars().all())
+    return build_otlp_envelope(events)
+
+
+def build_otlp_envelope(events: List[EventEntity]) -> dict:
+    """
+    Wrap events in the OTLP logs envelope.
+
+    Lifted out of the route so the protocol server returns exactly the same
+    structure. Two implementations of one envelope would drift, and a consumer
+    would have to discover which one it was talking to.
+
+    Args:
+        events: Events to wrap.
+
+    Returns:
+        The envelope, grouped by resource and instrumentation scope.
+    """
 
     def to_any_value(value):
         """Wrap a Python value in the OTLP AnyValue shape."""
@@ -595,3 +612,164 @@ async def delivery_headers(
         "delivery": DELIVERY_HEADER,
         "algorithm": "HMAC-SHA256 over the timestamp, a full stop, and the raw body",
     }
+
+
+# ==============================================================================
+# Integration tokens
+# ==============================================================================
+
+tokens = APIRouter(prefix="/integration-tokens", tags=["Integrations"])
+
+
+class TokenCreate(BaseModel):
+    """A new integration token."""
+
+    name: str = Field(min_length=1, max_length=255)
+    # Empty means the token carries whatever its owner carries. Narrowing it is
+    # the whole point of issuing one per client.
+    scopes: List[str] = []
+    expires_in_days: Optional[int] = Field(default=None, ge=1, le=3650)
+
+
+class TokenResponse(CamelCaseModel):
+    """An issued token. The value itself appears only once."""
+
+    id: UUID
+    name: str
+    prefix: str
+    scopes: List[str] = []
+    is_active: bool
+    last_used_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+    token: Optional[str] = None
+
+
+def _to_token(entity, value: Optional[str] = None) -> TokenResponse:
+    """Build the response for one token, with the value only when just issued."""
+    return TokenResponse(
+        id=entity.id,
+        name=entity.name,
+        prefix=entity.prefix,
+        scopes=entity.scopes or [],
+        is_active=entity.is_active,
+        last_used_at=entity.last_used_at,
+        expires_at=entity.expires_at,
+        created_at=entity.created_at,
+        token=value,
+    )
+
+
+@tokens.get("", response_model=List[TokenResponse])
+async def list_tokens(
+    current_user: TokenData = Depends(require_permissions([Permission.EVENTS_MANAGE])),
+    db: AsyncSession = Depends(get_db),
+) -> List[TokenResponse]:
+    """Every token issued by the authenticated owner. Values are not included."""
+    from app.models.entities import IntegrationTokenEntity
+
+    result = await db.execute(
+        select(IntegrationTokenEntity)
+        .where(IntegrationTokenEntity.owner_id == UUID(current_user.sub))
+        .order_by(IntegrationTokenEntity.created_at)
+    )
+    return [_to_token(t) for t in result.scalars().all()]
+
+
+@tokens.post("", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def create_token(
+    data: TokenCreate,
+    current_user: TokenData = Depends(require_permissions([Permission.EVENTS_MANAGE])),
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """
+    Issue a token and return its value.
+
+    The value is shown here and never again. Scopes may not exceed what the
+    issuing user holds, checked here as well as on every request, so a token
+    cannot outlive the authority that created it.
+    """
+    from app.models.entities import IntegrationTokenEntity
+    from app.services.integration_token_service import generate_token
+
+    held = set(current_user.permissions or [])
+    excessive = [s for s in data.scopes if s not in held]
+    if excessive and Permission.ADMIN_FULL.value not in held:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You do not hold: {', '.join(excessive)}",
+        )
+
+    value, digest, prefix = generate_token()
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(days=data.expires_in_days)
+        if data.expires_in_days
+        else None
+    )
+
+    entity = IntegrationTokenEntity(
+        id=uuid7(),
+        name=data.name.strip(),
+        token_hash=digest,
+        prefix=prefix,
+        scopes=data.scopes or None,
+        is_active=True,
+        owner_id=UUID(current_user.sub),
+        expires_at=expires_at,
+    )
+    db.add(entity)
+    await db.commit()
+    await db.refresh(entity)
+
+    logger.info(f"Integration token issued: {entity.name}")
+    return _to_token(entity, value=value)
+
+
+@tokens.put("/{token_id}", response_model=TokenResponse)
+async def update_token(
+    token_id: UUID,
+    is_active: bool,
+    current_user: TokenData = Depends(require_permissions([Permission.EVENTS_MANAGE])),
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Switch a token on or off without deleting it."""
+    from app.models.entities import IntegrationTokenEntity
+
+    result = await db.execute(
+        select(IntegrationTokenEntity).where(
+            IntegrationTokenEntity.id == token_id,
+            IntegrationTokenEntity.owner_id == UUID(current_user.sub),
+        )
+    )
+    entity = result.scalar_one_or_none()
+    if entity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
+
+    entity.is_active = is_active
+    await db.commit()
+    await db.refresh(entity)
+    return _to_token(entity)
+
+
+@tokens.delete("/{token_id}", response_model=MessageResponse)
+async def delete_token(
+    token_id: UUID,
+    current_user: TokenData = Depends(require_permissions([Permission.EVENTS_MANAGE])),
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponse:
+    """Revoke a token permanently."""
+    from app.models.entities import IntegrationTokenEntity
+
+    result = await db.execute(
+        select(IntegrationTokenEntity).where(
+            IntegrationTokenEntity.id == token_id,
+            IntegrationTokenEntity.owner_id == UUID(current_user.sub),
+        )
+    )
+    entity = result.scalar_one_or_none()
+    if entity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
+
+    await db.delete(entity)
+    await db.commit()
+    return MessageResponse(message="Token revoked")

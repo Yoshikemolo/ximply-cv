@@ -136,6 +136,13 @@ class Settings(BaseSettings):
     webhook_max_attempts: int = 3
     webhook_disable_after_failures: int = 20
 
+    # Model Context Protocol
+    # Read only by design: an agent that can be persuaded by the text it reads
+    # must not be able to alter what a camera remembers about people.
+    mcp_enabled: bool = True
+    mcp_path: str = "/mcp"
+    mcp_sse_path: str = "/mcp/sse"
+
     # Scene description
     # Runs locally on whatever accelerator the machine has, so no frame ever
     # leaves the host. Loaded lazily: a stack that never asks for a description
