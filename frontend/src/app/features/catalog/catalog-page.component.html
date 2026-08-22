@@ -121,7 +121,13 @@
             </div>
 
             <div class="object-info">
-              <h3>{{ obj.name }}</h3>
+              <h3>
+                <app-inline-rename
+                  [name]="obj.name"
+                  [takenNames]="takenNames()"
+                  (renamed)="renameObject(obj, $event)"
+                />
+              </h3>
               <p class="description">{{ obj.description }}</p>
 
               <div class="object-meta">

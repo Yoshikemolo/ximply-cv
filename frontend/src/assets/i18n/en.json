@@ -55,7 +55,22 @@
     "permissionDenied": "Camera permission denied",
     "detecting": "Detecting objects...",
     "noObjects": "No objects detected",
-    "detections": "detections",
+    "detections": {
+      "title": "Detections",
+      "viewAll": "View All",
+      "showControls": "Show controls",
+      "possible": "Guess",
+      "save": "Save to catalog",
+      "sightings": "{{count}} sightings",
+      "searchPlaceholder": "Search by name, type or percentage",
+      "types": {
+        "all": "All",
+        "known": "Known object",
+        "human": "Human",
+        "unknown": "Unknown",
+        "other": "Other"
+      }
+    },
     "noDetections": "No objects detected yet",
     "noCustomDetections": "No trained objects recognized",
     "confidence": "Confidence",
@@ -89,11 +104,16 @@
     "errors": {
       "cameraPermission": "Camera permission denied",
       "streamFailed": "Failed to start camera stream",
-      "saveFailed": "Failed to save object to catalog"
+      "saveFailed": "Failed to save object to catalog",
+      "renameFailed": "The name could not be saved"
     },
     "barcodes": {
       "title": "Detected Barcodes",
       "noResults": "No barcodes detected"
+    },
+    "panels": {
+      "expand": "Expand",
+      "collapse": "Collapse"
     }
   },
   "learn": {
@@ -178,6 +198,10 @@
       "addMore": "Add More Images",
       "completeTitle": "Images Added!",
       "completeDescription": "{{count}} new images have been added to \"{{name}}\""
+    },
+    "detections": {
+      "person": "Person",
+      "object": "Object"
     }
   },
   "catalog": {
@@ -208,7 +232,8 @@
       "products": "Products",
       "tools": "Tools",
       "parts": "Parts",
-      "custom": "Custom"
+      "custom": "Custom",
+      "people": "People"
     },
     "status": {
       "draft": "Draft",
@@ -245,7 +270,8 @@
       "targetLabel": "Select target (keeps name)",
       "sourcesLabel": "Other objects will be merged into selected",
       "confirm": "Merge Objects"
-    }
+    },
+    "people": "People"
   },
   "admin": {
     "title": "Administration",
@@ -330,7 +356,15 @@
     "actions": "Actions",
     "created": "Created",
     "updated": "Updated",
-    "noResults": "No results found"
+    "noResults": "No results found",
+    "rename": {
+      "edit": "Rename",
+      "clear": "Clear the field",
+      "errors": {
+        "empty": "The name cannot be empty",
+        "duplicate": "That name is already in use"
+      }
+    }
   },
   "errors": {
     "required": "This field is required",

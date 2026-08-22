@@ -55,7 +55,22 @@
     "permissionDenied": "Permiso de cámara denegado",
     "detecting": "Detectando objetos...",
     "noObjects": "No se detectaron objetos",
-    "detections": "detecciones",
+    "detections": {
+      "title": "Detecciones",
+      "viewAll": "Ver todo",
+      "showControls": "Ver controles",
+      "possible": "Suposición",
+      "save": "Guardar en el catálogo",
+      "sightings": "{{count}} apariciones",
+      "searchPlaceholder": "Buscar por nombre, tipo o porcentaje",
+      "types": {
+        "all": "Todos",
+        "known": "Objeto conocido",
+        "human": "Humano",
+        "unknown": "Desconocido",
+        "other": "Otros"
+      }
+    },
     "noDetections": "Aún no se han detectado objetos",
     "noCustomDetections": "No se reconocen objetos entrenados",
     "confidence": "Confianza",
@@ -89,11 +104,16 @@
     "errors": {
       "cameraPermission": "Permiso de cámara denegado",
       "streamFailed": "Error al iniciar la cámara",
-      "saveFailed": "Error al guardar el objeto en el catálogo"
+      "saveFailed": "Error al guardar el objeto en el catálogo",
+      "renameFailed": "No se ha podido guardar el nombre"
     },
     "barcodes": {
       "title": "Códigos de Barras Detectados",
       "noResults": "No se detectaron códigos de barras"
+    },
+    "panels": {
+      "expand": "Expandir",
+      "collapse": "Colapsar"
     }
   },
   "learn": {
@@ -178,6 +198,10 @@
       "addMore": "Añadir Más Imágenes",
       "completeTitle": "¡Imágenes Añadidas!",
       "completeDescription": "Se han añadido {{count}} nuevas imágenes a \"{{name}}\""
+    },
+    "detections": {
+      "person": "Persona",
+      "object": "Objeto"
     }
   },
   "catalog": {
@@ -208,7 +232,8 @@
       "products": "Productos",
       "tools": "Herramientas",
       "parts": "Piezas",
-      "custom": "Personalizado"
+      "custom": "Personalizado",
+      "people": "Personas"
     },
     "status": {
       "draft": "Borrador",
@@ -245,7 +270,8 @@
       "targetLabel": "Selecciona el destino (mantiene el nombre)",
       "sourcesLabel": "Los demás objetos se unificarán en el seleccionado",
       "confirm": "Unificar Objetos"
-    }
+    },
+    "people": "Personas"
   },
   "admin": {
     "title": "Administración",
@@ -330,7 +356,15 @@
     "actions": "Acciones",
     "created": "Creado",
     "updated": "Actualizado",
-    "noResults": "No se encontraron resultados"
+    "noResults": "No se encontraron resultados",
+    "rename": {
+      "edit": "Renombrar",
+      "clear": "Vaciar el campo",
+      "errors": {
+        "empty": "El nombre no puede estar vacío",
+        "duplicate": "Ese nombre ya está en uso"
+      }
+    }
   },
   "errors": {
     "required": "Este campo es obligatorio",

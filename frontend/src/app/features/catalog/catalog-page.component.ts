@@ -5,6 +5,7 @@ import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { ObjectsService, CatalogObject as BackendObject } from '@core/services/objects.service';
 import { environment } from '@env';
+import { InlineRenameComponent } from '@shared/components/inline-rename/inline-rename.component';
 
 // Local interface for catalog display
 interface CatalogObject {
@@ -22,7 +23,7 @@ interface CatalogObject {
 @Component({
   selector: 'app-catalog-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, InlineRenameComponent],
   templateUrl: './catalog-page.component.html',
   styleUrl: './catalog-page.component.scss',
 })
@@ -53,7 +54,10 @@ export class CatalogPageComponent implements OnInit {
     return this.allObjects().filter(obj => ids.has(obj.id));
   });
 
-  categories = signal<string[]>(['all', 'trained', 'imported', 'system']);
+  categories = signal<string[]>(['all', 'people', 'trained', 'imported', 'system']);
+
+  /** Names in use, so the rename control can reject a clash before sending it. */
+  takenNames = computed(() => this.allObjects().map((obj) => obj.name));
 
   ngOnInit(): void {
     this.loadObjects();
@@ -87,13 +91,37 @@ export class CatalogPageComponent implements OnInit {
       id: obj.id,
       name: obj.name,
       description: obj.description || '',
-      category: 'trained', // Objects from backend are trained
+      // People are catalog entries like any other, but they are shown apart:
+      // a face is not a trained product and mixing them makes the list unusable.
+      category: (obj.categoryName || '').toLowerCase() === 'people' ? 'people' : 'trained',
       imageUrl,
       createdAt: new Date(obj.createdAt),
       trainingImages: obj.trainingSamples,
       accuracy: obj.modelConfidence || 0.85,
       isActive: obj.status === 'active',
     };
+  }
+
+  /**
+   * Persist a new name for a catalog entry.
+   *
+   * @param object The entry being renamed.
+   * @param name The new name, already validated by the control.
+   */
+  renameObject(object: CatalogObject, name: string): void {
+    this.objectsService.renameObject(object.id, name).subscribe({
+      next: (updated) => {
+        this.allObjects.update((objects) =>
+          objects.map((entry) =>
+            entry.id === object.id ? { ...entry, name: updated.name } : entry,
+          ),
+        );
+        this.applyFilters();
+      },
+      error: (err) => {
+        console.error('Rename failed:', err);
+      },
+    });
   }
 
   onSearchChange(event: Event): void {

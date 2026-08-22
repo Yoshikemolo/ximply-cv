@@ -214,7 +214,18 @@
                           class="detection-color"
                           [style.background]="detection.color"
                         ></span>
-                        <span class="detection-label">{{ detection.label }}</span>
+                        <span class="detection-label">
+                          {{ detection.label }}
+                          @if (isPersonDetection(detection)) {
+                            <span class="detection-kind detection-kind--person">
+                              {{ 'learn.detections.person' | translate }}
+                            </span>
+                          } @else {
+                            <span class="detection-kind">
+                              {{ 'learn.detections.object' | translate }}
+                            </span>
+                          }
+                        </span>
                         <span class="detection-confidence">
                           {{ (detection.confidence * 100).toFixed(0) }}%
                         </span>

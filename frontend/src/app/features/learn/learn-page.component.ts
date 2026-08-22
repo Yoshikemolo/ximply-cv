@@ -789,6 +789,24 @@ export class LearnPageComponent implements OnInit, OnDestroy {
     this.hidePersonDetections.set(!this.hidePersonDetections());
   }
 
+  /**
+   * Whether a detection is a person rather than an object.
+   *
+   * People are trained on a different pipeline: their identity comes from face
+   * and body embeddings rather than from the ORB features used for objects, and
+   * they live in the People category. Marking them here stops someone teaching
+   * a colleague as if they were a product, which would train the object matcher
+   * on a face it can never recognise reliably.
+   *
+   * @param detection The detection under consideration.
+   * @returns True when the detection is a person.
+   */
+  isPersonDetection(detection: { label: string; objectName?: string }): boolean {
+    const raw = detection.label.toLowerCase();
+    const named = (detection.objectName ?? '').toLowerCase();
+    return raw === 'person' || named.startsWith('person ');
+  }
+
   private startDetectionLoop(): void {
     const renderFrame = (): void => {
       if (!this.isStreaming()) return;
