@@ -171,6 +171,19 @@ class FaceEmbedder:
                 )
                 return False
 
+    def reload(self) -> None:
+        """
+        Drop the loaded model so the next call rebuilds it.
+
+        Called when the device it should run on changes. The weights stay in the
+        cache on disk, so this costs a session rebuild rather than a download.
+        The unavailable flag is cleared too: a backend that failed on one device
+        deserves a fresh attempt on the other.
+        """
+        with self._lock:
+            self._app = None
+            self._unavailable = False
+
     def embed(self, person_crop: np.ndarray) -> Tuple[Optional[np.ndarray], float]:
         """
         Extract a face embedding from a person crop.
@@ -298,6 +311,15 @@ class BodyEmbedder:
                 logger.warning(f"Body embeddings unavailable: {e}")
                 return False
 
+    def reload(self) -> None:
+        """Drop the loaded backend so the next call rebuilds it on the new device."""
+        with self._lock:
+            self._session = None
+            self._input_name = None
+            self._torch_model = None
+            self._torch_device = "cpu"
+            self._unavailable = False
+
     def _preprocess(self, person_crop: np.ndarray) -> np.ndarray:
         """Resize, convert to RGB, scale and normalise a crop into NCHW."""
         import cv2
@@ -366,6 +388,17 @@ class PersonRecognitionService:
     def enabled(self) -> bool:
         """Whether person recognition should run at all."""
         return settings.person_recognition_enabled
+
+    def reload_models(self) -> None:
+        """
+        Rebuild both embedders on the device they are now assigned.
+
+        The gallery is untouched. Embeddings are the same numbers whichever
+        device produced them, so there is nothing to recompute and nobody stops
+        being recognised because the work moved.
+        """
+        self.face_embedder.reload()
+        self.body_embedder.reload()
 
     def has_gallery(self) -> bool:
         """Whether any person is currently known."""

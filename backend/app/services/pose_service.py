@@ -236,6 +236,31 @@ class PoseService:
         """Whether any overlay is switched on."""
         return settings.pose_enabled or settings.hands_enabled or settings.face_mesh_enabled
 
+    def reload_models(self) -> None:
+        """
+        Close the landmarkers so the next frame rebuilds them.
+
+        The delegate is fixed when a landmarker is created, so moving these
+        between processor and graphics hardware means building new ones. Each is
+        closed first: they hold native resources that are not freed by dropping
+        the reference.
+        """
+        with self._lock:
+            for existing in (self._pose, self._hands, self._face):
+                if existing is None:
+                    continue
+                try:
+                    existing.close()
+                except Exception as e:
+                    # A landmarker that will not close is still being replaced,
+                    # so this is worth recording and not worth stopping for.
+                    logger.warning(f"Could not close a landmarker cleanly: {e}")
+
+            self._pose = None
+            self._hands = None
+            self._face = None
+            self._unavailable = {"pose": False, "hand": False, "face": False}
+
     def describe(self) -> dict:
         """Report backend availability for the status endpoint."""
         return {

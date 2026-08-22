@@ -23,12 +23,24 @@ logger = get_logger(__name__)
 
 @dataclass
 class BackendStatus:
-    """What one inference backend can use."""
+    """
+    What one inference backend can use, and what it has been asked to use.
 
+    Three states rather than one, because they answer different questions.
+    "supported" is whether this machine could accelerate it at all, "enabled" is
+    whether someone asked it to, and "accelerated" is what is actually
+    happening. A backend can be supported and switched on and still not
+    accelerated, which is what the landmark models do in a container without a
+    graphics context.
+    """
+
+    key: str
     name: str
     accelerated: bool
     device: str
     detail: str = ""
+    supported: bool = False
+    enabled: bool = True
 
 
 @dataclass
@@ -54,10 +66,13 @@ class AccelerationReport:
             "computeCapability": self.compute_capability,
             "backends": [
                 {
+                    "key": b.key,
                     "name": b.name,
                     "accelerated": b.accelerated,
                     "device": b.device,
                     "detail": b.detail,
+                    "supported": b.supported,
+                    "enabled": b.enabled,
                 }
                 for b in self.backends
             ],
@@ -73,9 +88,21 @@ class AccelerationService:
     re-probing on every frame would cost more than it saves.
     """
 
+    #: The three backends the interface offers a switch for, in the order they
+    #: are shown. Keys are stable: the client sends them back.
+    BACKEND_KEYS = ("detection", "face", "landmarks")
+
     def __init__(self) -> None:
         self._probed = False
         self._lock = threading.Lock()
+        # What each backend has been asked to use. Separate from what the
+        # hardware can do: a machine with no accelerator leaves these on and
+        # simply has nothing to honour them with.
+        self._preferences = {
+            "detection": True,
+            "face": True,
+            "landmarks": settings.acceleration_mediapipe_gpu,
+        }
         self._torch_device = "cpu"
         self._torch_detail = ""
         self._onnx_providers: List[str] = ["CPUExecutionProvider"]
@@ -145,12 +172,9 @@ class AccelerationService:
         Decide whether the landmark models should ask for the GPU delegate.
 
         The delegate needs a working GL context, which a headless container
-        usually does not have, so it is only offered when the rest of the stack
-        already proved an accelerator is present and the operator asked for it.
+        usually does not have. This records only whether it could be asked for;
+        whether it is asked for is a preference the operator sets.
         """
-        if not settings.acceleration_mediapipe_gpu:
-            self._mediapipe_detail = "GPU delegate disabled by configuration"
-            return
         if self._torch_device != "cuda":
             self._mediapipe_detail = "no accelerator to delegate to"
             return
@@ -159,7 +183,11 @@ class AccelerationService:
 
             hasattr(mp_python.BaseOptions.Delegate, "GPU")
             self._mediapipe_gpu = True
-            self._mediapipe_detail = "GPU delegate requested"
+            self._mediapipe_detail = (
+                "GPU delegate available. It needs a real graphics context, which "
+                "a container usually lacks, and falls back to the processor when "
+                "it cannot start."
+            )
         except Exception as e:
             self._mediapipe_detail = f"unavailable: {e}"
 
@@ -194,6 +222,8 @@ class AccelerationService:
     def torch_device(self) -> str:
         """Device string to move PyTorch models onto."""
         self._ensure_probed()
+        if not self._preferences["detection"]:
+            return "cpu"
         return self._torch_device
 
     @property
@@ -205,12 +235,15 @@ class AccelerationService:
         otherwise.
         """
         self._ensure_probed()
-        return "0" if self._torch_device == "cuda" else self._torch_device
+        device = self.torch_device
+        return "0" if device == "cuda" else device
 
     @property
     def onnx_providers(self) -> List[str]:
         """Execution providers to build ONNX sessions with, best first."""
         self._ensure_probed()
+        if not self._preferences["face"]:
+            return ["CPUExecutionProvider"]
         return list(self._onnx_providers)
 
     @property
@@ -221,13 +254,13 @@ class AccelerationService:
         Zero selects the first GPU, minus one forces CPU.
         """
         self._ensure_probed()
-        return 0 if self._onnx_providers[0] == "CUDAExecutionProvider" else -1
+        return 0 if self.onnx_providers[0] == "CUDAExecutionProvider" else -1
 
     @property
     def mediapipe_gpu(self) -> bool:
         """Whether landmark models should ask for the GPU delegate."""
         self._ensure_probed()
-        return self._mediapipe_gpu
+        return self._mediapipe_gpu and self._preferences["landmarks"]
 
     @property
     def is_available(self) -> bool:
@@ -239,7 +272,90 @@ class AccelerationService:
     def is_active(self) -> bool:
         """Whether anything is actually running on it."""
         self._ensure_probed()
-        return self.is_available and settings.acceleration_enabled
+        if not (self.is_available and settings.acceleration_enabled):
+            return False
+        # At least one backend has to be both capable and switched on. Reporting
+        # acceleration while every backend has been turned off would be a badge
+        # that describes the hardware rather than the work.
+        return any(b.accelerated for b in self._backend_states())
+
+    @property
+    def preferences(self) -> dict:
+        """What each backend has been asked to use."""
+        return dict(self._preferences)
+
+    def set_preference(self, key: str, enabled: bool) -> bool:
+        """
+        Ask one backend to use the accelerator, or to stop.
+
+        Args:
+            key: One of BACKEND_KEYS.
+            enabled: Whether that backend should use dedicated hardware.
+
+        Returns:
+            bool: True when the preference actually changed, so the caller knows
+                whether anything needs reloading.
+
+        Raises:
+            ValueError: If the key names no backend.
+        """
+        if key not in self.BACKEND_KEYS:
+            raise ValueError(f"Unknown backend: {key}")
+
+        self._ensure_probed()
+        if self._preferences[key] == enabled:
+            return False
+
+        self._preferences[key] = enabled
+        logger.info(
+            f"Acceleration for {key} switched {'on' if enabled else 'off'}"
+        )
+        return True
+
+    def _backend_states(self) -> List[BackendStatus]:
+        """
+        The state of each backend, capability and choice kept apart.
+
+        Built in one place because the report and is_active have to agree: if
+        they were derived separately the badge could contradict the panel it
+        opens.
+        """
+        torch_supported = self._torch_device != "cpu"
+        onnx_supported = "CUDAExecutionProvider" in self._onnx_providers
+
+        detection_on = torch_supported and self._preferences["detection"]
+        face_on = onnx_supported and self._preferences["face"]
+        landmarks_on = self._mediapipe_gpu and self._preferences["landmarks"]
+
+        return [
+            BackendStatus(
+                key="detection",
+                name="Object detection",
+                accelerated=detection_on,
+                device=self._torch_device if detection_on else "cpu",
+                detail=self._torch_detail,
+                supported=torch_supported,
+                enabled=self._preferences["detection"],
+            ),
+            BackendStatus(
+                key="face",
+                name="Face recognition",
+                accelerated=face_on,
+                device="cuda" if face_on else "cpu",
+                detail=self._onnx_detail,
+                supported=onnx_supported,
+                enabled=self._preferences["face"],
+            ),
+            BackendStatus(
+                key="landmarks",
+                name="Skeleton and mesh",
+                accelerated=landmarks_on,
+                device="gpu" if landmarks_on else "cpu",
+                detail=self._mediapipe_detail,
+                supported=self._mediapipe_gpu,
+                enabled=self._preferences["landmarks"],
+            ),
+        ]
 
     def report(self) -> AccelerationReport:
         """
@@ -250,26 +366,7 @@ class AccelerationService:
         """
         self._ensure_probed()
 
-        backends = [
-            BackendStatus(
-                name="Object detection",
-                accelerated=self._torch_device != "cpu",
-                device=self._torch_device,
-                detail=self._torch_detail,
-            ),
-            BackendStatus(
-                name="Face recognition",
-                accelerated=self._onnx_providers[0] == "CUDAExecutionProvider",
-                device="cuda" if self._onnx_providers[0] == "CUDAExecutionProvider" else "cpu",
-                detail=self._onnx_detail,
-            ),
-            BackendStatus(
-                name="Skeleton and mesh",
-                accelerated=self._mediapipe_gpu,
-                device="gpu" if self._mediapipe_gpu else "cpu",
-                detail=self._mediapipe_detail,
-            ),
-        ]
+        backends = self._backend_states()
 
         return AccelerationReport(
             available=self.is_available,

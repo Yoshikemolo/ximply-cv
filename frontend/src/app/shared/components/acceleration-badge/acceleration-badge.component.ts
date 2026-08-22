@@ -1,15 +1,27 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { TranslateModule } from '@ngx-translate/core';
+import { AuthService } from '@core/services/auth.service';
 import { environment } from '@env';
 
-/** One inference backend and whether it runs on dedicated hardware. */
+/** One inference backend, what it could use and what it was asked to use. */
 export interface AccelerationBackend {
+  key: string;
   name: string;
   accelerated: boolean;
   device: string;
   detail: string;
+  supported: boolean;
+  enabled: boolean;
 }
 
 /** What the server reports about its own hardware. */
@@ -24,17 +36,22 @@ export interface AccelerationStatus {
 }
 
 /**
- * Badge reporting whether detection is running on dedicated hardware.
+ * Badge reporting whether inference is running on dedicated hardware, and the
+ * panel that decides it.
  *
  * Green means dedicated hardware is doing the work, amber means the processor
  * is. The colour answers the only question the badge exists to answer, so it is
  * never spent on anything else.
  *
- * It lives in the application header, where two words and a dot are all the
- * room there is. Everything else, the device and which backends are actually
- * accelerated, goes in the tooltip: they differ, since object detection can be
- * on the GPU while the landmark models are not, but that is detail for someone
- * who goes looking.
+ * The badge opens rather than only explaining, because the three backends move
+ * independently: object detection can be on the accelerator while the landmark
+ * models are not, and someone who wants to change that should not have to find
+ * an environment variable and restart the server. The panel is where the detail
+ * that used to be a tooltip now lives, next to the switch that acts on it.
+ *
+ * A backend the machine cannot accelerate is shown with its switch disabled and
+ * the reason beside it. Hiding it would leave the panel looking complete while
+ * silently omitting the row that explains why the badge is amber.
  */
 @Component({
   selector: 'app-acceleration-badge',
@@ -45,62 +62,108 @@ export interface AccelerationStatus {
 })
 export class AccelerationBadgeComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
+  private readonly host = inject(ElementRef<HTMLElement>);
+
+  private readonly endpoint = `${environment.apiUrl}/${environment.apiVersion}/health/acceleration`;
 
   readonly status = signal<AccelerationStatus | null>(null);
+  readonly isOpen = signal(false);
+
+  /** The backend currently being switched, so only its row shows the wait. */
+  readonly pending = signal<string | null>(null);
+
+  /** Set when the server refused a change, cleared on the next attempt. */
+  readonly errorMessage = signal<string | null>(null);
 
   /**
-   * Everything the badge cannot show, as one block of text.
+   * Whether this user may move work between devices.
    *
-   * Built here rather than in the template because a title attribute is a
-   * single string, and assembling it in markup would mean a chain of
-   * interpolations that reads worse than the sentence it produces.
+   * The setting is server wide: it changes what every viewer's frames run on,
+   * not just this one's. Someone without the permission still sees the panel,
+   * because knowing what the server is doing is not the same as deciding it.
    */
-  readonly tooltip = computed(() => {
-    const info = this.status();
-    if (!info) {
-      return '';
-    }
-
-    const lines: string[] = [];
-    if (info.deviceName) {
-      const memory = this.memoryGb();
-      lines.push(memory ? `${info.deviceName} (${memory} GB)` : info.deviceName);
-    }
-    if (info.driver) {
-      lines.push(`CUDA ${info.driver}`);
-    }
-    for (const backend of info.backends) {
-      lines.push(`${backend.accelerated ? '+' : '-'} ${backend.name}: ${backend.device}`);
-    }
-    return lines.join(String.fromCharCode(10));
-  });
-
-  ngOnInit(): void {
-    this.http
-      .get<AccelerationStatus>(
-        `${environment.apiUrl}/${environment.apiVersion}/health/acceleration`,
-      )
-      .subscribe({
-        next: (status) => this.status.set(status),
-        // A machine with no accelerator is the ordinary case, so a failure here
-        // hides the badge rather than surfacing an error the user cannot act on.
-        error: () => this.status.set(null),
-      });
-  }
+  readonly canConfigure = computed(() =>
+    this.auth.hasPermission('detection:configure'),
+  );
 
   /** Memory in whole gigabytes, which is how a GPU is normally described. */
-  memoryGb(): number | null {
+  readonly memoryGb = computed(() => {
     const mb = this.status()?.deviceMemoryMb;
     return mb ? Math.round(mb / 1024) : null;
-  }
+  });
 
   /** How many backends are actually accelerated, out of the total. */
-  acceleratedCount(): number {
-    return this.status()?.backends.filter((b) => b.accelerated).length ?? 0;
+  readonly acceleratedCount = computed(
+    () => this.status()?.backends.filter((b) => b.accelerated).length ?? 0,
+  );
+
+  readonly totalCount = computed(() => this.status()?.backends.length ?? 0);
+
+  /** Whether the machine has an accelerator at all, which decides the toggles. */
+  readonly hasHardware = computed(() => this.status()?.available ?? false);
+
+  ngOnInit(): void {
+    this.http.get<AccelerationStatus>(this.endpoint).subscribe({
+      next: (status) => this.status.set(status),
+      // A machine with no accelerator is the ordinary case, so a failure here
+      // hides the badge rather than surfacing an error the user cannot act on.
+      error: () => this.status.set(null),
+    });
   }
 
-  totalCount(): number {
-    return this.status()?.backends.length ?? 0;
+  toggleOpen(): void {
+    this.isOpen.update((open) => !open);
+    if (!this.isOpen()) {
+      this.errorMessage.set(null);
+    }
   }
 
+  close(): void {
+    this.isOpen.set(false);
+    this.errorMessage.set(null);
+  }
+
+  /** Close on a click anywhere else, which is what a panel like this should do. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.isOpen() && !this.host.nativeElement.contains(event.target as Node)) {
+      this.close();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.close();
+  }
+
+  /**
+   * Move one backend on or off the accelerator.
+   *
+   * The server answers with the whole status rather than an acknowledgement, so
+   * what is drawn is what the server holds. A switch that flipped optimistically
+   * and then had to flip back would be worse than a short wait, because the
+   * models behind it really do take a moment to rebuild.
+   */
+  setBackend(backend: AccelerationBackend, enabled: boolean): void {
+    if (!this.canConfigure() || !backend.supported || this.pending()) {
+      return;
+    }
+
+    this.pending.set(backend.key);
+    this.errorMessage.set(null);
+
+    this.http
+      .put<AccelerationStatus>(this.endpoint, { backend: backend.key, enabled })
+      .subscribe({
+        next: (status) => {
+          this.status.set(status);
+          this.pending.set(null);
+        },
+        error: (err) => {
+          this.errorMessage.set(err?.error?.detail ?? 'acceleration.failed');
+          this.pending.set(null);
+        },
+      });
+  }
 }

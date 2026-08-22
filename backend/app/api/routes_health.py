@@ -6,14 +6,18 @@ Provides endpoints for monitoring application health and dependencies.
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.dependencies import require_permissions
 from app.core.logging import get_logger
 from app.core.minio_client import check_connection as check_minio
+from app.core.security import TokenData
+from app.models.enums import Permission
 from app.models.schemas import HealthCheckResponse
 
 logger = get_logger(__name__)
@@ -101,3 +105,85 @@ async def acceleration_status() -> dict:
     from app.services.acceleration_service import get_acceleration_service
 
     return get_acceleration_service().report().to_dict()
+
+
+class AccelerationPreference(BaseModel):
+    """A request to move one backend on or off the accelerator."""
+
+    backend: str
+    enabled: bool
+
+
+@router.put("/acceleration")
+async def set_acceleration(
+    preference: AccelerationPreference,
+    current_user: TokenData = Depends(
+        require_permissions([Permission.DETECTION_CONFIGURE])
+    ),
+) -> dict:
+    """
+    Move one inference backend between the processor and the accelerator.
+
+    Not public, unlike the status it changes: this decides what every viewer's
+    frames run on, not just the caller's, so it sits behind the same permission
+    as the rest of the detection configuration.
+
+    The models affected are dropped rather than moved, and rebuild on the next
+    frame that needs them. That costs a second or two once, against carrying a
+    second copy of every model on the other device for a switch that is thrown
+    rarely.
+
+    Args:
+        preference: Which backend to change and what to set it to.
+
+    Returns:
+        dict: The full status after the change, so the client does not have to
+            ask again and cannot draw a state the server does not hold.
+
+    Raises:
+        HTTPException: If the backend is not one this server knows.
+    """
+    from app.services.acceleration_service import get_acceleration_service
+
+    acceleration = get_acceleration_service()
+
+    try:
+        changed = acceleration.set_preference(preference.backend, preference.enabled)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+        ) from e
+
+    if changed:
+        _reload_for(preference.backend)
+
+    return acceleration.report().to_dict()
+
+
+def _reload_for(backend: str) -> None:
+    """
+    Rebuild whatever the changed backend owns.
+
+    Object detection needs nothing rebuilt: the segmentation and detection
+    models are handed a device on every call, so the next frame already uses the
+    new one. The body descriptor is the exception, because it is moved onto its
+    device once at load.
+
+    Failures here are logged and swallowed. A model that will not rebuild has
+    already been dropped, and the next frame retries; raising would report the
+    preference as rejected when it was in fact applied.
+    """
+    try:
+        if backend in ("detection", "face"):
+            from app.services.person_recognition_service import (
+                get_person_recognition_service,
+            )
+
+            get_person_recognition_service().reload_models()
+
+        if backend == "landmarks":
+            from app.services.pose_service import get_pose_service
+
+            get_pose_service().reload_models()
+    except Exception as e:
+        logger.warning(f"Could not rebuild models after changing {backend}: {e}")

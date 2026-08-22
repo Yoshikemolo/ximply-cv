@@ -1,12 +1,96 @@
 @if (status(); as info) {
-  <span
-    class="accel-badge"
-    [class.accel-badge--inactive]="!info.active"
-    [title]="tooltip()"
-  >
-    <span class="accel-badge__dot"></span>
-    <span class="accel-badge__label">
-      {{ (info.active ? 'acceleration.badge' : 'acceleration.badgeInactive') | translate }}
-    </span>
-  </span>
+  <div class="accel">
+    <button
+      type="button"
+      class="accel-badge"
+      [class.accel-badge--inactive]="!info.active"
+      [class.accel-badge--open]="isOpen()"
+      (click)="toggleOpen()"
+      [attr.aria-expanded]="isOpen()"
+      aria-haspopup="true"
+    >
+      <span class="accel-badge__dot"></span>
+      <span class="accel-badge__label">
+        {{ (info.active ? 'acceleration.badge' : 'acceleration.badgeInactive') | translate }}
+      </span>
+      <span
+        class="icon-mask icon-mask--sm icon-mask--sargent-down accel-badge__caret"
+        [class.accel-badge__caret--up]="isOpen()"
+      ></span>
+    </button>
+
+    @if (isOpen()) {
+      <div class="accel-panel" role="dialog">
+        <div class="accel-panel__head">
+          @if (info.deviceName) {
+            <span class="accel-panel__device">
+              {{ info.deviceName }}@if (memoryGb(); as gb) { <span class="accel-panel__memory">{{ gb }} GB</span> }
+            </span>
+          } @else {
+            <span class="accel-panel__device">{{ 'acceleration.noDevice' | translate }}</span>
+          }
+          <span class="accel-panel__meta">
+            @if (info.driver) {
+              <span>CUDA {{ info.driver }}</span>
+            }
+            @if (info.computeCapability) {
+              <span>{{ 'acceleration.capability' | translate }} {{ info.computeCapability }}</span>
+            }
+            <span>{{ acceleratedCount() }} / {{ totalCount() }}</span>
+          </span>
+        </div>
+
+        @if (!hasHardware()) {
+          <p class="accel-panel__note">{{ 'acceleration.unavailable' | translate }}</p>
+        } @else if (!canConfigure()) {
+          <p class="accel-panel__note">{{ 'acceleration.readOnly' | translate }}</p>
+        }
+
+        <ul class="accel-levels">
+          @for (backend of info.backends; track backend.key) {
+            <li class="accel-level" [class.accel-level--off]="!backend.accelerated">
+              <button
+                type="button"
+                class="accel-level__toggle"
+                [disabled]="!canConfigure() || !backend.supported || pending() !== null"
+                (click)="setBackend(backend, !backend.enabled)"
+                [title]="(backend.enabled ? 'acceleration.useCpu' : 'acceleration.useGpu') | translate"
+              >
+                <span
+                  class="icon-mask icon-mask--lg"
+                  [class.icon-mask--toggle-on]="backend.enabled && backend.supported"
+                  [class.icon-mask--toggle-off]="!backend.enabled || !backend.supported"
+                ></span>
+              </button>
+
+              <span class="accel-level__body">
+                <span class="accel-level__name">
+                  {{ 'acceleration.levels.' + backend.key | translate }}
+                </span>
+                <span class="accel-level__detail">
+                  @if (pending() === backend.key) {
+                    {{ 'acceleration.switching' | translate }}
+                  } @else if (!backend.supported) {
+                    {{ 'acceleration.notSupported' | translate }}
+                  } @else if (backend.accelerated) {
+                    {{ 'acceleration.onGpu' | translate }}
+                  } @else {
+                    {{ 'acceleration.onCpu' | translate }}
+                  }
+                </span>
+              </span>
+
+              <span class="accel-level__device">{{ backend.device }}</span>
+            </li>
+          }
+        </ul>
+
+        @if (errorMessage(); as err) {
+          <p class="accel-panel__error">{{ err | translate }}</p>
+        }
+
+        <p class="accel-panel__foot">{{ 'acceleration.rebuildNote' | translate }}</p>
+      </div>
+    }
+  </div>
 }
