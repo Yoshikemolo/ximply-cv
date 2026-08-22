@@ -1,55 +1,12 @@
 @if (status(); as info) {
-  <div class="accel-badge-wrapper">
-      <button
-        type="button"
-        class="accel-badge"
-        [class.accel-badge--inactive]="!info.active"
-        (click)="toggleDetails()"
-        [attr.aria-expanded]="showDetails()"
-      >
-        <span class="accel-badge__dot"></span>
-        <span class="accel-badge__label">
-          {{ (info.active ? 'acceleration.badge' : 'acceleration.badgeInactive') | translate }}
-        </span>
-        @if (info.active && info.deviceName) {
-          <span class="accel-badge__device">{{ info.deviceName }}</span>
-        }
-        @if (info.active && memoryGb()) {
-          <span class="accel-badge__memory">{{ memoryGb() }} GB</span>
-        }
-      </button>
-
-      @if (showDetails()) {
-        <div class="accel-details" role="dialog">
-          <dl class="accel-details__specs">
-            @if (info.deviceName) {
-              <dt>{{ 'acceleration.device' | translate }}</dt>
-              <dd>{{ info.deviceName }}</dd>
-            }
-            @if (info.driver) {
-              <dt>{{ 'acceleration.runtime' | translate }}</dt>
-              <dd>CUDA {{ info.driver }}</dd>
-            }
-            @if (info.computeCapability) {
-              <dt>{{ 'acceleration.capability' | translate }}</dt>
-              <dd>{{ info.computeCapability }}</dd>
-            }
-          </dl>
-
-          <p class="accel-details__title">
-            {{ 'acceleration.backends' | translate }}
-            ({{ acceleratedCount() }}/{{ totalCount() }})
-          </p>
-          <ul class="accel-details__list">
-            @for (backend of info.backends; track backend.name) {
-              <li [class.accel-details__item--off]="!backend.accelerated">
-                <span class="accel-details__dot" [class.on]="backend.accelerated"></span>
-                <span class="accel-details__name">{{ backend.name }}</span>
-                <span class="accel-details__device">{{ backend.device }}</span>
-              </li>
-            }
-          </ul>
-        </div>
-      }
-  </div>
+  <span
+    class="accel-badge"
+    [class.accel-badge--inactive]="!info.active"
+    [title]="tooltip()"
+  >
+    <span class="accel-badge__dot"></span>
+    <span class="accel-badge__label">
+      {{ (info.active ? 'acceleration.badge' : 'acceleration.badgeInactive') | translate }}
+    </span>
+  </span>
 }

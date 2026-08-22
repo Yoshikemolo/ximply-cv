@@ -144,7 +144,8 @@
       "refresh": "Refresh",
       "thinking": "Reading the scene...",
       "waiting": "Waiting for something to describe.",
-      "unavailable": "The description model is not available."
+      "unavailable": "The description model is not available.",
+      "idle": "Start the camera to see a description of the scene."
     }
   },
   "learn": {

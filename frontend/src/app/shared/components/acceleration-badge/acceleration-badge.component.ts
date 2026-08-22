@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { TranslateModule } from '@ngx-translate/core';
@@ -30,8 +30,11 @@ export interface AccelerationStatus {
  * is. The colour answers the only question the badge exists to answer, so it is
  * never spent on anything else.
  *
- * Clicking reveals which backends are actually accelerated, because they can
- * differ: object detection can be on the GPU while the landmark models are not.
+ * It lives in the application header, where two words and a dot are all the
+ * room there is. Everything else, the device and which backends are actually
+ * accelerated, goes in the tooltip: they differ, since object detection can be
+ * on the GPU while the landmark models are not, but that is detail for someone
+ * who goes looking.
  */
 @Component({
   selector: 'app-acceleration-badge',
@@ -44,7 +47,33 @@ export class AccelerationBadgeComponent implements OnInit {
   private readonly http = inject(HttpClient);
 
   readonly status = signal<AccelerationStatus | null>(null);
-  readonly showDetails = signal(false);
+
+  /**
+   * Everything the badge cannot show, as one block of text.
+   *
+   * Built here rather than in the template because a title attribute is a
+   * single string, and assembling it in markup would mean a chain of
+   * interpolations that reads worse than the sentence it produces.
+   */
+  readonly tooltip = computed(() => {
+    const info = this.status();
+    if (!info) {
+      return '';
+    }
+
+    const lines: string[] = [];
+    if (info.deviceName) {
+      const memory = this.memoryGb();
+      lines.push(memory ? `${info.deviceName} (${memory} GB)` : info.deviceName);
+    }
+    if (info.driver) {
+      lines.push(`CUDA ${info.driver}`);
+    }
+    for (const backend of info.backends) {
+      lines.push(`${backend.accelerated ? '+' : '-'} ${backend.name}: ${backend.device}`);
+    }
+    return lines.join(String.fromCharCode(10));
+  });
 
   ngOnInit(): void {
     this.http
@@ -74,7 +103,4 @@ export class AccelerationBadgeComponent implements OnInit {
     return this.status()?.backends.length ?? 0;
   }
 
-  toggleDetails(): void {
-    this.showDetails.set(!this.showDetails());
-  }
 }

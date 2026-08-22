@@ -144,7 +144,8 @@
       "refresh": "Actualizar",
       "thinking": "Leyendo la escena...",
       "waiting": "Esperando algo que describir.",
-      "unavailable": "El modelo de descripción no está disponible."
+      "unavailable": "El modelo de descripción no está disponible.",
+      "idle": "Arranca la cámara para ver una descripción de la escena."
     }
   },
   "learn": {
@@ -417,7 +418,7 @@
     "notFound": "Recurso no encontrado."
   },
   "acceleration": {
-    "badge": "Aceleración por GPU",
+    "badge": "GPU acelerada",
     "device": "Dispositivo",
     "runtime": "Runtime",
     "capability": "Cómputo",

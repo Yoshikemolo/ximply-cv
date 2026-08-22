@@ -5,7 +5,6 @@ import { TranslateModule } from '@ngx-translate/core';
 import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest, SkeletonResult } from '@core/services/detection.service';
 import { ObjectsService, CatalogObject } from '@core/services/objects.service';
 import { InlineRenameComponent } from '@shared/components/inline-rename/inline-rename.component';
-import { AccelerationBadgeComponent } from '@shared/components/acceleration-badge/acceleration-badge.component';
 import { Subscription } from 'rxjs';
 
 /**
@@ -64,7 +63,7 @@ const DETECTION_COLORS = [
 @Component({
   selector: 'app-view-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, InlineRenameComponent, AccelerationBadgeComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, InlineRenameComponent],
   templateUrl: './view-page.component.html',
   styleUrl: './view-page.component.scss',
 })
@@ -182,16 +181,14 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   skeletons = signal<SkeletonResult[]>([]);
 
   /**
-   * Which of the two panels is open.
+   * Which panel the side column is showing.
    *
-   * Only one is expanded at a time: the column is not tall enough for both, and
-   * the whole point of expanding the detections list is to give it the room the
-   * controls were using.
+   * Two tabs rather than two collapsible cards: the column is never tall enough
+   * for both, so an arrangement where both can be open is offering a state that
+   * does not fit. Tabs give whichever one is showing the whole column and cost
+   * no vertical room to say which that is.
    */
-  expandedPanel = signal<'controls' | 'detections'>('controls');
-
-  controlsCollapsed = computed(() => this.expandedPanel() !== 'controls');
-  detectionsExpanded = computed(() => this.expandedPanel() === 'detections');
+  sidePanel = signal<'controls' | 'detections'>('controls');
 
   /** Free text applied to the name, the type and the percentage of a card. */
   detectionQuery = signal('');
@@ -589,23 +586,12 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Open one panel, which closes the other.
+   * Show one of the two side panels.
    *
-   * @param panel The panel to expand.
+   * @param panel The panel to show.
    */
-  expandPanel(panel: 'controls' | 'detections'): void {
-    this.expandedPanel.set(panel);
-  }
-
-  /**
-   * Toggle a panel: expanding it collapses the other one.
-   *
-   * @param panel The panel the user acted on.
-   */
-  togglePanel(panel: 'controls' | 'detections'): void {
-    this.expandedPanel.set(
-      this.expandedPanel() === panel ? (panel === 'controls' ? 'detections' : 'controls') : panel,
-    );
+  selectSidePanel(panel: 'controls' | 'detections'): void {
+    this.sidePanel.set(panel);
   }
 
   /**

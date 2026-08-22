@@ -20,11 +20,12 @@ import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '@core/services/auth.service';
 import { ThemeService } from '@core/services/theme.service';
 import { I18nService } from '@core/services/i18n.service';
+import { AccelerationBadgeComponent } from '@shared/components/acceleration-badge/acceleration-badge.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, TranslateModule],
+  imports: [CommonModule, RouterLink, RouterLinkActive, TranslateModule, AccelerationBadgeComponent],
   templateUrl: './header.component.html',
   styleUrl: './header.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

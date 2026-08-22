@@ -1,12 +1,4 @@
 <div class="view-container">
-  <div class="view-header">
-    <div class="view-header__text">
-      <h1>{{ 'view.title' | translate }}</h1>
-      <p class="subtitle">{{ 'view.subtitle' | translate }}</p>
-    </div>
-    <app-acceleration-badge />
-  </div>
-
   @if (errorMessage(); as msg) {
     <div class="error-banner">
       <span class="icon-mask icon-mask--warning error-icon"></span>
@@ -56,15 +48,19 @@
         }
       </div>
 
-      @if (isStreaming()) {
-        <div class="scene-description">
+      <!-- Always rendered: it carries the page title, which must not vanish
+           along with the description before the camera has been started. -->
+      <div class="scene-description">
           <div class="scene-description__header">
-            <h3>{{ 'view.description.title' | translate }}</h3>
+            <h1 class="scene-description__page-title">
+              {{ 'view.title' | translate }}
+              <span class="scene-description__subtitle">{{ 'view.subtitle' | translate }}</span>
+            </h1>
             <button
               type="button"
               class="scene-description__refresh"
               (click)="refreshDescription()"
-              [disabled]="isDescribing()"
+              [disabled]="isDescribing() || !isStreaming()"
               [title]="'view.description.refresh' | translate"
             >
               <span class="icon-mask icon-mask--refresh icon-mask--sm"></span>
@@ -72,7 +68,11 @@
             </button>
           </div>
 
-          @if (descriptionUnavailable()) {
+          @if (!isStreaming()) {
+            <p class="scene-description__placeholder">
+              {{ 'view.description.idle' | translate }}
+            </p>
+          } @else if (descriptionUnavailable()) {
             <p class="scene-description__placeholder scene-description__placeholder--error">
               {{ 'view.description.unavailable' | translate }}
               @if (descriptionError(); as reason) {
@@ -96,28 +96,35 @@
           @if (isDescribing() && sceneDescription()) {
             <span class="scene-description__spinner"></span>
           }
-        </div>
-      }
+      </div>
     </div>
 
-    <div class="controls-section" [class.controls-section--expanded]="detectionsExpanded()">
-      <div class="control-card" [class.control-card--collapsed]="controlsCollapsed()">
-        <div class="panel-header">
-          <h3>{{ 'view.controls.title' | translate }}</h3>
-          <button
-            type="button"
-            class="panel-toggle"
-            (click)="togglePanel('controls')"
-            [attr.aria-expanded]="!controlsCollapsed()"
-            [title]="(controlsCollapsed() ? 'view.panels.expand' : 'view.panels.collapse') | translate"
-          >
-            <span
-              class="icon-mask icon-mask--chevron-right icon-mask--sm panel-toggle__chevron"
-              [class.panel-toggle__chevron--open]="!controlsCollapsed()"
-            ></span>
-            {{ (controlsCollapsed() ? 'view.panels.expand' : 'view.panels.collapse') | translate }}
-          </button>
-        </div>
+    <div class="controls-section">
+      <div class="side-tabs" role="tablist">
+        <button
+          type="button"
+          class="side-tab"
+          [class.side-tab--active]="sidePanel() === 'controls'"
+          role="tab"
+          [attr.aria-selected]="sidePanel() === 'controls'"
+          (click)="selectSidePanel('controls')"
+        >
+          {{ 'view.controls.title' | translate }}
+        </button>
+        <button
+          type="button"
+          class="side-tab"
+          [class.side-tab--active]="sidePanel() === 'detections'"
+          role="tab"
+          [attr.aria-selected]="sidePanel() === 'detections'"
+          (click)="selectSidePanel('detections')"
+        >
+          {{ 'view.detections.title' | translate }}
+          <span class="side-tab__count">{{ detectionCards().length }}</span>
+        </button>
+      </div>
+
+      <div class="control-card" [hidden]="sidePanel() !== 'controls'">
 
         <div class="control-group">
           <label for="cameraSelect">{{ 'view.controls.selectCamera' | translate }}</label>
@@ -318,25 +325,7 @@
         </div>
       </div>
 
-      <div class="control-card detections-card">
-        <div class="panel-header">
-          <h3>
-            {{ 'view.detections.title' | translate }}
-            <span class="panel-count">{{ visibleDetectionCards().length }}</span>
-          </h3>
-          <button
-            type="button"
-            class="view-all-link"
-            (click)="togglePanel('detections')"
-            [attr.aria-expanded]="detectionsExpanded()"
-          >
-            @if (detectionsExpanded()) {
-              {{ 'view.detections.showControls' | translate }}
-            } @else {
-              {{ 'view.detections.viewAll' | translate }}
-            }
-          </button>
-        </div>
+      <div class="control-card detections-card" [hidden]="sidePanel() !== 'detections'">
 
         <div class="detection-tabs" role="tablist">
           @for (tab of detectionTabs; track tab) {
@@ -354,8 +343,7 @@
           }
         </div>
 
-        @if (detectionsExpanded()) {
-          <div class="detections-filters">
+        <div class="detections-filters">
             <div class="detections-search">
               <span class="icon-mask icon-mask--zoom icon-mask--sm"></span>
               <input
@@ -376,10 +364,7 @@
                 </button>
               }
             </div>
-          </div>
-        } @else {
-          <p class="detection-hint">{{ 'view.clickToSave' | translate }}</p>
-        }
+        </div>
 
         @if (visibleDetectionCards().length === 0) {
           <p class="no-detections">
