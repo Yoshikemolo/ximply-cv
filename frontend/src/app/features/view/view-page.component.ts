@@ -2,9 +2,39 @@ import { Component, OnInit, OnDestroy, inject, signal, computed, ElementRef, Vie
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
-import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest } from '@core/services/detection.service';
+import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest, SkeletonResult } from '@core/services/detection.service';
 import { ObjectsService, CatalogObject } from '@core/services/objects.service';
+import { InlineRenameComponent } from '@shared/components/inline-rename/inline-rename.component';
 import { Subscription } from 'rxjs';
+
+/**
+ * A detection is only reported as a fact above this confidence. Below it the
+ * label is prefixed with "Possible", because announcing a guess as a certainty
+ * is worse than admitting the doubt.
+ */
+const CERTAINTY_THRESHOLD = 0.7;
+
+/** A card with no fresh sighting for this long is dropped from the list. */
+const CARD_TTL_MS = 4000;
+
+/** Pixel width of the thumbnail kept for each card. */
+const THUMBNAIL_WIDTH = 96;
+
+/** Colour per skeleton part, so the hierarchy reads at a glance. */
+const SKELETON_COLORS: Record<string, string> = {
+  head: '#f472b6',
+  torso: '#38bdf8',
+  left_arm: '#4ade80',
+  right_arm: '#22d3ee',
+  left_leg: '#facc15',
+  right_leg: '#fb923c',
+  thumb: '#f87171',
+  index: '#fbbf24',
+  middle: '#34d399',
+  ring: '#60a5fa',
+  pinky: '#c084fc',
+  palm: '#e2e8f0',
+};
 
 // Color palette for different detection classes
 const DETECTION_COLORS = [
@@ -15,7 +45,7 @@ const DETECTION_COLORS = [
 @Component({
   selector: 'app-view-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, InlineRenameComponent],
   templateUrl: './view-page.component.html',
   styleUrl: './view-page.component.scss',
 })
@@ -59,6 +89,85 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     return result;
   });
+
+  // Skeleton wireframes for people and hands
+  skeletons = signal<SkeletonResult[]>([]);
+
+  /**
+   * Which of the two panels is open.
+   *
+   * Only one is expanded at a time: the column is not tall enough for both, and
+   * the whole point of expanding the detections list is to give it the room the
+   * controls were using.
+   */
+  expandedPanel = signal<'controls' | 'detections'>('controls');
+
+  controlsCollapsed = computed(() => this.expandedPanel() !== 'controls');
+  detectionsExpanded = computed(() => this.expandedPanel() === 'detections');
+
+  /** Free text applied to the name, the type and the percentage of a card. */
+  detectionQuery = signal('');
+
+  /** Type filter, matching the kinds reported by cardType. */
+  detectionTypeFilter = signal<DetectionCardType | 'all'>('all');
+
+  readonly detectionTypes: Array<DetectionCardType | 'all'> = [
+    'all',
+    'known',
+    'human',
+    'unknown',
+    'other',
+  ];
+
+  /**
+   * Aggregated detections, one card per distinct thing.
+   *
+   * Detection runs several times a second, so the raw list flickers: the same
+   * object reappears every frame with a slightly different confidence. Cards
+   * collapse that stream into one entry per thing, holding on to the best
+   * sighting seen recently rather than the most recent one, so the list stays
+   * readable and the thumbnail shows the clearest view rather than a blurred
+   * frame.
+   */
+  detectionCards = signal<DetectionCard[]>([]);
+
+  /**
+   * Cards left after the search box and the type filter.
+   *
+   * The query is matched against the name, the translated type and the
+   * confidence as a whole number, so typing "85" finds everything detected at
+   * eighty five percent and typing "human" finds the people.
+   */
+  visibleDetectionCards = computed(() => {
+    const query = this.detectionQuery().trim().toLowerCase();
+    const type = this.detectionTypeFilter();
+
+    return this.detectionCards().filter((card) => {
+      if (type !== 'all' && this.cardType(card) !== type) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const percentage = String(Math.round(card.confidence * 100));
+      const haystack = [
+        card.objectName ?? '',
+        card.label,
+        this.cardType(card),
+        percentage,
+        `${percentage}%`,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  });
+
+  /** Names already in use, so a rename clash is caught before it is sent. */
+  takenNames = computed(() => this.catalogObjects().map((obj) => obj.name));
 
   // Capture modal state
   showCaptureModal = signal(false);
@@ -204,6 +313,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     this.isStreaming.set(false);
     this.detections.set([]);
+    this.detectionCards.set([]);
+    this.skeletons.set([]);
     this.fps.set(0);
     this.isDetecting = false;
   }
@@ -293,7 +404,10 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
       // Send to backend for detection
       this.currentSubscription = this.detectionService
-        .detect(imageBase64, this.confidenceThreshold())
+        .detect(imageBase64, this.confidenceThreshold(), {
+          hidePersonDetections: this.hidePersonDetections(),
+          showOnlyCustomObjects: this.showOnlyCustomObjects(),
+        })
         .subscribe({
           next: (response) => {
             // Convert response to local Detection format with colors
@@ -305,8 +419,11 @@ export class ViewPageComponent implements OnInit, OnDestroy {
               color: DETECTION_COLORS[d.classId ? d.classId % DETECTION_COLORS.length : i % DETECTION_COLORS.length],
               objectId: d.objectId,
               objectName: d.objectName,
+              matchConfidence: d.matchConfidence,
             }));
             this.detections.set(newDetections);
+            this.mergeDetectionCards(newDetections, video);
+            this.skeletons.set(response.skeletons ?? []);
 
             // Convert barcodes
             const newBarcodes: Barcode[] = (response.barcodes || []).map((b, i) => ({
@@ -331,6 +448,271 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Open one panel, which closes the other.
+   *
+   * @param panel The panel to expand.
+   */
+  expandPanel(panel: 'controls' | 'detections'): void {
+    this.expandedPanel.set(panel);
+  }
+
+  /**
+   * Toggle a panel: expanding it collapses the other one.
+   *
+   * @param panel The panel the user acted on.
+   */
+  togglePanel(panel: 'controls' | 'detections'): void {
+    this.expandedPanel.set(
+      this.expandedPanel() === panel ? (panel === 'controls' ? 'detections' : 'controls') : panel,
+    );
+  }
+
+  /**
+   * Classify a card for the type filter.
+   *
+   * - "known": recognised as something in this catalog, with confidence.
+   * - "human": a person, whether or not they have been identified yet.
+   * - "unknown": a class the detector knows but this catalog does not.
+   * - "other": anything that fits none of the above, such as a barcode target.
+   *
+   * @param card The card to classify.
+   * @returns The type used by the filter and shown as a badge.
+   */
+  cardType(card: DetectionCard): DetectionCardType {
+    const label = (card.objectName ?? card.label).toLowerCase();
+    const rawLabel = card.label.toLowerCase();
+
+    if (rawLabel === 'person' || label.startsWith('person ')) {
+      return 'human';
+    }
+    if (card.objectId) {
+      return 'known';
+    }
+    if (rawLabel) {
+      return 'unknown';
+    }
+    return 'other';
+  }
+
+  /**
+   * Translation key for the badge of a card type.
+   */
+  cardTypeLabel(type: DetectionCardType | 'all'): string {
+    return `view.detections.types.${type}`;
+  }
+
+  onDetectionQueryChange(value: string): void {
+    this.detectionQuery.set(value);
+  }
+
+  onDetectionTypeChange(type: DetectionCardType | 'all'): void {
+    this.detectionTypeFilter.set(type);
+  }
+
+  /**
+   * Fold this frame's detections into the card list.
+   *
+   * Cards are keyed by identity when the thing was recognised and by label
+   * otherwise, so ten frames of the same bottle stay one card. A card only
+   * takes the new confidence and thumbnail when this sighting is better than
+   * the one already stored, which is what makes the list settle on the
+   * clearest view instead of whatever the last frame happened to catch.
+   *
+   * @param detections Detections from the current frame.
+   * @param video The video element the frame came from, used for thumbnails.
+   */
+  private mergeDetectionCards(detections: Detection[], video: HTMLVideoElement | null): void {
+    const now = Date.now();
+    const byKey = new Map<string, DetectionCard>();
+
+    for (const card of this.detectionCards()) {
+      byKey.set(card.key, card);
+    }
+
+    for (const detection of detections) {
+      const key = detection.objectId ?? detection.label.toLowerCase();
+      const existing = byKey.get(key);
+
+      if (!existing) {
+        byKey.set(key, {
+          key,
+          label: detection.label,
+          objectId: detection.objectId,
+          objectName: detection.objectName,
+          confidence: detection.confidence,
+          matchConfidence: detection.matchConfidence,
+          color: detection.color,
+          bbox: detection.bbox,
+          thumbnail: this.cropThumbnail(video, detection.bbox),
+          lastSeen: now,
+          sightings: 1,
+        });
+        continue;
+      }
+
+      existing.lastSeen = now;
+      existing.sightings += 1;
+      existing.objectId = detection.objectId ?? existing.objectId;
+      existing.objectName = detection.objectName ?? existing.objectName;
+
+      if (detection.confidence > existing.confidence) {
+        existing.confidence = detection.confidence;
+        existing.matchConfidence = detection.matchConfidence;
+        existing.label = detection.label;
+        existing.bbox = detection.bbox;
+        existing.color = detection.color;
+        const thumbnail = this.cropThumbnail(video, detection.bbox);
+        if (thumbnail) {
+          existing.thumbnail = thumbnail;
+        }
+      }
+    }
+
+    const alive = Array.from(byKey.values())
+      .filter((card) => now - card.lastSeen <= CARD_TTL_MS)
+      .sort((a, b) => b.confidence - a.confidence);
+
+    this.detectionCards.set(alive);
+  }
+
+  /**
+   * Cut the detected region out of the current frame as a small data URL.
+   *
+   * @param video Source video element.
+   * @param bbox Region to crop, in frame coordinates.
+   * @returns A data URL, or null when the frame cannot be read.
+   */
+  private cropThumbnail(
+    video: HTMLVideoElement | null,
+    bbox: { x: number; y: number; width: number; height: number },
+  ): string | null {
+    if (!video || video.videoWidth === 0 || bbox.width <= 0 || bbox.height <= 0) {
+      return null;
+    }
+
+    try {
+      const scale = THUMBNAIL_WIDTH / bbox.width;
+      const canvas = document.createElement('canvas');
+      canvas.width = THUMBNAIL_WIDTH;
+      canvas.height = Math.max(1, Math.round(bbox.height * scale));
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return null;
+      }
+
+      // Clamp to the frame so a box running off the edge still crops.
+      const sx = Math.max(0, Math.min(bbox.x, video.videoWidth - 1));
+      const sy = Math.max(0, Math.min(bbox.y, video.videoHeight - 1));
+      const sw = Math.max(1, Math.min(bbox.width, video.videoWidth - sx));
+      const sh = Math.max(1, Math.min(bbox.height, video.videoHeight - sy));
+
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.7);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * How a card should be labelled on screen.
+   *
+   * A recognised entry above the certainty threshold is stated plainly. Anything
+   * else is a guess and is written as one, whether because the model is unsure
+   * or because the thing is only a generic class from the detector rather than
+   * something in this catalog.
+   *
+   * @param card The card to label.
+   * @returns The text shown next to the thumbnail.
+   */
+  cardDisplayLabel(card: DetectionCard): string {
+    const name = card.objectName ?? card.label;
+    const certainty = this.cardCertainty(card);
+    const percentage = Math.round(certainty * 100);
+
+    if (certainty >= CERTAINTY_THRESHOLD && card.objectId) {
+      return name;
+    }
+
+    return `Possible: ${name} ${percentage}%`;
+  }
+
+  /**
+   * The number that should be shown next to a card.
+   *
+   * For a recognised entry this is how sure the matcher is of the identity, not
+   * how sure the detector is that something is there. Those diverge badly: a
+   * bus detected at 92% matching a phone at 4% must read as 4%, otherwise the
+   * interface states a wrong identity with high confidence.
+   */
+  cardCertainty(card: DetectionCard): number {
+    if (card.objectId && card.matchConfidence !== undefined) {
+      return card.matchConfidence;
+    }
+    return card.confidence;
+  }
+
+  /**
+   * Whether a card is a guess rather than a confirmed identification.
+   */
+  isUncertain(card: DetectionCard): boolean {
+    return this.cardCertainty(card) < CERTAINTY_THRESHOLD || !card.objectId;
+  }
+
+  /**
+   * Persist a new name for the catalog entry behind a card.
+   *
+   * Only entries that exist in the catalog can be renamed, so a card that was
+   * never recognised is left alone rather than silently creating something.
+   *
+   * @param card The card whose entry is renamed.
+   * @param name The new name, already validated by the control.
+   */
+  renameCard(card: DetectionCard, name: string): void {
+    if (!card.objectId) {
+      return;
+    }
+
+    this.objectsService.renameObject(card.objectId, name).subscribe({
+      next: (updated) => {
+        this.detectionCards.update((cards) =>
+          cards.map((entry) =>
+            entry.key === card.key ? { ...entry, objectName: updated.name } : entry,
+          ),
+        );
+        this.loadCatalogObjects();
+      },
+      error: (err) => {
+        console.error('Rename failed:', err);
+        this.errorMessage.set(
+          err?.status === 409 ? 'common.rename.errors.duplicate' : 'view.errors.renameFailed',
+        );
+      },
+    });
+  }
+
+  /**
+   * Open the capture modal for an aggregated card.
+   *
+   * The card holds the best sighting rather than the newest one, so saving from
+   * here stores the clearest crop of the thing instead of whatever the last
+   * frame caught.
+   *
+   * @param card The card to save to the catalog.
+   */
+  openCaptureModalFromCard(card: DetectionCard): void {
+    this.openCaptureModal({
+      id: card.key,
+      label: card.objectName ?? card.label,
+      confidence: card.confidence,
+      bbox: card.bbox,
+      color: card.color,
+      objectId: card.objectId,
+      objectName: card.objectName,
+    });
+  }
+
   private renderDetections(): void {
     const canvas = this.canvasElement?.nativeElement;
     const video = this.videoElement?.nativeElement;
@@ -351,6 +733,64 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 
     // Draw barcodes
     this.drawBarcodes(ctx);
+
+    // Draw the wireframes last so joints stay readable over the boxes
+    this.drawSkeletons(ctx);
+  }
+
+  /**
+   * Draw every skeleton over the frame.
+   *
+   * Bones are drawn before joints so the dots sit on top of the lines, and each
+   * bone takes the colour of the part it belongs to, which is what makes the
+   * hierarchy readable rather than a tangle of identical strokes. An edge whose
+   * endpoints are not both visible is skipped instead of being drawn to the
+   * origin, which is where an unscored keypoint sits.
+   *
+   * @param ctx Canvas context of the video overlay.
+   */
+  private drawSkeletons(ctx: CanvasRenderingContext2D): void {
+    for (const skeleton of this.skeletons()) {
+      const points = skeleton.keypoints;
+
+      ctx.lineCap = 'round';
+      ctx.lineWidth = skeleton.kind === 'hand' ? 2 : 3;
+
+      for (const edge of skeleton.edges) {
+        const from = points[edge.from];
+        const to = points[edge.to];
+        if (!from || !to || from.score <= 0 || to.score <= 0) {
+          continue;
+        }
+
+        ctx.strokeStyle = SKELETON_COLORS[edge.part] ?? '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+      }
+
+      const radius = skeleton.kind === 'hand' ? 2.5 : 4;
+      for (const point of points) {
+        if (point.score <= 0) {
+          continue;
+        }
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#f8fafc';
+        ctx.stroke();
+      }
+
+      if (skeleton.kind === 'hand' && skeleton.label) {
+        const { x, y } = skeleton.bbox;
+        ctx.font = '12px Inter, sans-serif';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(skeleton.label, x, Math.max(12, y - 4));
+      }
+    }
   }
 
   private drawDetections(ctx: CanvasRenderingContext2D): void {
@@ -513,6 +953,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
 interface Detection {
   id: string;
   label: string;
+  /** How sure the detector is that something is there. */
   confidence: number;
   bbox: {
     x: number;
@@ -523,6 +964,32 @@ interface Detection {
   color?: string;
   objectId?: string;
   objectName?: string;
+  /** How sure the matcher is that it is this particular catalog entry. */
+  matchConfidence?: number;
+}
+
+/**
+ * One aggregated entry in the detections list.
+ *
+ * Holds the best sighting of a thing over the last few seconds rather than the
+ * newest one, together with the thumbnail cut from the frame where it looked
+ * clearest.
+ */
+/** How a detection is classified for the type filter and the badge. */
+type DetectionCardType = 'known' | 'human' | 'unknown' | 'other';
+
+interface DetectionCard {
+  key: string;
+  label: string;
+  objectId?: string;
+  objectName?: string;
+  confidence: number;
+  matchConfidence?: number;
+  color?: string;
+  bbox: { x: number; y: number; width: number; height: number };
+  thumbnail: string | null;
+  lastSeen: number;
+  sightings: number;
 }
 
 interface Barcode {

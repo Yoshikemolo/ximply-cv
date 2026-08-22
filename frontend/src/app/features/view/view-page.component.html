@@ -54,9 +54,24 @@
       </div>
     </div>
 
-    <div class="controls-section">
-      <div class="control-card">
-        <h3>{{ 'view.controls.camera' | translate }}</h3>
+    <div class="controls-section" [class.controls-section--expanded]="detectionsExpanded()">
+      <div class="control-card" [class.control-card--collapsed]="controlsCollapsed()">
+        <div class="panel-header">
+          <h3>{{ 'view.controls.camera' | translate }}</h3>
+          <button
+            type="button"
+            class="panel-toggle"
+            (click)="togglePanel('controls')"
+            [attr.aria-expanded]="!controlsCollapsed()"
+            [title]="(controlsCollapsed() ? 'view.panels.expand' : 'view.panels.collapse') | translate"
+          >
+            <span
+              class="icon-mask icon-mask--chevron-right icon-mask--sm panel-toggle__chevron"
+              [class.panel-toggle__chevron--open]="!controlsCollapsed()"
+            ></span>
+            {{ (controlsCollapsed() ? 'view.panels.expand' : 'view.panels.collapse') | translate }}
+          </button>
+        </div>
 
         <div class="control-group">
           <label for="cameraSelect">{{ 'view.controls.selectCamera' | translate }}</label>
@@ -159,11 +174,67 @@
         </div>
       </div>
 
-      <div class="control-card">
-        <h3>{{ 'view.detectedObjects' | translate }}</h3>
-        <p class="detection-hint">{{ 'view.clickToSave' | translate }}</p>
+      <div class="control-card detections-card">
+        <div class="panel-header">
+          <h3>
+            {{ 'view.detections.title' | translate }}
+            <span class="panel-count">{{ visibleDetectionCards().length }}</span>
+          </h3>
+          <button
+            type="button"
+            class="view-all-link"
+            (click)="togglePanel('detections')"
+            [attr.aria-expanded]="detectionsExpanded()"
+          >
+            @if (detectionsExpanded()) {
+              {{ 'view.detections.showControls' | translate }}
+            } @else {
+              {{ 'view.detections.viewAll' | translate }}
+            }
+          </button>
+        </div>
 
-        @if (filteredDetections().length === 0) {
+        @if (detectionsExpanded()) {
+          <div class="detections-filters">
+            <div class="detections-search">
+              <span class="icon-mask icon-mask--zoom icon-mask--sm"></span>
+              <input
+                type="text"
+                [ngModel]="detectionQuery()"
+                (ngModelChange)="onDetectionQueryChange($event)"
+                [placeholder]="'view.detections.searchPlaceholder' | translate"
+                autocomplete="off"
+              />
+              @if (detectionQuery()) {
+                <button
+                  type="button"
+                  class="detections-search__clear"
+                  (click)="onDetectionQueryChange('')"
+                  [attr.aria-label]="'common.clear' | translate"
+                >
+                  <span class="icon-mask icon-mask--close icon-mask--sm"></span>
+                </button>
+              }
+            </div>
+
+            <div class="detections-types">
+              @for (type of detectionTypes; track type) {
+                <button
+                  type="button"
+                  class="detections-type"
+                  [class.detections-type--active]="detectionTypeFilter() === type"
+                  (click)="onDetectionTypeChange(type)"
+                >
+                  {{ cardTypeLabel(type) | translate }}
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <p class="detection-hint">{{ 'view.clickToSave' | translate }}</p>
+        }
+
+        @if (visibleDetectionCards().length === 0) {
           <p class="no-detections">
             @if (showOnlyCustomObjects() && detections().length > 0) {
               {{ 'view.noCustomDetections' | translate }}
@@ -173,26 +244,65 @@
           </p>
         } @else {
           <ul class="detection-list">
-            @for (detection of filteredDetections(); track detection.id) {
-              <li
-                class="detection-item detection-item--clickable"
-                (click)="openCaptureModal(detection)"
-                title="{{ 'view.clickToSave' | translate }}"
-              >
-                <span
-                  class="detection-color"
-                  [style.background-color]="detection.color"
-                ></span>
-                <span class="detection-label">
-                  {{ detection.label }}
-                  @if (detection.objectName) {
-                    <span class="matched-badge">{{ 'view.matchedObject' | translate }}</span>
+            @for (card of visibleDetectionCards(); track card.key) {
+              <li class="detection-card" [class.detection-card--uncertain]="isUncertain(card)">
+                <span class="detection-card__stripe" [style.background-color]="card.color"></span>
+
+                <div class="detection-card__body">
+                  <div class="detection-card__title">
+                    @if (card.objectId) {
+                      <app-inline-rename
+                        [name]="card.objectName || card.label"
+                        [takenNames]="takenNames()"
+                        nameClass="detection-card__name"
+                        (renamed)="renameCard(card, $event)"
+                      />
+                    } @else {
+                      <span class="detection-card__name">{{ cardDisplayLabel(card) }}</span>
+                    }
+                  </div>
+
+                  <div class="detection-card__meta">
+                    @if (card.objectId) {
+                      <span class="detection-card__confidence">
+                        {{ (cardCertainty(card) * 100).toFixed(0) }}%
+                      </span>
+                      @if (isUncertain(card)) {
+                        <span class="detection-card__badge detection-card__badge--guess">
+                          {{ 'view.detections.possible' | translate }}
+                        </span>
+                      } @else {
+                        <span class="detection-card__badge">{{ 'view.matchedObject' | translate }}</span>
+                      }
+                    }
+                    <span class="detection-card__type" [attr.data-type]="cardType(card)">
+                      {{ cardTypeLabel(cardType(card)) | translate }}
+                    </span>
+                    @if (card.sightings > 1) {
+                      <span class="detection-card__sightings">
+                        {{ 'view.detections.sightings' | translate: { count: card.sightings } }}
+                      </span>
+                    }
+                  </div>
+
+                  <button
+                    type="button"
+                    class="detection-card__save"
+                    (click)="openCaptureModalFromCard(card)"
+                    [title]="'view.clickToSave' | translate"
+                  >
+                    <span class="icon-mask icon-mask--plus icon-mask--sm"></span>
+                    {{ 'view.detections.save' | translate }}
+                  </button>
+                </div>
+
+                <div class="detection-card__thumb">
+                  @if (card.thumbnail) {
+                    <img [src]="card.thumbnail" [alt]="card.objectName || card.label" />
+                  } @else {
+                    <span class="icon-mask icon-mask--box icon-mask--lg"></span>
                   }
-                </span>
-                <span class="detection-confidence">
-                  {{ (detection.confidence * 100).toFixed(0) }}%
-                </span>
-                <span class="icon-mask icon-mask--plus icon-mask--sm detection-add-icon"></span>
+                </div>
               </li>
             }
           </ul>

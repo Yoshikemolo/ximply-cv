@@ -19,11 +19,20 @@ export interface BoundingBox {
 
 export interface DetectionResult {
   label: string;
+  /** How sure the detector is that something is there. */
   confidence: number;
   bbox: BoundingBox;
   classId?: number;
   objectId?: string;
   objectName?: string;
+  /**
+   * How sure the matcher is that it is this particular catalog entry.
+   *
+   * Separate from `confidence` on purpose: a bus detected at 92% can still be a
+   * poor match for a phone in the catalog, and showing the detector's number
+   * next to the wrong name would state a guess as a fact.
+   */
+  matchConfidence?: number;
 }
 
 export interface BarcodeResult {
@@ -33,9 +42,41 @@ export interface BarcodeResult {
   quality: number;
 }
 
+/** One joint of a skeleton, in pixel coordinates of the source frame. */
+export interface SkeletonKeypoint {
+  name: string;
+  x: number;
+  y: number;
+  score: number;
+}
+
+/** One bone, joining two keypoints by their index in the keypoint array. */
+export interface SkeletonEdge {
+  from: number;
+  to: number;
+  part: string;
+}
+
+/**
+ * A wireframe over one body or one hand.
+ *
+ * Bodies use the COCO 17 keypoint layout and hands the 21 landmark MediaPipe
+ * layout. The edges arrive with the skeleton, so drawing never needs to know
+ * which layout it is looking at.
+ */
+export interface SkeletonResult {
+  kind: 'body' | 'hand';
+  label?: string;
+  score: number;
+  bbox: BoundingBox;
+  keypoints: SkeletonKeypoint[];
+  edges: SkeletonEdge[];
+}
+
 export interface DetectionResponse {
   detections: DetectionResult[];
   barcodes: BarcodeResult[];
+  skeletons?: SkeletonResult[];
   frameWidth: number;
   frameHeight: number;
   processingTimeMs: number;
@@ -46,6 +87,8 @@ export interface DetectRequest {
   image: string;
   confidenceThreshold?: number;
   iouThreshold?: number;
+  hidePersonDetections?: boolean;
+  showOnlyCustomObjects?: boolean;
 }
 
 export interface CaptureDetectionRequest {
@@ -82,11 +125,17 @@ export class DetectionService {
    */
   detect(
     image: string,
-    confidenceThreshold?: number
+    confidenceThreshold?: number,
+    options?: { hidePersonDetections?: boolean; showOnlyCustomObjects?: boolean }
   ): Observable<DetectionResponse> {
     const request: DetectRequest = {
       image,
       confidenceThreshold,
+      // The view toggles travel with the request because the backend resolves
+      // overlapping boxes before answering. Filtering only on arrival would let
+      // a hidden box suppress a visible one and leave a gap on screen.
+      hidePersonDetections: options?.hidePersonDetections ?? false,
+      showOnlyCustomObjects: options?.showOnlyCustomObjects ?? false,
     };
 
     return this.http.post<DetectionResponse>(`${this.apiUrl}/detect`, request);

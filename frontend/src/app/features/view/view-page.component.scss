@@ -657,3 +657,398 @@
     word-break: break-all;
   }
 }
+
+// =============================================================================
+// Detections panel
+// =============================================================================
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+}
+
+.panel-count {
+  padding: 1px 7px;
+  background-color: var(--accent-alpha-10);
+  border-radius: 9999px;
+  color: var(--accent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2px 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+
+  &:hover {
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: 4px;
+    box-shadow: var(--focus-ring);
+  }
+
+  &__chevron {
+    transition: transform 150ms ease;
+
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+}
+
+.detections-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.detections-search {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.375rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: var(--focus-ring);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  &__clear {
+    display: inline-flex;
+    padding: 2px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text-primary);
+    }
+  }
+}
+
+.detections-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.detections-type {
+  padding: 3px 9px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 9999px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  &--active {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+}
+
+.view-all-link {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-radius: 4px;
+    box-shadow: var(--focus-ring);
+  }
+}
+
+// Collapsing the controls hands the whole column to the detections list, which
+// is the point of View All. The card keeps its heading so it can be reopened.
+.control-card--collapsed {
+  > *:not(h3) {
+    display: none;
+  }
+
+  h3 {
+    margin-bottom: 0;
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+// Expanded, the list takes the height the controls gave up and scrolls inside
+// itself, so the page never grows a second scrollbar.
+.controls-section--expanded {
+  .detections-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .detection-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+}
+
+.detection-card__type {
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &[data-type='known'] {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+  }
+
+  &[data-type='human'] {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #1d4ed8;
+  }
+
+  &[data-type='unknown'] {
+    background-color: rgba(148, 163, 184, 0.2);
+    color: #475569;
+  }
+
+  &[data-type='other'] {
+    background-color: rgba(168, 85, 247, 0.15);
+    color: #7e22ce;
+  }
+}
+
+:root[data-theme='dark'] .detection-card__type {
+  &[data-type='known'] { color: #4ade80; }
+  &[data-type='human'] { color: #60a5fa; }
+  &[data-type='unknown'] { color: #cbd5e1; }
+  &[data-type='other'] { color: #c084fc; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .detection-card__type {
+    &[data-type='known'] { color: #4ade80; }
+    &[data-type='human'] { color: #60a5fa; }
+    &[data-type='unknown'] { color: #cbd5e1; }
+    &[data-type='other'] { color: #c084fc; }
+  }
+}
+
+.detection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.detection-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  padding-left: calc(0.5rem + 4px);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+
+  &:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
+  }
+
+  // A guess is dimmed rather than hidden: the information is still useful, it
+  // just must not read like a confirmed identification.
+  &--uncertain {
+    .detection-card__name {
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+  }
+
+  &__stripe {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__name {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  &__confidence {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  &__badge {
+    padding: 1px 6px;
+    background-color: var(--accent-alpha-10);
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 11px;
+
+    &--guess {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: #b45309;
+    }
+  }
+
+  &__sightings {
+    font-size: 11px;
+    opacity: 0.75;
+  }
+
+  &__save {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 4px;
+    margin-top: 2px;
+    padding: 2px 6px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 11px;
+
+    &:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+  }
+
+  &__thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+    background-color: var(--bg-tertiary, var(--bg-primary));
+    border-radius: 4px;
+    overflow: hidden;
+    color: var(--text-secondary);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    .detection-card__badge--guess {
+      color: #fbbf24;
+    }
+  }
+}
+
+:root[data-theme='dark'] .detection-card__badge--guess {
+  color: #fbbf24;
+}
