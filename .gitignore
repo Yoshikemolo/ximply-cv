@@ -239,3 +239,19 @@ typings/
 
 # Keep directories with .gitkeep
 !**/.gitkeep
+
+# AI assistant and agent tooling, local to each developer machine
+.claude/
+CLAUDE.md
+.cursor/
+.cursorrules
+.aider*
+.codeium/
+.continue/
+.windsurf/
+.github/copilot-instructions.md
+AGENTS.md
+GEMINI.md
+
+# Windows NUL redirection artifact
+nul
