@@ -115,6 +115,16 @@ class Settings(BaseSettings):
     person_category_name: str = "People"
     person_name_prefix: str = "Person"
 
+    # Object silhouettes
+    # Segment Anything says exactly where an edge runs but not what the thing
+    # is, so it never replaces the detector: it is prompted with the boxes the
+    # detector already produced, which keeps the labels and adds the outline.
+    segmentation_enabled: bool = True
+    segmentation_model: str = "sam2.1_t"
+    # Contours arrive with well over a thousand points for a large object. This
+    # caps the polygon after simplification, per silhouette.
+    segmentation_max_points: int = 80
+
     # Skeleton and mesh overlay
     # Bodies use the 33 point BlazePose layout, hands the 21 point layout and
     # faces the 478 point mesh, all of them from the MediaPipe Tasks API. Edge

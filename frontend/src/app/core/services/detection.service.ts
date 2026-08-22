@@ -33,6 +33,13 @@ export interface DetectionResult {
    * next to the wrong name would state a guess as a fact.
    */
   matchConfidence?: number;
+  /**
+   * Outline of the object as [x, y] pixel pairs, when segmentation ran.
+   *
+   * Absent means there is no silhouette for this detection and the bounding box
+   * is what should be drawn.
+   */
+  polygon?: number[][];
 }
 
 export interface BarcodeResult {
@@ -95,6 +102,7 @@ export interface DetectRequest {
   showOnlyCustomObjects?: boolean;
   includeSkeletons?: boolean;
   includeFaceMesh?: boolean;
+  detectionModel?: 'yolo' | 'sam';
 }
 
 export interface CaptureDetectionRequest {
@@ -137,6 +145,7 @@ export class DetectionService {
       showOnlyCustomObjects?: boolean;
       includeSkeletons?: boolean;
       includeFaceMesh?: boolean;
+      detectionModel?: 'yolo' | 'sam';
     }
   ): Observable<DetectionResponse> {
     const request: DetectRequest = {
@@ -152,6 +161,7 @@ export class DetectionService {
       // not be computed at all.
       includeSkeletons: options?.includeSkeletons ?? true,
       includeFaceMesh: options?.includeFaceMesh ?? true,
+      detectionModel: options?.detectionModel ?? 'yolo',
     };
 
     return this.http.post<DetectionResponse>(`${this.apiUrl}/detect`, request);

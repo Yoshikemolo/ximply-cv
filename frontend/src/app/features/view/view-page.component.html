@@ -106,6 +106,30 @@
           />
         </div>
 
+        <div class="control-group model-selector">
+          <label>{{ 'view.controls.model' | translate }}</label>
+          <div class="model-options">
+            <button
+              type="button"
+              class="model-option"
+              [class.model-option--active]="detectionModel() === 'yolo'"
+              (click)="setDetectionModel('yolo')"
+              [title]="'view.controls.modelYoloHint' | translate"
+            >
+              {{ 'view.controls.modelYolo' | translate }}
+            </button>
+            <button
+              type="button"
+              class="model-option"
+              [class.model-option--active]="detectionModel() === 'sam'"
+              (click)="setDetectionModel('sam')"
+              [title]="'view.controls.modelSamHint' | translate"
+            >
+              {{ 'view.controls.modelSam' | translate }}
+            </button>
+          </div>
+        </div>
+
         <div class="toggle-list">
           <button
             class="toggle-row"

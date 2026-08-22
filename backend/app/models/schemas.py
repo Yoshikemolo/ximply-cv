@@ -405,6 +405,9 @@ class DetectionResult(CamelCaseModel):
     # a terrible match for a phone in the catalog. Reporting only the first
     # number would announce a wrong identity with the detector's confidence.
     match_confidence: Optional[float] = None
+    # Outline of the object as [x, y] pixel pairs, when segmentation ran.
+    # Absent means the client should fall back to drawing the bounding box.
+    polygon: Optional[List[List[float]]] = None
 
 
 class BarcodeResult(CamelCaseModel):

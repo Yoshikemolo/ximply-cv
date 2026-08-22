@@ -96,6 +96,17 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   /** Whether the facial feature mesh is extracted and drawn. */
   showFaceMesh = signal(true);
 
+  /**
+   * Which model draws the shape of a detection.
+   *
+   * "yolo" draws the bounding box the detector produced. "sam" prompts Segment
+   * Anything with that same box and draws the real outline instead. It is never
+   * a replacement for detection: Segment Anything has no idea what it is
+   * looking at, so labels, catalog matches and person identities keep coming
+   * from the detector either way.
+   */
+  detectionModel = signal<'yolo' | 'sam'>('yolo');
+
   // Filtered detections based on toggles
   filteredDetections = computed(() => {
     let result = this.detections();
@@ -381,6 +392,15 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Switch between drawing boxes and drawing silhouettes.
+   *
+   * @param model The model that shapes each detection.
+   */
+  setDetectionModel(model: 'yolo' | 'sam'): void {
+    this.detectionModel.set(model);
+  }
+
   toggleFaceMesh(): void {
     this.showFaceMesh.set(!this.showFaceMesh());
     if (!this.showFaceMesh()) {
@@ -449,6 +469,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
           showOnlyCustomObjects: this.showOnlyCustomObjects(),
           includeSkeletons: this.showSkeletons(),
           includeFaceMesh: this.showFaceMesh(),
+          detectionModel: this.detectionModel(),
         })
         .subscribe({
           next: (response) => {
@@ -462,6 +483,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
               objectId: d.objectId,
               objectName: d.objectName,
               matchConfidence: d.matchConfidence,
+              polygon: d.polygon,
             }));
             this.detections.set(newDetections);
             this.mergeDetectionCards(newDetections, video);
@@ -869,11 +891,29 @@ export class ViewPageComponent implements OnInit, OnDestroy {
       if (detection.confidence < this.confidenceThreshold()) return;
 
       const { x, y, width, height } = detection.bbox;
+      const color = detection.color || '#22c55e';
 
-      // Draw bounding box
-      ctx.strokeStyle = detection.color || '#22c55e';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
+
+      // A silhouette says more than the rectangle around it, so it replaces the
+      // box rather than being drawn on top of it. Detections the segmenter
+      // could not trace still get their box, so nothing disappears.
+      if (detection.polygon && detection.polygon.length >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(detection.polygon[0][0], detection.polygon[0][1]);
+        for (let i = 1; i < detection.polygon.length; i++) {
+          ctx.lineTo(detection.polygon[i][0], detection.polygon[i][1]);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        // A light wash makes the shape read as a surface without hiding what is
+        // underneath it.
+        ctx.fillStyle = color + '26';
+        ctx.fill();
+      } else {
+        ctx.strokeRect(x, y, width, height);
+      }
 
       // Draw label background
       const label = `${detection.label} ${(detection.confidence * 100).toFixed(0)}%`;
@@ -1035,6 +1075,8 @@ interface Detection {
   objectName?: string;
   /** How sure the matcher is that it is this particular catalog entry. */
   matchConfidence?: number;
+  /** Outline of the object, when segmentation produced one. */
+  polygon?: number[][];
 }
 
 /**

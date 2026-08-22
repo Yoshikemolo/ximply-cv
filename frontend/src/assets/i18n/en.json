@@ -98,7 +98,12 @@
       "showingFace": "Face mesh on",
       "hidingFace": "Face mesh off",
       "clickToShowFace": "Click to detect and draw the facial features",
-      "clickToHideFace": "Click to stop detecting and drawing the facial features"
+      "clickToHideFace": "Click to stop detecting and drawing the facial features",
+      "model": "Shape model",
+      "modelYolo": "YOLO",
+      "modelSam": "SAM",
+      "modelYoloHint": "Draw the bounding box the detector produced. Fastest.",
+      "modelSamHint": "Trace the real outline of each detection with Segment Anything. Labels and catalog matches still come from the detector."
     },
     "capture": {
       "title": "Save Object to Catalog",

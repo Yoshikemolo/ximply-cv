@@ -51,6 +51,7 @@ from app.services.person_catalog import (
 )
 from app.services.person_recognition_service import get_person_recognition_service
 from app.services.pose_service import get_pose_service
+from app.services.segmentation_service import get_segmentation_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -284,6 +285,10 @@ class DetectRequest(BaseModel):
     # rather than discard its result.
     includeSkeletons: bool = True
     includeFaceMesh: bool = True
+    # "yolo" draws rectangles, "sam" prompts Segment Anything with those same
+    # rectangles and draws the outline instead. Segmentation never replaces
+    # detection: it has no idea what it is looking at.
+    detectionModel: str = "yolo"
 
 
 class CaptureDetectionRequest(BaseModel):
@@ -725,6 +730,27 @@ async def detect_objects(
             logger.debug(
                 f"Filtering reduced detections from {len(candidates)} to {len(filtered_detections)}"
             )
+
+        # Trace the outline of each detection when the client asked for it
+        if request.detectionModel == "sam" and image_array is not None and filtered_detections:
+            try:
+                segmentation = get_segmentation_service()
+                boxes = [
+                    (
+                        float(d.bbox.x),
+                        float(d.bbox.y),
+                        float(d.bbox.x + d.bbox.width),
+                        float(d.bbox.y + d.bbox.height),
+                    )
+                    for d in filtered_detections
+                ]
+                polygons, segmentation_time = segmentation.segment_boxes(image_array, boxes)
+                processing_time += segmentation_time
+                for detection, polygon in zip(filtered_detections, polygons):
+                    if polygon:
+                        detection.polygon = polygon
+            except Exception as e:
+                logger.debug(f"Segmentation failed: {e}")
 
         # Detect barcodes
         barcode_results = []

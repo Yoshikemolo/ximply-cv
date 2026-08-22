@@ -1126,3 +1126,46 @@
     min-width: 0;
   }
 }
+
+// Two mutually exclusive choices read better as a segmented control than as a
+// dropdown: both options and the current one are visible without interacting.
+.model-selector {
+  margin-bottom: 0.75rem;
+}
+
+.model-options {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.model-option {
+  flex: 1;
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(.model-option--active) {
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  &--active {
+    background: var(--brand-primary);
+    color: white;
+  }
+}

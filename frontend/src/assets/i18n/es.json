@@ -98,7 +98,12 @@
       "showingFace": "Malla facial activa",
       "hidingFace": "Malla facial inactiva",
       "clickToShowFace": "Pulsa para detectar y dibujar los rasgos faciales",
-      "clickToHideFace": "Pulsa para dejar de detectar y dibujar los rasgos faciales"
+      "clickToHideFace": "Pulsa para dejar de detectar y dibujar los rasgos faciales",
+      "model": "Modelo de forma",
+      "modelYolo": "YOLO",
+      "modelSam": "SAM",
+      "modelYoloHint": "Dibuja la caja que produce el detector. Lo más rápido.",
+      "modelSamHint": "Traza el contorno real de cada detección con Segment Anything. Las etiquetas y el match con el catálogo siguen viniendo del detector."
     },
     "capture": {
       "title": "Guardar Objeto en Catálogo",
