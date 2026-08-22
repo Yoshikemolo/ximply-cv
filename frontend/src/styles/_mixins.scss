@@ -152,24 +152,43 @@
 }
 
 // Scrollbar styling
+//
+// Two vocabularies, because no single one is supported everywhere: Firefox and
+// the standard take scrollbar-width and scrollbar-color, Chromium and WebKit
+// take the pseudo elements. Both are declared so a bar looks the same wherever
+// it is drawn.
 @mixin custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+
   &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-tertiary);
-    border-radius: $radius-full;
+    background: var(--scrollbar-track);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
+    background: var(--scrollbar-thumb);
+    // The border is transparent and the background is clipped to the padding
+    // box, which insets the thumb without needing a narrower scrollbar. It ends
+    // up a slim capsule floating in the gutter rather than filling it.
+    background-clip: padding-box;
+    border: 3px solid transparent;
     border-radius: $radius-full;
 
     &:hover {
-      background: var(--text-tertiary);
+      background: var(--scrollbar-thumb-hover);
+      background-clip: padding-box;
     }
+  }
+
+  // Where the two bars meet. Left alone it is a solid grey square that belongs
+  // to no theme at all.
+  &::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 

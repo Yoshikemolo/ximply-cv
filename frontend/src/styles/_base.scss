@@ -31,8 +31,39 @@ body {
   background-color: var(--bg-primary);
   min-height: 100vh;
   overflow-x: hidden;
+}
 
+// Applied to everything rather than to the handful of elements someone
+// remembered. Panels gain and lose their own scroll as the layout changes, and
+// a rule that has to be added by hand each time is a rule that will be missed.
+*,
+*::before,
+*::after {
   @include custom-scrollbar;
+}
+
+// Chrome text is not document text. Labels, headings and buttons exist to be
+// read and pressed, and letting a drag paint them blue makes the interface feel
+// like a web page rather than an application, on top of the stray selections a
+// drag across a control leaves behind.
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+// Anything that holds a value the user typed, or one they would reasonably want
+// to copy out, stays selectable. A barcode is the clearest case: reading it is
+// the entire point of scanning it, and a number that cannot be copied has to be
+// transcribed by hand.
+input,
+textarea,
+select,
+[contenteditable='true'],
+.selectable,
+.barcode-data,
+.scene-description__text {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 // Typography

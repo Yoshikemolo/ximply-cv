@@ -485,23 +485,10 @@
   padding: 0.5rem 0;
   scroll-behavior: smooth;
 
-  // Custom scrollbar
+  // The image reel is a horizontal strip, so its bar is slimmer than the
+  // global one. Only the size is overridden; the colours stay with the theme.
   &::-webkit-scrollbar {
-    height: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--bg-tertiary);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--text-tertiary);
-    border-radius: 3px;
-
-    &:hover {
-      background: var(--text-secondary);
-    }
+    height: 8px;
   }
 }
 

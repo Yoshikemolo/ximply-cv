@@ -106,6 +106,14 @@ $color-info-dark: #2563eb;
   --accent-color: #{$brand-primary};
   --accent-alpha-10: rgba(99, 102, 241, 0.1);
   --accent-alpha-20: rgba(99, 102, 241, 0.2);
+
+  // Scrollbars
+  // Translucent rather than a flat colour, so a bar reads as part of whatever
+  // surface it sits on instead of as a stripe of one fixed grey laid over
+  // panels of three different shades.
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(15, 23, 42, 0.18);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.32);
 }
 
 // Dark theme
@@ -154,6 +162,11 @@ $color-info-dark: #2563eb;
   --accent-color: #{$brand-primary-light};
   --accent-alpha-10: rgba(129, 140, 248, 0.1);
   --accent-alpha-20: rgba(129, 140, 248, 0.2);
+
+  // Scrollbars: light on dark, at the same weight as their light counterparts.
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(226, 232, 240, 0.22);
+  --scrollbar-thumb-hover: rgba(226, 232, 240, 0.38);
 }
 
 // System preference detection
@@ -169,5 +182,11 @@ $color-info-dark: #2563eb;
     --text-disabled: #{$dark-text-disabled};
     --border-default: #{$dark-border-default};
     --border-strong: #{$dark-border-strong};
+
+    // Someone on the system default gets dark surfaces, so they need the dark
+    // scrollbar too. Leaving it out here is how a token ends up correct on the
+    // explicit theme and wrong for everyone who never chose one.
+    --scrollbar-thumb: rgba(226, 232, 240, 0.22);
+    --scrollbar-thumb-hover: rgba(226, 232, 240, 0.38);
   }
 }
