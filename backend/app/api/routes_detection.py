@@ -289,6 +289,10 @@ class DetectRequest(BaseModel):
     # rectangles and draws the outline instead. Segmentation never replaces
     # detection: it has no idea what it is looking at.
     detectionModel: str = "yolo"
+    # Calibration for the silhouettes, only meaningful when detectionModel is
+    # "sam". Absent means the server side defaults apply.
+    segmentationTightness: Optional[float] = None
+    segmentationExcludeSiblings: Optional[bool] = None
 
 
 class CaptureDetectionRequest(BaseModel):
@@ -744,7 +748,12 @@ async def detect_objects(
                     )
                     for d in filtered_detections
                 ]
-                polygons, segmentation_time = segmentation.segment_boxes(image_array, boxes)
+                polygons, segmentation_time = segmentation.segment_boxes(
+                    image_array,
+                    boxes,
+                    tightness=request.segmentationTightness,
+                    exclude_siblings=request.segmentationExcludeSiblings,
+                )
                 processing_time += segmentation_time
                 for detection, polygon in zip(filtered_detections, polygons):
                     if polygon:

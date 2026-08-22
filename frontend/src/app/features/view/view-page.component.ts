@@ -107,6 +107,25 @@ export class ViewPageComponent implements OnInit, OnDestroy {
    */
   detectionModel = signal<'yolo' | 'sam'>('yolo');
 
+  /**
+   * How narrow a silhouette to accept, from 0 for the widest to 1 for the
+   * narrowest.
+   *
+   * A box prompt is ambiguous: the rectangle around a person also contains the
+   * chair behind them, and the segmenter offers several readings of it. This
+   * chooses among them, which is what stops a silhouette swallowing whatever
+   * the subject is sitting on.
+   */
+  segmentationTightness = signal(0.5);
+
+  /**
+   * Whether other detections inside a box are marked as background.
+   *
+   * The detector has already found the chair and the table separately, so their
+   * positions are known and can be fed back to say what the subject is not.
+   */
+  segmentationExcludeSiblings = signal(true);
+
   // Filtered detections based on toggles
   filteredDetections = computed(() => {
     let result = this.detections();
@@ -401,6 +420,15 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.detectionModel.set(model);
   }
 
+  onTightnessChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.segmentationTightness.set(parseFloat(input.value));
+  }
+
+  toggleExcludeSiblings(): void {
+    this.segmentationExcludeSiblings.set(!this.segmentationExcludeSiblings());
+  }
+
   toggleFaceMesh(): void {
     this.showFaceMesh.set(!this.showFaceMesh());
     if (!this.showFaceMesh()) {
@@ -470,6 +498,8 @@ export class ViewPageComponent implements OnInit, OnDestroy {
           includeSkeletons: this.showSkeletons(),
           includeFaceMesh: this.showFaceMesh(),
           detectionModel: this.detectionModel(),
+          segmentationTightness: this.segmentationTightness(),
+          segmentationExcludeSiblings: this.segmentationExcludeSiblings(),
         })
         .subscribe({
           next: (response) => {

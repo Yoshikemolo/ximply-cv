@@ -130,6 +130,26 @@
           </div>
         </div>
 
+        @if (detectionModel() === 'sam') {
+          <div class="control-group sam-calibration">
+            <label for="tightness">
+              {{ 'view.controls.tightness' | translate }}:
+              {{ (segmentationTightness() * 100).toFixed(0) }}%
+            </label>
+            <input
+              type="range"
+              id="tightness"
+              min="0"
+              max="1"
+              step="0.1"
+              [value]="segmentationTightness()"
+              (input)="onTightnessChange($event)"
+              [title]="'view.controls.tightnessHint' | translate"
+            />
+            <p class="control-hint">{{ 'view.controls.tightnessHint' | translate }}</p>
+          </div>
+        }
+
         <div class="toggle-list">
           <button
             class="toggle-row"
@@ -197,6 +217,24 @@
               }
             </span>
           </button>
+
+          @if (detectionModel() === 'sam') {
+            <button
+              class="toggle-row"
+              [class.active]="segmentationExcludeSiblings()"
+              (click)="toggleExcludeSiblings()"
+              [title]="'view.controls.excludeSiblingsHint' | translate"
+            >
+              <span
+                class="icon-mask icon-mask--lg"
+                [class.icon-mask--toggle-on]="segmentationExcludeSiblings()"
+                [class.icon-mask--toggle-off]="!segmentationExcludeSiblings()"
+              ></span>
+              <span class="toggle-row__text">
+                {{ 'view.controls.excludeSiblings' | translate }}
+              </span>
+            </button>
+          }
 
           <button
             class="toggle-row"

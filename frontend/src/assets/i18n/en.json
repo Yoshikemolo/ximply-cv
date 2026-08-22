@@ -103,7 +103,11 @@
       "modelYolo": "YOLO",
       "modelSam": "SAM",
       "modelYoloHint": "Draw the bounding box the detector produced. Fastest.",
-      "modelSamHint": "Trace the real outline of each detection with Segment Anything. Labels and catalog matches still come from the detector."
+      "modelSamHint": "Trace the real outline of each detection with Segment Anything. Labels and catalog matches still come from the detector.",
+      "tightness": "Silhouette tightness",
+      "tightnessHint": "A box also contains what is behind the subject. Raise this when the outline swallows the chair or the wall, lower it when it cuts parts of the object off.",
+      "excludeSiblings": "Exclude other objects",
+      "excludeSiblingsHint": "Tell the segmenter that objects the detector found separately, such as the chair behind you, are background."
     },
     "capture": {
       "title": "Save Object to Catalog",

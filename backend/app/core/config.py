@@ -124,6 +124,16 @@ class Settings(BaseSettings):
     # Contours arrive with well over a thousand points for a large object. This
     # caps the polygon after simplification, per silhouette.
     segmentation_max_points: int = 80
+    # A box prompt is ambiguous: the rectangle around a person also holds the
+    # chair behind them. Tightness picks among the granularity levels the model
+    # offers, 0 keeping the widest reading and 1 the narrowest.
+    segmentation_tightness: float = 0.5
+    # A mask covering more of its box than this has escaped onto the background.
+    segmentation_max_coverage: float = 0.92
+    # Feed the centres of other detections back as negative points, so the
+    # silhouette of a person is told it is not the chair the detector already
+    # found separately.
+    segmentation_exclude_siblings: bool = True
 
     # Skeleton and mesh overlay
     # Bodies use the 33 point BlazePose layout, hands the 21 point layout and

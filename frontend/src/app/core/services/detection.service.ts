@@ -103,6 +103,8 @@ export interface DetectRequest {
   includeSkeletons?: boolean;
   includeFaceMesh?: boolean;
   detectionModel?: 'yolo' | 'sam';
+  segmentationTightness?: number;
+  segmentationExcludeSiblings?: boolean;
 }
 
 export interface CaptureDetectionRequest {
@@ -146,6 +148,8 @@ export class DetectionService {
       includeSkeletons?: boolean;
       includeFaceMesh?: boolean;
       detectionModel?: 'yolo' | 'sam';
+      segmentationTightness?: number;
+      segmentationExcludeSiblings?: boolean;
     }
   ): Observable<DetectionResponse> {
     const request: DetectRequest = {
@@ -162,6 +166,8 @@ export class DetectionService {
       includeSkeletons: options?.includeSkeletons ?? true,
       includeFaceMesh: options?.includeFaceMesh ?? true,
       detectionModel: options?.detectionModel ?? 'yolo',
+      segmentationTightness: options?.segmentationTightness,
+      segmentationExcludeSiblings: options?.segmentationExcludeSiblings,
     };
 
     return this.http.post<DetectionResponse>(`${this.apiUrl}/detect`, request);

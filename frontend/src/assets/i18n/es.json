@@ -103,7 +103,11 @@
       "modelYolo": "YOLO",
       "modelSam": "SAM",
       "modelYoloHint": "Dibuja la caja que produce el detector. Lo más rápido.",
-      "modelSamHint": "Traza el contorno real de cada detección con Segment Anything. Las etiquetas y el match con el catálogo siguen viniendo del detector."
+      "modelSamHint": "Traza el contorno real de cada detección con Segment Anything. Las etiquetas y el match con el catálogo siguen viniendo del detector.",
+      "tightness": "Ajuste de la silueta",
+      "tightnessHint": "Una caja contiene también lo que hay detrás del sujeto. Súbelo cuando el contorno se come la silla o la pared, bájalo cuando recorta partes del objeto.",
+      "excludeSiblings": "Excluir otros objetos",
+      "excludeSiblingsHint": "Indica al segmentador que los objetos que el detector ha encontrado por separado, como la silla que tienes detrás, son fondo."
     },
     "capture": {
       "title": "Guardar Objeto en Catálogo",

@@ -1169,3 +1169,16 @@
     color: white;
   }
 }
+
+// The calibration only exists while SAM is selected, so it is kept visually
+// subordinate to the selector that reveals it.
+.sam-calibration {
+  margin-bottom: 0.5rem;
+}
+
+.control-hint {
+  margin: 0.25rem 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.35;
+}
