@@ -56,6 +56,38 @@ export interface TokenPayload {
   iat: number;
 }
 
+/**
+ * Reduce a list of roles or permissions to their names.
+ *
+ * Accepts either the plain strings an older payload used or the objects the API
+ * returns now, so a change in shape on either side cannot silently strip
+ * someone's access.
+ *
+ * @param value - Roles or permissions, as strings or as objects.
+ */
+function normaliseNames(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => {
+      if (typeof entry === 'string') {
+        return entry;
+      }
+      if (entry && typeof entry === 'object') {
+        const record = entry as { name?: unknown; code?: unknown };
+        if (typeof record.name === 'string') {
+          return record.name;
+        }
+        if (typeof record.code === 'string') {
+          return record.code;
+        }
+      }
+      return '';
+    })
+    .filter((name): name is string => name.length > 0);
+}
+
 const ACCESS_TOKEN_KEY = 'ximply-vision-access-token';
 const REFRESH_TOKEN_KEY = 'ximply-vision-refresh-token';
 const USER_KEY = 'ximply-vision-user';
@@ -78,11 +110,41 @@ export class AuthService {
   /** Whether user is authenticated. */
   readonly isAuthenticated = computed(() => this._user() !== null);
 
-  /** User's roles. */
-  readonly roles = computed(() => this._user()?.roles ?? []);
+  /**
+   * Names of the roles held by the user.
+   *
+   * The API returns roles as objects, with a name, a description and their
+   * permissions. Every consumer here wants the name, and comparing a string
+   * against an array of objects silently answers no rather than failing, which
+   * is how the admin section became unreachable for administrators.
+   */
+  readonly roles = computed(() => normaliseNames(this._user()?.roles));
 
-  /** User's permissions. */
-  readonly permissions = computed(() => this._user()?.permissions ?? []);
+  /**
+   * Permission codes held by the user.
+   *
+   * Taken from the roles when the user payload does not carry a flat list,
+   * which is the shape the login response actually returns.
+   */
+  readonly permissions = computed(() => {
+    const user = this._user();
+    if (!user) {
+      return [];
+    }
+
+    const direct = normaliseNames((user as { permissions?: unknown }).permissions);
+    if (direct.length) {
+      return direct;
+    }
+
+    const fromRoles = new Set<string>();
+    for (const role of (user.roles ?? []) as Array<{ permissions?: unknown }>) {
+      for (const code of normaliseNames(role?.permissions)) {
+        fromRoles.add(code);
+      }
+    }
+    return [...fromRoles];
+  });
 
   constructor() {
     this.loadStoredUser();
