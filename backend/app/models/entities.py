@@ -223,6 +223,9 @@ class ObjectEntity(Base):
     images: Mapped[List["ObjectImageEntity"]] = relationship(
         "ObjectImageEntity", back_populates="object", cascade="all, delete-orphan"
     )
+    embeddings: Mapped[List["PersonEmbeddingEntity"]] = relationship(
+        "PersonEmbeddingEntity", back_populates="person", cascade="all, delete-orphan"
+    )
 
 
 class ObjectImageEntity(Base):
@@ -257,6 +260,46 @@ class ObjectImageEntity(Base):
     )
 
     object: Mapped["ObjectEntity"] = relationship("ObjectEntity", back_populates="images")
+
+
+class PersonEmbeddingEntity(Base):
+    """
+    Identity embedding for a person in the catalog.
+
+    A person is an ObjectEntity inside the system "People" category. Each row
+    here is one appearance sample of that person, stored as a normalised
+    embedding vector.
+
+    Two kinds coexist:
+    - "face": produced by the face model. Survives a change of clothes, degrades
+      behind a mask.
+    - "body": produced by the body model over the full person crop. Survives a
+      cap, glasses and a mask, but not a change of clothes.
+
+    Keeping several samples per person and per kind is what makes recognition
+    hold up across poses, lighting and partial occlusion.
+    """
+
+    __tablename__ = "person_embeddings"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    person_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    vector: Mapped[List[float]] = mapped_column(ARRAY(Float), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    source_image_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    person: Mapped["ObjectEntity"] = relationship("ObjectEntity", back_populates="embeddings")
 
 
 class DetectionLogEntity(Base):

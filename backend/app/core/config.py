@@ -7,7 +7,7 @@ Supports different configurations for development and production.
 
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -98,6 +98,38 @@ class Settings(BaseSettings):
     detection_model: str = "yolo11s"
     detection_confidence_threshold: float = 0.25  # lower threshold for more detections
     detection_iou_threshold: float = 0.45
+
+    # Person recognition
+    # Face embeddings survive a change of clothes but degrade behind a mask.
+    # Body embeddings survive caps, glasses and masks but not a change of clothes.
+    # Both are combined so each covers the other's blind spot.
+    person_recognition_enabled: bool = True
+    person_face_model: str = "buffalo_l"
+    person_body_model_path: Optional[str] = None
+    person_face_threshold: float = 0.38
+    person_body_threshold: float = 0.75
+    person_face_weight: float = 0.7
+    person_min_face_size: int = 40
+    person_max_embeddings_per_person: int = 40
+    person_auto_enroll: bool = True
+    person_category_name: str = "People"
+    person_name_prefix: str = "Person"
+
+    # Skeleton overlay
+    # Body keypoints follow the COCO 17 point layout, which is what every YOLO
+    # pose model emits and the format the skeleton edges below are defined for.
+    # Hand landmarks follow the 21 point MediaPipe layout.
+    pose_enabled: bool = True
+    pose_model: str = "yolo11n-pose"
+    pose_confidence_threshold: float = 0.5
+    pose_keypoint_threshold: float = 0.5
+    hands_enabled: bool = True
+    hands_max_number: int = 4
+    hands_confidence_threshold: float = 0.5
+
+    # Detection display
+    # Below this confidence a detection is reported as a guess, not a fact.
+    detection_certainty_threshold: float = 0.7
 
     # Services
     use_mock_services: bool = False

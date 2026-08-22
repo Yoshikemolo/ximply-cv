@@ -4,9 +4,9 @@ version = "1.0.0"
 description = "XIMPLY Vision - Computer Vision Object Detection and Recognition API"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 authors = [
-    { name = "XIMPLY Team" }
+    { name = "Jorge Rodriguez - Yoshikemolo" }
 ]
 
 dependencies = [
@@ -64,6 +64,13 @@ ml = [
     "torch>=2.1.0",
     "torchvision>=0.16.0",
     "ultralytics>=8.1.0",
+
+    # Person re-identification
+    "onnxruntime>=1.17.0",
+    "insightface>=1.0.0",
+
+    # Hand landmarks for the skeleton overlay
+    "mediapipe>=0.10.0",
 ]
 
 [build-system]
