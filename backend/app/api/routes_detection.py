@@ -27,7 +27,7 @@ from app.core.dependencies import get_current_user, require_permissions
 from app.core.logging import get_logger
 from app.core.minio_client import upload_file
 from app.core.security import TokenData
-from app.models.entities import ObjectEntity, ObjectImageEntity
+from app.models.entities import ObjectEntity, ObjectImageEntity, PersonEmbeddingEntity
 from app.models.enums import Permission
 from app.models.schemas import (
     DetectionResponse,
@@ -35,10 +35,22 @@ from app.models.schemas import (
     BoundingBox,
     BarcodeResult,
     ObjectResponse,
+    SkeletonEdge,
+    SkeletonKeypoint,
+    SkeletonResult,
 )
 from app.services.detection_service import get_detection_service
 from app.services.feature_matching_service import get_feature_matching_service, FeatureLoadResult
 from app.services.barcode_service import get_barcode_service
+from app.services.person_catalog import (
+    enrol_person,
+    get_or_create_people_category,
+    load_gallery,
+    should_enrol,
+    store_sighting,
+)
+from app.services.person_recognition_service import get_person_recognition_service
+from app.services.pose_service import get_pose_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -135,6 +147,40 @@ def _filter_person_detections(
     return detections
 
 
+def _describes_same_thing(a: DetectionResult, b: DetectionResult) -> bool:
+    """
+    Whether two overlapping boxes are two views of one thing.
+
+    Only these are duplicates worth suppressing. Anything else is a genuine
+    overlap between distinct things and must stay visible, which is why a
+    person and the object they are holding both survive NMS.
+
+    Args:
+        a: First detection.
+        b: Second detection.
+
+    Returns:
+        bool: True when one of the two boxes is redundant.
+    """
+    # Both resolved to the same catalog entry or the same person.
+    if a.object_id and b.object_id:
+        return a.object_id == b.object_id
+
+    # A recognised entry and a raw box of the same class are the same thing seen
+    # twice, the recognised one carrying the better label.
+    if a.label.lower() == b.label.lower():
+        return True
+
+    # A person box never suppresses an object box, nor the other way round.
+    a_is_person = a.label.lower() == "person"
+    b_is_person = b.label.lower() == "person"
+    if a_is_person != b_is_person:
+        return False
+
+    # Different classes that are not people: keep both, the scene has two things.
+    return False
+
+
 def _apply_custom_nms(
     detections: List[DetectionResult],
     iou_threshold: float = 0.3,
@@ -143,7 +189,14 @@ def _apply_custom_nms(
     """
     Apply custom Non-Maximum Suppression that prioritizes trained objects.
 
-    When two detections overlap significantly:
+    Suppression only ever applies between detections of the same thing. Two
+    boxes that describe different things are both kept however much they
+    overlap, because the overlap is the real scene rather than a duplicate: a
+    person holding a bottle contains the bottle box inside the person box, and
+    hiding either one loses information. This is what _describes_same_thing
+    decides.
+
+    Among boxes of the same thing:
     1. If one has objectId (trained) and the other doesn't, keep the trained one
     2. If both have same priority, keep the one with higher confidence
 
@@ -194,7 +247,9 @@ def _apply_custom_nms(
             overlap_ratio = _calculate_overlap_ratio(detection.bbox, other.bbox)
             overlaps_by_containment = overlap_ratio >= overlap_threshold
 
-            if overlaps_by_iou or overlaps_by_containment:
+            if (overlaps_by_iou or overlaps_by_containment) and _describes_same_thing(
+                detection, other
+            ):
                 # Suppress the lower priority detection
                 suppressed.add(j)
                 logger.debug(
@@ -209,11 +264,21 @@ def _apply_custom_nms(
 
 
 class DetectRequest(BaseModel):
-    """Request body for detection endpoint."""
+    """
+    Request body for detection endpoint.
+
+    The two view toggles travel with the request because they change what
+    counts as a duplicate. Filtering them on the client after the fact is not
+    equivalent: by then NMS has already resolved overlaps against boxes the
+    user asked not to see, so a suppressed box could disappear in favour of a
+    hidden one and leave a gap on screen.
+    """
 
     image: str  # Base64 encoded image
     confidenceThreshold: Optional[float] = None
     iouThreshold: Optional[float] = None
+    hidePersonDetections: bool = False
+    showOnlyCustomObjects: bool = False
 
 
 class CaptureDetectionRequest(BaseModel):
@@ -358,7 +423,12 @@ async def _load_catalog_features(
     """
     Load catalog object features into the feature matching cache.
 
-    Only loads features from ACTIVE objects.
+    Only loads features from ACTIVE objects, and never from people. A person
+    is a catalog entry like any other, but their portrait must not reach the
+    ORB matcher: those descriptors are generic enough that any textured object
+    can score against a photo of a face, which is how a bus ends up announced
+    as "Person 7". People are identified by their own face and body
+    embeddings instead.
 
     Args:
         feature_service: The feature matching service instance.
@@ -385,6 +455,12 @@ async def _load_catalog_features(
             )
         )
         objects = result.scalars().all()
+
+        # Drop the People category: their identity comes from the recognition
+        # service, and feeding their portraits to the object matcher produces
+        # confident nonsense.
+        people_category = await get_or_create_people_category(db, user_uuid)
+        objects = [obj for obj in objects if obj.category_id != people_category.id]
 
         loaded_count = 0
         failed_count = 0
@@ -415,6 +491,94 @@ async def _load_catalog_features(
     except Exception as e:
         logger.warning(f"Failed to auto-load catalog features: {e}")
         return 0, 0, [str(e)]
+
+
+async def _identify_people(
+    detections: List[DetectionResult],
+    frame: np.ndarray,
+    user_id: str,
+    db: AsyncSession,
+) -> None:
+    """
+    Attach an identity to every person detected in a frame.
+
+    Each person box is turned into a face embedding and a body embedding, then
+    matched against the people already known. A sighting that matches nobody
+    becomes a new person named "Person N", so an unknown face is remembered from
+    the moment it first appears.
+
+    Detections are modified in place: object_id and object_name are filled with
+    the identified person.
+
+    Args:
+        detections: Detection results for the frame, person boxes included.
+        frame: Full BGR frame the detections came from.
+        user_id: Owner of the people catalog.
+        db: Database session.
+    """
+    service = get_person_recognition_service()
+    if not service.enabled:
+        return
+
+    person_detections = [
+        d for d in detections if d.label.lower() == "person" and d.object_id is None
+    ]
+    if not person_detections:
+        return
+
+    owner_id = UUID(user_id)
+
+    if not service.has_gallery():
+        await load_gallery(service, db, owner_id)
+
+    changed = False
+
+    for detection in person_detections:
+        try:
+            sighting = service.build_sighting(
+                frame,
+                (
+                    detection.bbox.x,
+                    detection.bbox.y,
+                    detection.bbox.width,
+                    detection.bbox.height,
+                ),
+            )
+            if not sighting.has_any_embedding:
+                continue
+
+            match = service.match(sighting)
+
+            if match is not None:
+                detection.object_id = str(match.person_id)
+                detection.object_name = match.person_name
+                detection.match_confidence = float(match.similarity)
+
+                # Remembering a confirmed sighting is what lets the fingerprint
+                # follow a person as they put on a cap or take off a mask.
+                person = await db.get(ObjectEntity, match.person_id)
+                if person is not None:
+                    await store_sighting(db, person, service, sighting)
+                    changed = True
+            elif await should_enrol(sighting):
+                person = await enrol_person(db, owner_id, service, sighting)
+                detection.object_id = str(person.id)
+                detection.object_name = person.name
+                # A brand new person is certain by construction: they are
+                # whoever this sighting is, nobody else.
+                detection.match_confidence = 1.0
+                changed = True
+
+        except Exception as e:
+            logger.debug(f"Person identification failed for one box: {e}")
+            continue
+
+    if changed:
+        try:
+            await db.commit()
+        except Exception as e:
+            await db.rollback()
+            logger.warning(f"Could not persist person identities: {e}")
 
 
 @router.post("/detect")
@@ -468,11 +632,19 @@ async def detect_objects(
         except Exception as e:
             logger.warning(f"Failed to decode image for feature matching: {e}")
 
+        # Identities that may only ever be attached to a person box.
+        people_category = await get_or_create_people_category(db, UUID(current_user.sub))
+        people_rows = await db.execute(
+            select(ObjectEntity.id).where(ObjectEntity.category_id == people_category.id)
+        )
+        person_ids = {str(row) for row in people_rows.scalars().all()}
+
         # Convert to response format and match against catalog
         detection_results = []
         for d in detections:
             object_id = d.object_id
             object_name = d.object_name
+            match_confidence = None
 
             # Try to match against catalog objects if image was decoded
             # Skip feature matching for "person" detections to avoid matching
@@ -495,6 +667,13 @@ async def detect_objects(
                         if match:
                             object_id = str(match[0])
                             object_name = match[1]
+                            # Belt and braces: a person can only ever be the
+                            # identity of a person box, whatever the cache holds.
+                            match_confidence = float(match[2])
+                            if str(object_id) in person_ids:
+                                object_id = None
+                                object_name = None
+                                match_confidence = None
                             # Optionally boost confidence with match confidence
                             # match[2] contains the feature match confidence
 
@@ -514,17 +693,32 @@ async def detect_objects(
                     class_id=d.class_id,
                     object_id=object_id,
                     object_name=object_name,
+                    match_confidence=match_confidence,
                 )
             )
+
+        # Identify people before NMS so that a recognised person carries a name
+        # into the deduplication step and wins over a bare YOLO box.
+        if image_array is not None and not request.hidePersonDetections:
+            await _identify_people(detection_results, image_array, current_user.sub, db)
+
+        # Apply the view toggles before NMS, not after. A box the user chose to
+        # hide must not take part in resolving overlaps, otherwise it can
+        # suppress a visible box and leave nothing in its place.
+        candidates = detection_results
+        if request.hidePersonDetections:
+            candidates = [d for d in candidates if d.label.lower() != "person"]
+        if request.showOnlyCustomObjects:
+            candidates = [d for d in candidates if d.object_id]
 
         # Apply custom NMS to remove duplicate/overlapping detections
         # Prioritizes trained objects over YOLO-only detections
         # Uses iou_threshold=0.3 and overlap_threshold=0.5 (defaults)
-        filtered_detections = _apply_custom_nms(detection_results)
+        filtered_detections = _apply_custom_nms(candidates)
 
-        if len(filtered_detections) < len(detection_results):
+        if len(filtered_detections) < len(candidates):
             logger.debug(
-                f"Filtering reduced detections from {len(detection_results)} to {len(filtered_detections)}"
+                f"Filtering reduced detections from {len(candidates)} to {len(filtered_detections)}"
             )
 
         # Detect barcodes
@@ -553,9 +747,46 @@ async def detect_objects(
             except Exception as e:
                 logger.debug(f"Barcode detection failed: {e}")
 
+        # Skeleton overlay for people and hands
+        skeleton_results = []
+        if image_array is not None:
+            try:
+                pose_service = get_pose_service()
+                skeletons, pose_time = pose_service.extract(image_array)
+                if request.hidePersonDetections:
+                    # Hiding people hides their wireframe as well; hands stay,
+                    # since a hand is what the user is pointing at the camera.
+                    skeletons = [s for s in skeletons if s.kind != "body"]
+                processing_time += pose_time
+
+                for skeleton in skeletons:
+                    payload = skeleton.to_dict()
+                    skeleton_results.append(
+                        SkeletonResult(
+                            kind=payload["kind"],
+                            label=payload["label"],
+                            score=payload["score"],
+                            bbox=BoundingBox(**payload["bbox"]),
+                            keypoints=[
+                                SkeletonKeypoint(**point) for point in payload["keypoints"]
+                            ],
+                            edges=[
+                                SkeletonEdge(
+                                    from_index=edge["from"],
+                                    to_index=edge["to"],
+                                    part=edge["part"],
+                                )
+                                for edge in payload["edges"]
+                            ],
+                        )
+                    )
+            except Exception as e:
+                logger.debug(f"Skeleton extraction failed: {e}")
+
         return DetectionResponse(
             detections=filtered_detections,
             barcodes=barcode_results,
+            skeletons=skeleton_results,
             frame_width=width,
             frame_height=height,
             processing_time_ms=processing_time,
@@ -857,6 +1088,11 @@ async def load_catalog_features(
             )
         )
         objects = result.scalars().all()
+
+        # People never enter the object matcher: their portraits would match any
+        # textured object, and their identity comes from the recognition service.
+        people_category = await get_or_create_people_category(db, user_uuid)
+        objects = [obj for obj in objects if obj.category_id != people_category.id]
 
         feature_service = get_feature_matching_service()
 

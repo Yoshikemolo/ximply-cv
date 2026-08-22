@@ -20,7 +20,7 @@ from app.core.logging import get_logger
 from fastapi.responses import StreamingResponse
 from app.core.minio_client import delete_file, download_file, upload_file
 from app.core.security import TokenData
-from app.models.entities import ObjectEntity, ObjectImageEntity
+from app.models.entities import CategoryEntity, ObjectEntity, ObjectImageEntity
 from app.models.enums import Permission
 from app.models.schemas import (
     MessageResponse,
@@ -94,6 +94,17 @@ async def list_objects(
     result = await db.execute(query)
     objects = result.scalars().all()
 
+    # One lookup for every category in this page, rather than one per row.
+    category_ids = {obj.category_id for obj in objects if obj.category_id}
+    category_names: dict = {}
+    if category_ids:
+        category_rows = await db.execute(
+            select(CategoryEntity.id, CategoryEntity.name).where(
+                CategoryEntity.id.in_(category_ids)
+            )
+        )
+        category_names = {row[0]: row[1] for row in category_rows.all()}
+
     items = []
     for obj in objects:
         thumbnail_url = None
@@ -111,6 +122,7 @@ async def list_objects(
                 thumbnail_path=obj.thumbnail_path,
                 thumbnail_url=thumbnail_url,
                 category_id=obj.category_id,
+                category_name=category_names.get(obj.category_id),
                 training_samples=obj.training_samples,
                 model_confidence=obj.model_confidence,
                 created_at=obj.created_at,
@@ -212,6 +224,99 @@ async def get_object(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Object not found",
         )
+
+    return ObjectResponse.model_validate(obj)
+
+
+class RenameRequest(BaseModel):
+    """Payload for renaming a catalog entry."""
+
+    name: str
+
+
+@router.patch("/{object_id}/name", response_model=ObjectResponse)
+async def rename_object(
+    object_id: UUID,
+    data: RenameRequest,
+    current_user: TokenData = Depends(require_permissions([Permission.OBJECTS_WRITE])),
+    db: AsyncSession = Depends(get_db),
+) -> ObjectResponse:
+    """
+    Rename a catalog object or a person.
+
+    The name is the identity of an entry across the whole application, so it is
+    validated here rather than trusted from the client: an empty name is
+    rejected, and so is a name already used by another entry of the same owner.
+    The comparison ignores case and surrounding spaces, because two entries that
+    differ only in those are indistinguishable to a person reading the list.
+
+    Args:
+        object_id: Object or person UUID.
+        data: New name.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        ObjectResponse: The renamed entry.
+
+    Raises:
+        HTTPException: 404 when not found, 422 when empty, 409 when duplicated.
+    """
+    from app.services.feature_matching_service import get_feature_matching_service
+    from app.services.person_recognition_service import get_person_recognition_service
+
+    new_name = (data.name or "").strip()
+
+    if not new_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The name cannot be empty",
+        )
+
+    owner_id = UUID(current_user.sub)
+
+    result = await db.execute(
+        select(ObjectEntity)
+        .options(selectinload(ObjectEntity.images))
+        .where(ObjectEntity.id == object_id, ObjectEntity.owner_id == owner_id)
+    )
+    obj = result.scalar_one_or_none()
+
+    if obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Object not found",
+        )
+
+    duplicate = await db.execute(
+        select(ObjectEntity.id).where(
+            ObjectEntity.owner_id == owner_id,
+            ObjectEntity.id != object_id,
+            func.lower(func.trim(ObjectEntity.name)) == new_name.lower(),
+        )
+    )
+    if duplicate.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A catalog entry named '{new_name}' already exists",
+        )
+
+    obj.name = new_name
+    await db.commit()
+    await db.refresh(obj, ["images"])
+
+    # Both caches key their labels by name, so they would keep announcing the
+    # old one until the next reload if they were not updated here.
+    get_feature_matching_service().remove_object(object_id)
+    if obj.images:
+        get_feature_matching_service().load_object_features(
+            object_id=obj.id,
+            object_name=obj.name,
+            image_paths=[img.file_path for img in obj.images],
+        )
+    get_person_recognition_service().rename_person(object_id, new_name)
+
+    logger.info(f"Renamed catalog entry {object_id} to '{new_name}'")
 
     return ObjectResponse.model_validate(obj)
 
@@ -324,6 +429,7 @@ async def delete_all_objects(
         dict: Number of objects deleted.
     """
     from app.services.feature_matching_service import get_feature_matching_service
+    from app.services.person_recognition_service import get_person_recognition_service
 
     user_uuid = UUID(current_user.sub)
 
@@ -349,9 +455,10 @@ async def delete_all_objects(
 
     await db.commit()
 
-    # Clear the feature cache
+    # Clear both caches: object features and the person identity gallery
     feature_service = get_feature_matching_service()
     feature_service.clear_cache()
+    get_person_recognition_service().clear_gallery()
 
     logger.info(f"Deleted all objects ({deleted_count}) for user {current_user.sub}")
 
@@ -408,6 +515,12 @@ async def delete_object(
     # Remove from feature cache
     feature_service = get_feature_matching_service()
     feature_service.remove_object(object_id)
+
+    # A deleted person must also leave the identity gallery, otherwise the next
+    # frame would still recognise them under a name that no longer exists.
+    from app.services.person_recognition_service import get_person_recognition_service
+
+    get_person_recognition_service().remove_person(object_id)
 
     logger.info(f"Object deleted: {object_id} by user {current_user.sub}")
 

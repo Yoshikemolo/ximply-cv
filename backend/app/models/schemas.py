@@ -339,6 +339,9 @@ class ObjectListResponse(CamelCaseModel):
     thumbnail_path: Optional[str] = None
     thumbnail_url: Optional[str] = None
     category_id: Optional[UUID] = None
+    # The category name travels with the entry so the client can tell a person
+    # from an object without a second request per row.
+    category_name: Optional[str] = None
     training_samples: int = 0
     model_confidence: Optional[float] = None
     created_at: datetime
@@ -391,11 +394,17 @@ class DetectionResult(CamelCaseModel):
     """Single detection result."""
 
     label: str
+    # How sure the detector is that something is there.
     confidence: float
     bbox: BoundingBox
     class_id: Optional[int] = None
     object_id: Optional[str] = None
     object_name: Optional[str] = None
+    # How sure the matcher is that the something is this particular entry.
+    # These are different questions: a bus can be detected at 92% and still be
+    # a terrible match for a phone in the catalog. Reporting only the first
+    # number would announce a wrong identity with the detector's confidence.
+    match_confidence: Optional[float] = None
 
 
 class BarcodeResult(CamelCaseModel):
@@ -407,11 +416,46 @@ class BarcodeResult(CamelCaseModel):
     quality: float = Field(ge=0, le=1)
 
 
+class SkeletonKeypoint(CamelCaseModel):
+    """One joint of a skeleton, in pixel coordinates of the frame."""
+
+    name: str
+    x: float
+    y: float
+    score: float
+
+
+class SkeletonEdge(CamelCaseModel):
+    """One bone, joining two keypoints by index."""
+
+    from_index: int = Field(alias="from")
+    to_index: int = Field(alias="to")
+    part: str
+
+
+class SkeletonResult(CamelCaseModel):
+    """
+    A wireframe over one body or one hand.
+
+    Bodies use the COCO 17 keypoint layout and hands the 21 landmark MediaPipe
+    layout. The edges travel with the skeleton so the client can draw it
+    without hardcoding either convention.
+    """
+
+    kind: str
+    label: Optional[str] = None
+    score: float
+    bbox: BoundingBox
+    keypoints: List[SkeletonKeypoint]
+    edges: List[SkeletonEdge]
+
+
 class DetectionResponse(CamelCaseModel):
     """Detection response with all detected objects and barcodes."""
 
     detections: List[DetectionResult]
     barcodes: List[BarcodeResult] = []
+    skeletons: List[SkeletonResult] = []
     frame_width: int
     frame_height: int
     processing_time_ms: float
