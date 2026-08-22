@@ -1,7 +1,14 @@
 # ==============================================================================
 # XIMPLY Vision - Production Environment Overrides
 # ==============================================================================
-# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires a .env file: this override reads DB_USER, DB_PASSWORD, DB_NAME,
+# MINIO_ACCESS_KEY and MINIO_SECRET_KEY without fallback defaults.
+#
+# Services run as a single replica because the base file pins container_name and
+# publishes fixed host ports. To run several backend instances, drop those two
+# settings and put a reverse proxy (Traefik, nginx) in front of the stack.
 
 services:
   # ----------------------------------------------------------------------------
@@ -53,7 +60,6 @@ services:
           memory: 4G
         reservations:
           memory: 2G
-      replicas: 2
     environment:
       DEBUG: "false"
       USE_MOCK_SERVICES: "false"
@@ -78,7 +84,6 @@ services:
           memory: 256M
         reservations:
           memory: 128M
-      replicas: 2
     logging:
       driver: "json-file"
       options:

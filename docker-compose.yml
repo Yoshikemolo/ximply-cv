@@ -62,7 +62,9 @@ services:
     container_name: ximply-vision-backend
     restart: unless-stopped
     env_file:
-      - .env
+      # Optional: the stack starts with the defaults below when .env is absent
+      - path: .env
+        required: false
     environment:
       DATABASE_URL: postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ximply_vision}
       MINIO_ENDPOINT: minio:9000
