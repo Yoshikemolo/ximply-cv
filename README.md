@@ -54,6 +54,13 @@ kept apart from objects.
 *Hand landmarks, coloured per finger, and the facial feature mesh. The overlays are
 toggled independently and switching one off stops the work rather than hiding it.*
 
+**Reacts when the scene changes.** A face the camera has never seen is enrolled on the
+spot: a catalog entry is created, named "Person 1", "Person 2" and so on, and the crop
+from that frame is stored as their portrait. Every later sighting is scored, and the
+portrait is replaced whenever a clearer one appears, so the entry settles on a picture
+with a visible face rather than the blurred back view it happened to start from. The
+same happens for an object you save from the live view.
+
 **Describes what it sees.** A vision language model writes a sentence about the scene,
 using the detections as context so it refers to people by the names in your catalog. It
 rewrites itself when the scene changes, keyed on what is present rather than on pixels,
@@ -293,6 +300,14 @@ means PostgreSQL or MinIO is not healthy yet; the backend waits for both health 
 
 **Starting from scratch.** `docker compose down -v` removes the database, the stored
 images and the downloaded weights.
+
+## Planned
+
+- **Webhooks** for scene events, so another system can be told when a person is enrolled
+  or a known object appears, without polling
+- **A subscription API** over the same events, for clients that would rather hold a
+  connection open than receive callbacks
+- **An MCP server**, so an assistant can query the catalog and the live view directly
 
 ## Contributing
 
