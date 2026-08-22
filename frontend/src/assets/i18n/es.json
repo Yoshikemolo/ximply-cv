@@ -384,5 +384,12 @@
     "unauthorized": "Sesión expirada. Por favor inicia sesión de nuevo.",
     "forbidden": "No tienes permiso para esta acción.",
     "notFound": "Recurso no encontrado."
+  },
+  "acceleration": {
+    "badge": "Aceleración por GPU",
+    "device": "Dispositivo",
+    "runtime": "Runtime",
+    "capability": "Cómputo",
+    "backends": "Procesos acelerados"
   }
 }

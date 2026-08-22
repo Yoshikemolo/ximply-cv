@@ -1,0 +1,55 @@
+@if (status(); as info) {
+  @if (info.active) {
+    <div class="accel-badge-wrapper">
+      <button
+        type="button"
+        class="accel-badge"
+        [class.accel-badge--partial]="isPartial()"
+        (click)="toggleDetails()"
+        [attr.aria-expanded]="showDetails()"
+      >
+        <span class="accel-badge__dot"></span>
+        <span class="accel-badge__label">{{ 'acceleration.badge' | translate }}</span>
+        @if (info.deviceName) {
+          <span class="accel-badge__device">{{ info.deviceName }}</span>
+        }
+        @if (memoryGb(); as gb) {
+          <span class="accel-badge__memory">{{ gb }} GB</span>
+        }
+      </button>
+
+      @if (showDetails()) {
+        <div class="accel-details" role="dialog">
+          <dl class="accel-details__specs">
+            @if (info.deviceName) {
+              <dt>{{ 'acceleration.device' | translate }}</dt>
+              <dd>{{ info.deviceName }}</dd>
+            }
+            @if (info.driver) {
+              <dt>{{ 'acceleration.runtime' | translate }}</dt>
+              <dd>CUDA {{ info.driver }}</dd>
+            }
+            @if (info.computeCapability) {
+              <dt>{{ 'acceleration.capability' | translate }}</dt>
+              <dd>{{ info.computeCapability }}</dd>
+            }
+          </dl>
+
+          <p class="accel-details__title">
+            {{ 'acceleration.backends' | translate }}
+            ({{ acceleratedCount() }}/{{ totalCount() }})
+          </p>
+          <ul class="accel-details__list">
+            @for (backend of info.backends; track backend.name) {
+              <li [class.accel-details__item--off]="!backend.accelerated">
+                <span class="accel-details__dot" [class.on]="backend.accelerated"></span>
+                <span class="accel-details__name">{{ backend.name }}</span>
+                <span class="accel-details__device">{{ backend.device }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+}

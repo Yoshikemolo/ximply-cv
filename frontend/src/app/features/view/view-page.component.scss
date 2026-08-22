@@ -1057,3 +1057,17 @@
 :root[data-theme='dark'] .detection-card__badge--guess {
   color: #fbbf24;
 }
+
+// The badge sits opposite the title, so the state of the hardware is visible
+// the moment the page opens rather than hidden behind an interaction.
+.view-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  &__text {
+    min-width: 0;
+  }
+}

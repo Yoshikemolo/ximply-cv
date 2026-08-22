@@ -1,0 +1,163 @@
+.accel-badge-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.accel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 3px 10px;
+  background-color: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  border-radius: 9999px;
+  color: #15803d;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: rgba(34, 197, 94, 0.2);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  // Amber when the accelerator is present but some backend still runs on CPU:
+  // a plain green light over a partial state would overstate it.
+  &--partial {
+    background-color: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #b45309;
+
+    .accel-badge__dot {
+      background-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+    }
+  }
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  }
+
+  &__device {
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
+  &__memory {
+    padding-left: 0.375rem;
+    border-left: 1px solid currentColor;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+}
+
+.accel-details {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 260px;
+  padding: 0.75rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.25));
+  text-align: left;
+
+  &__specs {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 0.75rem;
+    margin: 0 0 0.625rem;
+    font-size: 12px;
+
+    dt {
+      color: var(--text-secondary);
+    }
+
+    dd {
+      margin: 0;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+  }
+
+  &__title {
+    margin: 0 0 0.375rem;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 3px 0;
+      font-size: 12px;
+    }
+  }
+
+  &__item--off {
+    opacity: 0.65;
+  }
+
+  &__dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--text-secondary);
+
+    &.on {
+      background-color: #22c55e;
+    }
+  }
+
+  &__name {
+    flex: 1;
+    color: var(--text-primary);
+  }
+
+  &__device {
+    color: var(--text-secondary);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+}
+
+:root[data-theme='dark'] {
+  .accel-badge {
+    color: #4ade80;
+
+    &--partial {
+      color: #fbbf24;
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .accel-badge {
+    color: #4ade80;
+
+    &--partial {
+      color: #fbbf24;
+    }
+  }
+}

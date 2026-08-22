@@ -384,5 +384,12 @@
     "unauthorized": "Session expired. Please login again.",
     "forbidden": "You do not have permission for this action.",
     "notFound": "Resource not found."
+  },
+  "acceleration": {
+    "badge": "GPU accelerated",
+    "device": "Device",
+    "runtime": "Runtime",
+    "capability": "Compute",
+    "backends": "Accelerated backends"
   }
 }

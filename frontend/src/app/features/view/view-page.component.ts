@@ -5,6 +5,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { DetectionService, DetectionResult, BarcodeResult, CaptureDetectionRequest, SkeletonResult } from '@core/services/detection.service';
 import { ObjectsService, CatalogObject } from '@core/services/objects.service';
 import { InlineRenameComponent } from '@shared/components/inline-rename/inline-rename.component';
+import { AccelerationBadgeComponent } from '@shared/components/acceleration-badge/acceleration-badge.component';
 import { Subscription } from 'rxjs';
 
 /**
@@ -55,7 +56,7 @@ const DETECTION_COLORS = [
 @Component({
   selector: 'app-view-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, InlineRenameComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, InlineRenameComponent, AccelerationBadgeComponent],
   templateUrl: './view-page.component.html',
   styleUrl: './view-page.component.scss',
 })

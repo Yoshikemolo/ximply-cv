@@ -1,7 +1,10 @@
 <div class="view-container">
   <div class="view-header">
-    <h1>{{ 'view.title' | translate }}</h1>
-    <p class="subtitle">{{ 'view.subtitle' | translate }}</p>
+    <div class="view-header__text">
+      <h1>{{ 'view.title' | translate }}</h1>
+      <p class="subtitle">{{ 'view.subtitle' | translate }}</p>
+    </div>
+    <app-acceleration-badge />
   </div>
 
   @if (errorMessage(); as msg) {
