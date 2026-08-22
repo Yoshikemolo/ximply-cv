@@ -1,10 +1,27 @@
+// The routed element is a flex item of the app shell, so it has to opt into
+// filling the space before anything inside it can. min-height: 0 is what lets a
+// flex child shrink below its content, which is the precondition for scrolling
+// inside a panel rather than growing the page.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .view-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
 }
 
 .view-header {
-  margin-bottom: 2rem;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
 
   h1 {
     font-size: 1.75rem;
@@ -40,18 +57,55 @@
   grid-template-columns: 1fr;
   gap: 1.5rem;
 
+  // Below the breakpoint the two sections stack and the page scrolls normally,
+  // which is the right behaviour on a phone. From the breakpoint up they sit
+  // side by side and the viewport becomes the budget: each column scrolls
+  // inside itself so the page as a whole never does.
   @media (min-width: 1024px) {
-    grid-template-columns: 1fr 320px;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  // The side column carries four tabs, a search box, a model selector and the
+  // detection cards with their thumbnails. At 320px the tab labels collided and
+  // every card name was truncated, so it widens with the viewport instead.
+  //
+  // minmax(0, 1fr) on the video column rather than 1fr: a bare 1fr refuses to
+  // shrink below its content, which lets a wide frame push the whole grid past
+  // the viewport.
+  @media (min-width: 1024px) {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  @media (min-width: 1440px) {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+
+  @media (min-width: 1800px) {
+    grid-template-columns: minmax(0, 1fr) 500px;
   }
 }
 
 .video-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
   .video-wrapper {
     position: relative;
     background: var(--bg-secondary);
     border-radius: 12px;
     overflow: hidden;
     aspect-ratio: 16 / 9;
+
+    // Once the height is capped the frame letterboxes rather than distorting,
+    // because the video and the canvas both use object-fit: contain.
+    @media (min-width: 1024px) {
+      flex: 1 1 auto;
+      min-height: 0;
+      aspect-ratio: auto;
+    }
 
     video,
     canvas {
@@ -120,6 +174,14 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+
+  @media (min-width: 1024px) {
+    min-height: 0;
+    // The column itself scrolls when its panels together outgrow the viewport.
+    // The detections list has its own scroll inside, so this only engages when
+    // the controls are the ones taking the room.
+    overflow-y: auto;
+  }
 }
 
 .control-card {
@@ -846,14 +908,14 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
-  padding: 5px 6px;
+  padding: 6px 8px;
   background: transparent;
   border: none;
   border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
@@ -1118,8 +1180,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 64px;
-    height: 64px;
+    width: 76px;
+    height: 76px;
     background-color: var(--bg-tertiary, var(--bg-primary));
     border-radius: 4px;
     overflow: hidden;
@@ -1316,5 +1378,18 @@
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+  }
+}
+
+// The description is a caption of the frame above it, so it keeps its own
+// height and lets a long paragraph scroll rather than pushing the video out of
+// the viewport.
+.scene-description {
+  flex: 0 0 auto;
+
+  &__text,
+  &__placeholder {
+    max-height: 6.5rem;
+    overflow-y: auto;
   }
 }

@@ -27,7 +27,7 @@ const DESCRIPTION_COOLDOWN_MS = 8000;
 const CARD_TTL_MS = 4000;
 
 /** Pixel width of the thumbnail kept for each card. */
-const THUMBNAIL_WIDTH = 96;
+const THUMBNAIL_WIDTH = 128;
 
 /** Colour per skeleton part, so the hierarchy reads at a glance. */
 const SKELETON_COLORS: Record<string, string> = {

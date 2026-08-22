@@ -1,7 +1,7 @@
 .app-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   background-color: var(--bg-primary);
 }
 
@@ -11,6 +11,16 @@
   flex-direction: column;
   margin-top: 64px;
   padding: 1rem;
+
+  // A flex item defaults to min-height: auto, which refuses to shrink below its
+  // content. Without this a page can only grow the document, never fit it, and
+  // the whole viewport ends up scrolling behind a fixed header.
+  min-height: 0;
+
+  // Scrolling moves into the content area rather than the document. Pages that
+  // are genuinely longer than the viewport still scroll exactly as before; the
+  // difference is that a page which fits can now say so.
+  overflow-y: auto;
 
   @media (min-width: 768px) {
     padding: 1.5rem;
