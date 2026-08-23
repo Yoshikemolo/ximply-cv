@@ -21,8 +21,15 @@ frontend image, or running `npm start` locally against the containerised backend
    `fix/nms-overlap`.
 2. Keep each commit focused on one change.
 3. Run the tests before opening a pull request:
-   - Backend: `cd backend && pytest`
+   - Backend: `cd backend && pytest`, or `docker compose exec backend pytest`
+     against the development stack. Both run the same suite: the container
+     mounts `backend/tests` and reads the same configuration from
+     `pyproject.toml`.
    - Frontend: `cd frontend && npm test`
+
+   The backend suite needs only the `dev` extra, not `ml`. It exercises the
+   services that hold their logic in plain Python, and reaching for a model
+   would only test the container.
 4. Open a pull request describing what changed and why.
 
 ## Commit conventions

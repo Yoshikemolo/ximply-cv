@@ -375,7 +375,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 1. Branch off `main`.
 2. Follow the conventions in [CONTRIBUTING.md](CONTRIBUTING.md): Conventional Commits,
    written in English.
-3. Run the tests: `pytest` in `backend/`, `npm test` in `frontend/`.
+3. Run the tests: `pytest` in `backend/` or `docker compose exec backend pytest`,
+   and `npm test` in `frontend/`.
 4. Open a pull request.
 
 ## License

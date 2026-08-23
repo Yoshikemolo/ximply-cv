@@ -31,6 +31,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
+      args:
+        # Brings pytest and the linters into the image, so the suite runs
+        # against the same interpreter and the same installed versions the
+        # application runs on. A production image is built without this.
+        INSTALL_DEV: "true"
     environment:
       DEBUG: "true"
       JWT_SECRET_KEY: dev-secret-key-not-for-production
@@ -38,13 +43,34 @@ services:
     volumes:
       # Mount source code for hot reload
       - ./backend/app:/app/app:ro
+      # The suite, mounted rather than copied, so a test edited on the host is
+      # the test that runs here. Read only for the same reason the source is:
+      # nothing in the container should be writing back into the repository.
+      - ./backend/tests:/app/tests:ro
+      # The pytest configuration lives in pyproject, and mounting it keeps the
+      # container reading the same settings as a developer running the suite
+      # locally, rather than whichever copy was baked into the image.
+      - ./backend/pyproject.toml:/app/pyproject.toml:ro
       - backend-storage:/app/storage
       - model-weights:/app/models/weights
       - face-models:/home/appuser/.insightface
       - vlm-models:/home/appuser/.cache/huggingface
     ports:
       - "${BACKEND_PORT:-8000}:8000"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    # The reload watcher is pointed at the application rather than at /app,
+    # which now also holds the suite and the project file. Without this, editing
+    # a test restarts the server, and a restart mid-request is how a hot reload
+    # ends up hanging on a stream that never closes.
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+      - --reload-dir
+      - /app/app
 
   # ----------------------------------------------------------------------------
   # Frontend - Development

@@ -30,11 +30,20 @@ ENV PATH="/opt/venv/bin:$PATH"
 # only image should not carry a GPU wheel it can never use.
 ARG INSTALL_GPU=false
 
+# INSTALL_DEV adds the test and linting tools, so the suite can be run inside
+# the container it will actually run against rather than only against whatever
+# a developer happens to have installed on the host. Off by default: a
+# production image has no reason to carry a test runner.
+ARG INSTALL_DEV=false
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir ".[ml]" && \
     if [ "$INSTALL_GPU" = "true" ]; then \
         pip uninstall -y onnxruntime && \
         pip install --no-cache-dir ".[gpu]"; \
+    fi && \
+    if [ "$INSTALL_DEV" = "true" ]; then \
+        pip install --no-cache-dir ".[dev]"; \
     fi
 
 # ------------------------------------------------------------------------------
@@ -85,6 +94,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY backend/app ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./
+# Carries [tool.pytest.ini_options], which is what makes a bare "pytest" behave
+# the same here as it does on a developer's machine. The development compose
+# file mounts the tests themselves over this image.
+COPY backend/pyproject.toml ./
 
 # Create directories
 # The model caches are named volumes at runtime. Docker seeds a fresh volume
