@@ -19,6 +19,7 @@ interfaces involved, and the behaviour worth knowing before changing it.
 | [FEAT-0012](FEAT-0012-interface-and-localisation.md) | Interface and localisation |
 | [FEAT-0013](FEAT-0013-events-and-webhooks.md) | Events and webhooks |
 | [FEAT-0014](FEAT-0014-integrations.md) | Integrations |
+| [FEAT-0015](FEAT-0015-streaming.md) | Streaming |
 
 ## Elsewhere
 

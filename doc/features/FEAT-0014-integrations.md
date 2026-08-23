@@ -2,13 +2,16 @@
 
 - **Related**: [FEAT-0010](FEAT-0010-accounts-and-access.md),
   [FEAT-0013](FEAT-0013-events-and-webhooks.md),
+  [FEAT-0015](FEAT-0015-streaming.md),
   [ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md),
   [ADR-0016](../adr/ADR-0016-read-only-protocol-server.md),
   [ADR-0017](../adr/ADR-0017-scoped-tokens-for-machine-clients.md),
   [ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md),
+  [ADR-0022](../adr/ADR-0022-carry-the-live-stream-on-a-broker-and-a-socket.md),
   [SEC-0008](../sec/SEC-0008-webhook-signing.md),
   [SEC-0009](../sec/SEC-0009-integration-tokens.md),
   [SEC-0010](../sec/SEC-0010-remote-camera-activation.md),
+  [SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md),
   [API Reference, Webhooks](../infrastructure/api.md#webhooks)
 
 ## What it does
@@ -20,11 +23,13 @@ switched off, and where an agent is given a way in.
 
 It lives at `/integrations`, behind `events:manage`, and appears in the
 navigation only for an account that holds it
-([FEAT-0010](FEAT-0010-accounts-and-access.md)). Two tabs, presented as
-alternatives rather than steps, because most deployments want one or the other:
+([FEAT-0010](FEAT-0010-accounts-and-access.md)). Three tabs, presented as
+alternatives rather than steps, because a deployment usually wants one of them:
 
 - **Webhooks**, where this instance pushes each event to an endpoint you run.
 - **MCP**, where an agent connects and pulls what it wants to know.
+- **Streaming**, where a broker or a terminal subscribes to what is happening
+  as it happens, described in [FEAT-0015](FEAT-0015-streaming.md).
 
 Each tab carries a count of what is registered and an indicator that reads
 Active when at least one client on that tab is switched on.
@@ -73,15 +78,19 @@ anything.
 ## The MCP tab
 
 **A token** is issued with a name and a set of scopes, chosen from
-`events:read`, `objects:read`, `events:manage` and `camera:control`, with
-`events:read` selected to begin with. The first three read or manage records.
-The fourth is different in kind: it lets an agent ask the camera to start, which
-is a decision about a room rather than a query, so it is never implied by the
-others and has to be ticked deliberately. Issue it on a token of its own rather
-than on the one pasted into every integration; the reasoning is in
-[SEC-0010](../sec/SEC-0010-remote-camera-activation.md). The value is shown once, in the same reveal panel with the same
-warning, and afterwards the list shows only the first ten characters. Grant the
-narrowest set that works: the reasoning, and what a leaked token reaches, is in
+`events:read`, `objects:read`, `events:manage`, `camera:control` and
+`camera:view`, with `events:read` selected to begin with. The first three read
+or manage records. The last two are different in kind: one lets an agent ask the
+camera to start and the other lets it watch what the camera sees, and both are
+decisions about a room rather than queries, so neither is ever implied by the
+others and each has to be ticked deliberately. Issue them on tokens of their own
+rather than on the one pasted into every integration; the reasoning is in
+[SEC-0010](../sec/SEC-0010-remote-camera-activation.md) and
+[SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md).
+
+The value is shown once, in the same reveal panel with the same warning, and
+afterwards the list shows only the first ten characters. Grant the narrowest set
+that works: the reasoning, and what a leaked token reaches, is in
 [SEC-0009](../sec/SEC-0009-integration-tokens.md).
 
 **Each token in the list** shows a toggle, its name, its prefix, its scopes or
@@ -179,9 +188,9 @@ after.
   only the active flag. Narrowing or widening a token means issuing a new one
   and revoking the old. A token issued before `camera:control` existed therefore
   cannot acquire it, which is intended rather than incidental.
-- **`camera:control` is never inherited.** A token with no scopes carries
-  whatever its owner carries for reading; the camera tools refuse it unless the
-  scope is on the token by name.
+- **`camera:control` and `camera:view` are never inherited.** A token with no
+  scopes carries whatever its owner carries for reading; the camera tools and
+  the frame stream refuse it unless the scope is on the token by name.
 - **Scopes cannot exceed the issuer.** A user who does not hold a permission
   cannot put it on a token. After a new permission is added to the system, an
   existing session has to sign in again before it can grant it, because the
