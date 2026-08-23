@@ -399,5 +399,42 @@ curl -X POST ${baseUrl}/mcp/ \\
   -H "Accept: application/json, text/event-stream" \\
   -d '{ "jsonrpc": "2.0", "id": 2, "method": "tools/list" }'`,
     },
+    {
+      id: 'camera',
+      label: 'Camera',
+      language: 'bash',
+      caption: 'Ask the camera to start. Needs camera:control on the token',
+      code: `# The reply says what happened, not what was asked for. "pending": true
+# means the request was recorded and no view is open to honour it, so the
+# camera has not started. It starts when someone opens the view.
+curl -X POST ${baseUrl}/mcp/ \
+  -H "Authorization: Bearer ${shown}" \
+  -H "mcp-session-id: SESSION_ID_FROM_ABOVE" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "start_camera",
+          "arguments": { "camera_id": "default" }
+        }
+      }'
+
+# Whether it is actually running is a separate question, decided by frames
+# arriving rather than by anything asserting it.
+curl -X POST ${baseUrl}/mcp/ \
+  -H "Authorization: Bearer ${shown}" \
+  -H "mcp-session-id: SESSION_ID_FROM_ABOVE" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": { "name": "get_camera", "arguments": {} }
+      }'`,
+    },
   ];
 }

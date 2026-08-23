@@ -539,14 +539,14 @@
     },
     "mcp": {
       "title": "MCP",
-      "hint": "Permite que un agente externo pregunte qué ha visto la cámara. Solo lectura: nada de lo que puede invocar modifica el catálogo, los usuarios ni la detección en curso.",
+      "hint": "Permite que un agente externo pregunte que ha visto la camara, y que pida encenderla o apagarla. Nada de lo que puede llamar cambia el catalogo, y ninguna herramienta devuelve una imagen guardada.",
       "tokens": "Tokens",
       "empty": "Todavía no se ha emitido ningún token.",
       "add": "Emitir un token",
       "namePlaceholder": "Para qué agente es",
       "create": "Emitir",
       "created": "Token emitido.",
-      "scopesHint": "Un token solo puede hacer lo que permiten sus ámbitos. Concede el conjunto más reducido que funcione.",
+      "scopesHint": "Un token solo puede hacer lo que permiten sus scopes. Concede el conjunto mas estrecho que funcione. camera:control deja que un agente encienda la camara, asi que dale un token propio en vez del que usas para leer.",
       "allScopes": "Todos los ámbitos",
       "lastUsed": "Usado",
       "neverUsed": "Nunca usado",
@@ -563,7 +563,9 @@
       "toolSubjects": "las personas y objetos que esta instancia sabe reconocer.",
       "toolOtlp": "los mismos eventos en formato OTLP, para un colector.",
       "toolStatus": "qué modelos están cargados y si el hardware está acelerado.",
-      "readOnly": "No hay ninguna herramienta que escriba. Un agente puede leer lo observado y nada más."
+      "toolCamera": "si se quiere una camara encendida y si esta funcionando de verdad.",
+      "toolCameraControl": "pedir que una camara arranque o pare. Una vista abierta lo obedece; si no hay ninguna, no pasa nada.",
+      "boundary": "Ninguna herramienta cambia el catalogo, da de alta o renombra a una persona, borra nada ni devuelve una imagen guardada. Las herramientas de camara registran una peticion; la camara solo la abre la vista en un navegador."
     },
     "errors": {
       "failed": "La petición ha fallado."

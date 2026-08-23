@@ -501,6 +501,47 @@
               "path": ["detection", "config"]
             }
           }
+        },
+        {
+          "name": "Get Camera State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The state a camera is wanted in, and whether it is actually running. 'running' is decided by frames arriving for detection, never by what was asked for, so 'pending' true means the request was recorded and no view is open to honour it. Needs detection:view.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/camera?camera_id=default",
+              "host": ["{{baseUrl}}"],
+              "path": ["detection", "camera"],
+              "query": [
+                {
+                  "key": "camera_id",
+                  "value": "default"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Camera State",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Ask a camera to start or stop. The camera belongs to the browser, so this records a request that an open view honours. Needs camera:control, which has to be named on the token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"on\": true,\n  \"cameraId\": \"default\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/detection/camera",
+              "host": ["{{baseUrl}}"],
+              "path": ["detection", "camera"]
+            }
+          }
         }
       ]
     },

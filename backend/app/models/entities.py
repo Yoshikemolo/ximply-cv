@@ -19,6 +19,7 @@ from sqlalchemy import (
     Table,
     Text,
     Column,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -478,4 +479,47 @@ class DetectionLogEntity(Base):
 
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class CameraControlEntity(Base):
+    """
+    Whether a camera is wanted on, and whether it is actually running.
+
+    The camera itself belongs to the browser: frames are captured there and
+    posted here for detection, so nothing in this process can open a device.
+    What can be stored is the state the camera is wanted in. The interface reads
+    it and obeys, which is what lets something other than the person sitting in
+    front of the screen ask for the camera to start or stop.
+
+    This lives in the database rather than in memory because the request and the
+    interface that has to honour it rarely arrive at the same worker, and a
+    request that lands on the wrong one would simply never be seen.
+
+    Whether the camera is running is not the same question, and is not taken on
+    trust: last_frame_at is stamped by frames actually arriving for detection.
+    """
+
+    __tablename__ = "camera_controls"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "camera_id", name="uq_camera_controls_owner_camera"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    camera_id: Mapped[str] = mapped_column(String(100), nullable=False, default="default")
+
+    desired_on: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Who asked for the current state, so a camera that turned itself on can be
+    # traced back to the integration that asked for it.
+    requested_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    requested_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Stamped by frames arriving for detection, never by anything asserting that
+    # the camera is on.
+    last_frame_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )

@@ -42,6 +42,7 @@ from app.models.schemas import (
 from app.services.detection_service import get_detection_service
 from app.services.feature_matching_service import get_feature_matching_service, FeatureLoadResult
 from app.services.barcode_service import get_barcode_service
+from app.services import camera_control_service as camera_control
 from app.services.person_catalog import (
     enrol_person,
     get_or_create_people_category,
@@ -339,6 +340,13 @@ class DetectRequest(BaseModel):
     cameraId: Optional[str] = None
 
 
+class CameraStateRequest(BaseModel):
+    """Request body for asking a camera to start or stop."""
+
+    on: bool
+    cameraId: Optional[str] = None
+
+
 class CaptureDetectionRequest(BaseModel):
     """Request body for capturing a detection and adding to catalog."""
 
@@ -418,6 +426,63 @@ async def stream_detections(
         generate_detection_events(current_user.sub),
         media_type="text/event-stream",
     )
+
+
+@router.get("/camera")
+async def get_camera_state(
+    camera_id: str = "default",
+    current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    What the camera was asked to do and whether it is doing it.
+
+    Polled by the interface, which owns the actual device: this is how a request
+    made somewhere else reaches the browser that can honour it.
+
+    Args:
+        camera_id: Camera identifier.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        dict: The camera state.
+    """
+    state = await camera_control.get_state(db, UUID(current_user.sub), camera_id)
+    return state.to_dict()
+
+
+@router.put("/camera")
+async def set_camera_state(
+    request: CameraStateRequest,
+    current_user: TokenData = Depends(require_permissions([Permission.CAMERA_CONTROL])),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Ask a camera to start or stop.
+
+    The interface also calls this when somebody presses the button, so that a
+    state chosen at the screen and a state asked for elsewhere never disagree.
+    Without that, a camera stopped by hand would be started again by a request
+    made minutes ago that nothing ever cleared.
+
+    Args:
+        request: Whether the camera should be on, and which camera.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        dict: The camera state after the request.
+    """
+    state = await camera_control.request_state(
+        db,
+        UUID(current_user.sub),
+        on=request.on,
+        camera_id=request.cameraId or camera_control.DEFAULT_CAMERA,
+        requested_by=current_user.email or current_user.sub,
+    )
+    await db.commit()
+    return state.to_dict()
 
 
 @router.post("/start")
@@ -906,6 +971,14 @@ async def detect_objects(
                     )
             except Exception as e:
                 logger.debug(f"Skeleton extraction failed: {e}")
+
+        # A frame arriving is the only proof the camera is running, so it is
+        # what the liveness answer is built from. Throttled inside, and never
+        # allowed to cost a frame its detection.
+        if settings.camera_control_enabled:
+            await camera_control.note_frame(
+                db, UUID(current_user.sub), request.cameraId or camera_control.DEFAULT_CAMERA
+            )
 
         # Raise events for whatever changed since the last frame, and deliver
         # them. Emission is on a transition, not per frame; see the event

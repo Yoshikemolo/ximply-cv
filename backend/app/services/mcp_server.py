@@ -4,12 +4,29 @@ Model Context Protocol server.
 Lets an external agent ask what the camera has seen: which people and objects
 are known, what happened recently, and the events themselves as structured JSON.
 
-The tools are a read only view over the same event layer the webhooks deliver,
-so an agent and a subscriber see exactly the same records. Nothing here can
-change the catalog, enrol a person or delete anything. An agent that can be
-persuaded by the text it reads should not be able to alter what a camera
-remembers about people, and read only is the boundary that makes that
-impossible rather than merely discouraged.
+The reading tools are a view over the same event layer the webhooks deliver, so
+an agent and a subscriber see exactly the same records. Nothing here can change
+the catalog, enrol a person or delete anything. An agent that can be persuaded
+by the text it reads should not be able to alter what a camera remembers about
+people, and that boundary is what makes it impossible rather than merely
+discouraged.
+
+The one thing an agent may change is whether a camera is running, and only
+because that is useful enough to be worth its own key. It is not part of the
+read only surface and is not covered by the reasoning above: switching on a
+camera in somebody's room is a privacy decision, not a query. So it is gated
+differently from everything else here. A token with no scopes carries whatever
+its owner carries, which is the convenient default for reading; for control
+that default does not apply, because every token written before this existed
+has an empty scope list and reading consent into silence would hand a camera
+switch to integrations created to watch events. Control is granted only where
+somebody wrote camera:control on the token, and a deployment can remove the
+ability altogether.
+
+Even then an agent does not open a camera. The device belongs to the browser.
+What is stored is the state the camera is wanted in, which an open interface
+honours; nothing happens when none is open, and the reply says so rather than
+claiming a camera that never started.
 
 Authentication is an integration token presented as a bearer credential. The
 token carries its own scopes, so an agent can be given the ability to read
@@ -26,6 +43,7 @@ from app.core.database import async_session_factory
 from app.core.logging import get_logger
 from app.models.entities import CategoryEntity, EventEntity, IntegrationTokenEntity, ObjectEntity
 from app.models.enums import Permission
+from app.services import camera_control_service as camera_control
 from app.services.integration_token_service import resolve_token, token_allows
 
 logger = get_logger(__name__)
@@ -56,6 +74,32 @@ def _require(permission: Permission) -> IntegrationTokenEntity:
         raise NotAuthorised("This server requires an integration token")
     if not token_allows(token, permission.value):
         raise NotAuthorised(f"This token does not carry {permission.value}")
+    return token
+
+
+def _require_explicit(permission: Permission) -> IntegrationTokenEntity:
+    """
+    Check the caller was granted a permission by name, and return their token.
+
+    An empty scope list means a token carries whatever its owner carries, which
+    is the convenient default for reading. It must not be a way to acquire an
+    ability that did not exist when the token was written: every token issued
+    before camera control existed has an empty scope list, and taking that as
+    consent would hand a camera switch to integrations created to read events.
+
+    So control is granted only where somebody named it.
+
+    Raises:
+        NotAuthorised: When the permission is not listed on the token.
+    """
+    token = current_token.get()
+    if token is None:
+        raise NotAuthorised("This server requires an integration token")
+    if permission.value not in (token.scopes or []):
+        raise NotAuthorised(
+            f"This token does not carry {permission.value}. It has to be granted "
+            "by name: a token with no scopes reads, it does not control."
+        )
     return token
 
 
@@ -96,10 +140,14 @@ def build_server():
         title="XIMPLY Vision",
         version=settings.app_version,
         instructions=(
-            "Read only access to what a XIMPLY Vision camera has observed. "
-            "Events follow the OpenTelemetry logs data model. Use list_events "
-            "to see what happened, get_current_scene for what is in view now, "
-            "and export_events_otlp when the caller wants the raw envelope."
+            "Access to what a XIMPLY Vision camera has observed, and to whether "
+            "it is running. Events follow the OpenTelemetry logs data model. "
+            "Use list_events to see what happened, get_current_scene for what is "
+            "in view now, and export_events_otlp when the caller wants the raw "
+            "envelope. Reading never changes anything. The camera can be asked "
+            "to start or stop with start_camera and stop_camera, which need "
+            "camera:control on the token and are honoured by an open interface: "
+            "check get_camera to see whether the camera actually started."
         ),
     )
 
@@ -257,6 +305,69 @@ def build_server():
         from app.api.routes_events import build_otlp_envelope
 
         return build_otlp_envelope(events)
+
+    @server.tool(
+        name="get_camera",
+        description=(
+            "Whether a camera is wanted on and whether it is actually running. "
+            "Running is decided by frames arriving, not by what was asked for, "
+            "so a camera requested with no interface open reports itself as "
+            "pending rather than as on."
+        ),
+    )
+    async def get_camera(camera_id: str = camera_control.DEFAULT_CAMERA) -> Dict[str, Any]:
+        token = _require(Permission.EVENTS_READ)
+
+        async with async_session_factory() as db:
+            state = await camera_control.get_state(db, token.owner_id, camera_id)
+
+        return state.to_dict()
+
+    @server.tool(
+        name="start_camera",
+        description=(
+            "Ask a camera to start. The camera belongs to the interface, so this "
+            "records the request and the interface honours it when one is open. "
+            "The reply says whether it actually started: pending means nothing "
+            "was listening. Requires camera:control on the token."
+        ),
+    )
+    async def start_camera(camera_id: str = camera_control.DEFAULT_CAMERA) -> Dict[str, Any]:
+        return await _switch_camera(camera_id, on=True)
+
+    @server.tool(
+        name="stop_camera",
+        description=(
+            "Ask a camera to stop. Requires camera:control on the token."
+        ),
+    )
+    async def stop_camera(camera_id: str = camera_control.DEFAULT_CAMERA) -> Dict[str, Any]:
+        return await _switch_camera(camera_id, on=False)
+
+    async def _switch_camera(camera_id: str, on: bool) -> Dict[str, Any]:
+        """Record a camera request on behalf of the calling token."""
+        if not settings.camera_control_enabled:
+            raise NotAuthorised("Camera control is switched off in this deployment")
+
+        token = _require_explicit(Permission.CAMERA_CONTROL)
+
+        async with async_session_factory() as db:
+            state = await camera_control.request_state(
+                db,
+                token.owner_id,
+                on=on,
+                camera_id=camera_id,
+                requested_by=f"token:{token.name}",
+            )
+            await db.commit()
+
+        result = state.to_dict()
+        if state.pending:
+            result["note"] = (
+                "Requested. No interface is sending frames, so the camera is not "
+                "running yet. It starts when one is open on this account."
+            )
+        return result
 
     @server.tool(
         name="get_status",

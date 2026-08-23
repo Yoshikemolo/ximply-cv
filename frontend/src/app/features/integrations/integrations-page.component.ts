@@ -55,7 +55,21 @@ export class IntegrationsPageComponent implements OnInit {
   readonly newTokenName = signal('');
   readonly newTokenScopes = signal<string[]>(['events:read']);
 
-  readonly availableScopes = ['events:read', 'objects:read', 'events:manage'];
+  /**
+   * What a token can be granted.
+   *
+   * The first three read or manage records. `camera:control` is different in
+   * kind: it switches a camera on, which is a decision about a room rather
+   * than a query, so it is never implied by the others and has to be ticked
+   * deliberately. A token without it can read everything the camera saw and
+   * still not turn it on.
+   */
+  readonly availableScopes = [
+    'events:read',
+    'objects:read',
+    'events:manage',
+    'camera:control',
+  ];
 
   /**
    * A credential just issued, shown once.

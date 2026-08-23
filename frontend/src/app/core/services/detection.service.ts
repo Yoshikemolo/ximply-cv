@@ -216,6 +216,42 @@ export class DetectionService {
   }
 
   /**
+   * Read the state a camera is wanted in.
+   *
+   * The camera itself is ours: it is opened here with the browser device APIs
+   * and nothing on the server can touch it. This is how a request made
+   * somewhere else, by an agent or another service, reaches the page that can
+   * actually honour it.
+   *
+   * @param cameraId - Which camera, when the deployment has more than one.
+   * @returns Observable with the camera state.
+   */
+  getCameraState(cameraId = 'default'): Observable<CameraState> {
+    return this.http.get<CameraState>(`${this.apiUrl}/camera`, {
+      params: { camera_id: cameraId },
+    });
+  }
+
+  /**
+   * Record the state a camera should be in.
+   *
+   * Called when somebody presses the button here, so that a state chosen at the
+   * screen and a state asked for elsewhere never disagree. Without it a camera
+   * stopped by hand would be started again by a request made minutes ago that
+   * nothing ever cleared.
+   *
+   * @param on - Whether the camera should be running.
+   * @param cameraId - Which camera.
+   * @returns Observable with the camera state after the request.
+   */
+  setCameraState(on: boolean, cameraId = 'default'): Observable<CameraState> {
+    return this.http.put<CameraState>(`${this.apiUrl}/camera`, {
+      on,
+      cameraId,
+    });
+  }
+
+  /**
    * Refresh features for a specific catalog object.
    *
    * @param objectId - Object UUID to refresh.
@@ -274,4 +310,22 @@ export interface SceneDescription {
     model: string;
     error: string | null;
   };
+}
+
+/**
+ * Whether a camera is wanted on, and whether it is actually running.
+ *
+ * The two are separate answers on purpose. `desiredOn` is a wish recorded on
+ * the server; `running` is decided by frames arriving for detection, so a
+ * camera asked to start with no page open reads as `pending` rather than
+ * claiming to be on.
+ */
+export interface CameraState {
+  cameraId: string;
+  desiredOn: boolean;
+  running: boolean;
+  pending: boolean;
+  requestedBy: string | null;
+  requestedAt: string | null;
+  lastFrameAt: string | null;
 }

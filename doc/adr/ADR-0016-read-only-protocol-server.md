@@ -1,6 +1,11 @@
 # ADR-0016: Serve observations over a read only protocol server
 
-- **Status**: Accepted
+- **Status**: Accepted. Amended by
+  [ADR-0021](ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md),
+  which adds three camera tools behind a permission that must be granted by
+  name. The server is no longer read only. Everything below about the catalog
+  and the record still holds: no tool edits an entry, enrols or renames a
+  person, deletes anything, or returns a capture.
 - **Related**: [ADR-0013](ADR-0013-events-as-opentelemetry-records.md),
   [ADR-0014](ADR-0014-events-on-transition-not-per-frame.md),
   [ADR-0015](ADR-0015-signed-webhook-delivery.md),

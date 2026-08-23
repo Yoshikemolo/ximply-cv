@@ -99,10 +99,14 @@ access to the database does not yield a usable credential.
 
 ## Scopes
 
-A token carries a subset of `events:read`, `objects:read` and `events:manage`,
-and every tool checks the one it needs before doing anything. The scopes
-requested at issue are checked against the permissions the issuing user holds,
-so a token cannot be created with more authority than its creator.
+A token carries a subset of `events:read`, `objects:read`, `events:manage` and
+`camera:control`, and every tool checks the one it needs before doing anything.
+The scopes requested at issue are checked against the permissions the issuing
+user holds, so a token cannot be created with more authority than its creator.
+
+`camera:control` is not read at all. It lets an agent ask a camera to start,
+which is why it is checked differently from the rest and is the subject of
+[SEC-0010](SEC-0010-remote-camera-activation.md).
 
 Grant the least that makes the client work. An agent that summarises arrivals
 needs `events:read` and nothing else, and giving it `objects:read` as well
@@ -147,10 +151,16 @@ weight as the material behind it
 ([SEC-0004](SEC-0004-biometric-data.md)). A leaked token is a privacy incident
 even though nothing was modified and no image was fetched.
 
-What it does not get: no capture image, since no tool returns one; no write of
-any kind, since no tool performs one
+What it does not get: no capture image, since no tool returns one; no change to
+any record, since no tool performs one
 ([ADR-0016](../adr/ADR-0016-read-only-protocol-server.md)); and nothing
 belonging to another user of the same instance.
+
+A token carrying `camera:control` gets one thing more, and it is of a different
+order: the ability to start a camera in a physical space. That is not read
+access and it is not bounded by what was already recorded. It is the reason the
+scope is granted by name rather than inherited, and the reason it belongs on a
+token of its own ([SEC-0010](SEC-0010-remote-camera-activation.md)).
 
 ## Known gaps
 
@@ -158,7 +168,10 @@ belonging to another user of the same instance.
   scopes are selected, every permission check passes. The interface preselects
   `events:read` so reaching that state takes deliberate deselection, but a
   token created through the API with `"scopes": []` is bounded only by which
-  tools exist. Always issue a token with its scopes named.
+  tools exist. Always issue a token with its scopes named. The camera tools are
+  the one exception: they refuse a token whose scope list does not name
+  `camera:control`, precisely so that a capability added later cannot be
+  acquired by a credential written before it existed.
 - **`events:manage` is offered as a scope and no tool requires it.** Granting
   it to a token confers nothing over the protocol today. It will if a tool that
   needs it is ever added, so a token holding it now would gain authority from a

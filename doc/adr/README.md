@@ -28,6 +28,7 @@ Security decisions are recorded separately, in [doc/sec](../sec/README.md).
 | [ADR-0018](ADR-0018-acceleration-assigned-per-backend.md) | Assign acceleration per backend at runtime |
 | [ADR-0019](ADR-0019-confirm-a-person-before-enrolling-them.md) | Confirm an unknown person before enrolling them |
 | [ADR-0020](ADR-0020-an-event-carries-the-time-it-was-observed.md) | An event carries the time it was observed |
+| [ADR-0021](ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md) | An agent may switch the camera, but never opens it |
 
 ## Elsewhere
 

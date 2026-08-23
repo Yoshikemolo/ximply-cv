@@ -17,6 +17,7 @@ Architecture decisions are recorded separately, in [doc/adr](../adr/README.md).
 | [SEC-0007](SEC-0007-container-hardening.md) | Container hardening |
 | [SEC-0008](SEC-0008-webhook-signing.md) | Webhook signing |
 | [SEC-0009](SEC-0009-integration-tokens.md) | Integration tokens |
+| [SEC-0010](SEC-0010-remote-camera-activation.md) | Remote camera activation |
 
 ## Before exposing this beyond localhost
 

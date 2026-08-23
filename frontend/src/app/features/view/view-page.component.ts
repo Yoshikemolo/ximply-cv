@@ -28,6 +28,15 @@ const CARD_TTL_MS = 4000;
 /** Pixel width of the thumbnail kept for each card. */
 const THUMBNAIL_WIDTH = 128;
 
+/**
+ * How often to ask whether the camera has been requested on or off elsewhere.
+ *
+ * The camera can only be opened here, so this is the delay between somebody
+ * asking for it and it happening. Short enough to feel immediate, long enough
+ * that an idle page is not a stream of requests.
+ */
+const CAMERA_REQUEST_POLL_MS = 2000;
+
 /** Colour per skeleton part, so the hierarchy reads at a glance. */
 const SKELETON_COLORS: Record<string, string> = {
   head: '#f472b6',
@@ -300,6 +309,7 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   private mediaStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
   private detectionInterval: ReturnType<typeof setInterval> | null = null;
+  private cameraRequestInterval: ReturnType<typeof setInterval> | null = null;
   private lastFrameTime = 0;
   private frameCount = 0;
   private isDetecting = false;
@@ -308,6 +318,58 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     await this.loadCameras();
     this.loadCatalogObjects();
+    this.watchCameraRequests();
+  }
+
+  /**
+   * Follow the state the camera is asked to be in.
+   *
+   * The device belongs to this page: nothing on the server can open a camera,
+   * so a request made elsewhere, by an agent over the protocol or by another
+   * service, only becomes real when a page like this one is open and acts on
+   * it. Polling rather than a stream because the question is small, the answer
+   * is a boolean, and a missed poll costs seconds rather than correctness.
+   *
+   * A request is only acted on when it disagrees with what is happening here,
+   * so this never restarts a camera that is already running, and never fights
+   * with somebody using the button.
+   */
+  private watchCameraRequests(): void {
+    this.cameraRequestInterval = setInterval(() => {
+      this.detectionService.getCameraState().subscribe({
+        next: (state) => {
+          if (state.desiredOn === this.isStreaming()) {
+            return;
+          }
+          if (state.desiredOn) {
+            void this.startStream({ announce: false });
+          } else {
+            this.stopStream({ announce: false });
+          }
+        },
+        error: () => {
+          // A camera that cannot be asked about is not a reason to interrupt
+          // one that is working. The next poll tries again.
+        },
+      });
+    }, CAMERA_REQUEST_POLL_MS);
+  }
+
+  /**
+   * Record the state chosen here, so it agrees with what was asked elsewhere.
+   *
+   * Without this a camera stopped by hand would be started again moments later
+   * by a request made minutes ago that nothing ever cleared.
+   *
+   * @param on - Whether the camera is now running.
+   */
+  private announceCameraState(on: boolean): void {
+    this.detectionService.setCameraState(on).subscribe({
+      error: (err) => {
+        // Losing the announcement costs agreement, not the camera itself.
+        console.warn('Could not record the camera state:', err);
+      },
+    });
   }
 
   private loadCatalogObjects(): void {
@@ -322,7 +384,13 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopStream();
+    if (this.cameraRequestInterval) {
+      clearInterval(this.cameraRequestInterval);
+      this.cameraRequestInterval = null;
+    }
+    // Leaving the page is not a decision about the camera. The stored state is
+    // left alone so that reopening the page resumes what was asked for.
+    this.stopStream({ announce: false });
   }
 
   private async loadCameras(): Promise<void> {
@@ -339,8 +407,17 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  async startStream(): Promise<void> {
+  /**
+   * Open the camera and start detecting.
+   *
+   * @param options.announce - Whether to record that the camera is now wanted
+   *   on. False when this call is itself the result of a request that was
+   *   already recorded, which is what stops a poll from writing back what it
+   *   has just read.
+   */
+  async startStream(options?: { announce?: boolean }): Promise<void> {
     if (this.isStreaming()) return;
+    const announce = options?.announce ?? true;
 
     this.isLoading.set(true);
     this.errorMessage.set(null);
@@ -378,15 +455,33 @@ export class ViewPageComponent implements OnInit, OnDestroy {
         await this.videoElement.nativeElement.play();
         this.isStreaming.set(true);
         this.startDetectionLoop();
+        if (announce) {
+          this.announceCameraState(true);
+        }
       }
     } catch (error: any) {
       this.errorMessage.set('view.errors.streamFailed');
+      if (announce) {
+        // The camera was asked for and could not be opened. Recording that it
+        // is off keeps a failed start from reading as a running camera to
+        // anything watching from outside.
+        this.announceCameraState(false);
+      }
     } finally {
       this.isLoading.set(false);
     }
   }
 
-  stopStream(): void {
+  /**
+   * Close the camera and stop detecting.
+   *
+   * @param options.announce - Whether to record that the camera is now wanted
+   *   off. False when leaving the page, or when acting on a request that was
+   *   already recorded.
+   */
+  stopStream(options?: { announce?: boolean }): void {
+    const announce = options?.announce ?? true;
+    const wasStreaming = this.isStreaming();
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -421,6 +516,10 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.descriptionError.set(null);
     this.fps.set(0);
     this.isDetecting = false;
+
+    if (announce && wasStreaming) {
+      this.announceCameraState(false);
+    }
   }
 
   onCameraChange(event: Event): void {
@@ -428,8 +527,10 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.selectedCamera.set(select.value);
 
     if (this.isStreaming()) {
-      this.stopStream();
-      this.startStream();
+      // Swapping the device is not turning the camera off, so the stored state
+      // is left saying it is on across the restart.
+      this.stopStream({ announce: false });
+      void this.startStream({ announce: false });
     }
   }
 

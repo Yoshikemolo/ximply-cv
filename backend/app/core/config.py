@@ -133,6 +133,18 @@ class Settings(BaseSettings):
     person_enrol_confirmations: int = 3
     person_enrol_window_seconds: float = 10.0
 
+    # Camera control
+    # The camera runs in the browser, so this only ever holds the state it is
+    # wanted in. Whether it is actually running is answered by frames arriving.
+    camera_control_enabled: bool = True
+    # How long after the last frame a camera still counts as running. Long
+    # enough to cover the gap between frames and a slow round trip, short
+    # enough that a closed tab is not reported as a live camera.
+    camera_live_grace_seconds: float = 6.0
+    # Frames arrive several times a second; the heartbeat is written at most
+    # this often, because the liveness answer is measured in seconds.
+    camera_heartbeat_seconds: float = 3.0
+
     # Events
     # Emitted on a transition, never per frame: detection runs several times a
     # second and a per frame stream would drown any subscriber.

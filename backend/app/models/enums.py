@@ -39,6 +39,11 @@ class Permission(str, Enum):
     DETECTION_VIEW = "detection:view"
     DETECTION_CONFIGURE = "detection:configure"
 
+    # Camera permissions
+    # Switching a camera on is not the same kind of act as reading what it saw,
+    # and is kept separate so it can be granted on its own or withheld.
+    CAMERA_CONTROL = "camera:control"
+
     # Event and integration permissions
     EVENTS_READ = "events:read"
     EVENTS_MANAGE = "events:manage"

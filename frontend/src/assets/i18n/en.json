@@ -539,14 +539,14 @@
     },
     "mcp": {
       "title": "MCP",
-      "hint": "Lets an external agent ask what the camera has seen. Read only: nothing it can call changes the catalogue, the users or the running detection.",
+      "hint": "Lets an external agent ask what the camera has seen, and ask the camera to start or stop. Nothing it can call changes the catalog, and no tool returns a stored image.",
       "tokens": "Tokens",
       "empty": "No tokens issued yet.",
       "add": "Issue a token",
       "namePlaceholder": "Which agent is this for",
       "create": "Issue",
       "created": "Token issued.",
-      "scopesHint": "A token can do only what its scopes allow. Grant the narrowest set that works.",
+      "scopesHint": "A token can do only what its scopes allow. Grant the narrowest set that works. camera:control lets an agent switch the camera on, so give it a token of its own rather than the one used for reading.",
       "allScopes": "All scopes",
       "lastUsed": "Used",
       "neverUsed": "Never used",
@@ -563,7 +563,9 @@
       "toolSubjects": "the people and objects this instance can recognise.",
       "toolOtlp": "the same events in OTLP form, for a collector.",
       "toolStatus": "which models are loaded and whether the hardware is accelerated.",
-      "readOnly": "There is no tool that writes. An agent can read what was observed and nothing else."
+      "toolCamera": "whether a camera is wanted on and whether it is actually running.",
+      "toolCameraControl": "ask a camera to start or stop. An open view honours it; nothing happens when none is open.",
+      "boundary": "No tool changes the catalog, enrols or renames a person, deletes anything, or returns a stored image. The camera tools record a request; the camera itself is only ever opened by the view running in a browser."
     },
     "errors": {
       "failed": "The request failed."

@@ -361,6 +361,20 @@
     font-size: 12px;
     user-select: text;
   }
+
+  // The scope a tool needs, on the tools that need one granted by name. Only
+  // the camera tools carry it, so its absence is as informative as its
+  // presence and it is not repeated on every row.
+  &__scope {
+    margin-left: 4px;
+    padding: 1px 6px;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    color: var(--text-tertiary);
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    white-space: nowrap;
+  }
 }
 
 // The same shared track used on the detection column, repeated here rather than

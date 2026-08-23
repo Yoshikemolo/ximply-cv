@@ -87,6 +87,8 @@ The endpoints behind the live view. See
 | PUT | `/detection/config` | Update the detection configuration |
 | POST | `/detection/catalog/load` | Load every catalog entry into the matcher |
 | POST | `/detection/catalog/refresh/{objectId}` | Reload one entry |
+| GET | `/detection/camera` | Read the state a camera is wanted in |
+| PUT | `/detection/camera` | Ask a camera to start or stop |
 | GET | `/detection/stream` | Server sent event stream |
 | POST | `/detection/start` | Start a detection session |
 | POST | `/detection/stop` | Stop a detection session |
@@ -173,6 +175,49 @@ The detections already on screen are passed as context so the description uses
 the names in the catalog. A model that cannot be loaded answers with
 `available: false` and the reason, rather than an error. See
 [FEAT-0007](../features/FEAT-0007-scene-description.md).
+
+### Camera control
+
+The camera runs in the browser, so nothing here opens a device. These routes
+hold the state a camera is wanted in; the live view polls the first every two
+seconds and honours it, and calls the second when somebody uses the button so
+that a state chosen at the screen and one asked for elsewhere never disagree.
+See [ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md)
+and [SEC-0010](../sec/SEC-0010-remote-camera-activation.md).
+
+```http
+GET /api/v1/detection/camera?camera_id=default
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "cameraId": "default",
+  "desiredOn": true,
+  "running": true,
+  "pending": false,
+  "requestedBy": "token:night watch",
+  "requestedAt": "2026-08-23T00:31:33.604528Z",
+  "lastFrameAt": "2026-08-23T00:34:07.513067Z"
+}
+```
+
+`desiredOn` is what was asked for. `running` is what is happening, decided by
+frames arriving for detection within `CAMERA_LIVE_GRACE_SECONDS`, never by
+anything asserting it. `pending` is the pair that matters: asked for and not
+running, which means no interface is open to honour it.
+
+Reading needs `detection:view`. Writing needs `camera:control`:
+
+```http
+PUT /api/v1/detection/camera
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "on": true, "cameraId": "default" }
+```
+
+The reply is the state after the request, in the shape above.
 
 ## Objects
 
@@ -529,11 +574,12 @@ token is looked up in the database every time it is presented.
 
 ## Model Context Protocol
 
-An agent can read what the camera observed instead of waiting to be told. The
-server is mounted outside the versioned API, because it brings its own
-application rather than a set of routes. See
-[ADR-0016](../adr/ADR-0016-read-only-protocol-server.md) and
-[FEAT-0014](../features/FEAT-0014-integrations.md).
+An agent can read what the camera observed instead of waiting to be told, and
+can ask the camera to start or stop. The server is mounted outside the versioned
+API, because it brings its own application rather than a set of routes. See
+[ADR-0016](../adr/ADR-0016-read-only-protocol-server.md),
+[ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md)
+and [FEAT-0014](../features/FEAT-0014-integrations.md).
 
 | Mount | Transport | Auth |
 | --- | --- | --- |
@@ -567,6 +613,9 @@ header, which subsequent calls send back.
 | `list_known_subjects` | Catalog entries, people separated from objects. Optional `include_people` | `objects:read` |
 | `export_events_otlp` | The OTLP logs envelope. Optional `since_minutes`, 60 by default, and `limit`, at most 1000 | `events:read` |
 | `get_status` | Acceleration, description model and segmentation status | `events:read` |
+| `get_camera` | Whether a camera is wanted on and whether it is running | `events:read` |
+| `start_camera` | Asks for a camera to run. Optional `camera_id` | `camera:control`, by name |
+| `stop_camera` | Asks for a camera to stop. Optional `camera_id` | `camera:control`, by name |
 
 `list_events` returns records in the same shape a webhook delivery carries, and
 `export_events_otlp` produces exactly what `GET /events/otlp` produces, from
@@ -574,8 +623,31 @@ the same function. Every tool is filtered by the owner of the token that called
 it, and a tool whose scope the token does not carry is refused rather than
 answered.
 
-No tool writes anything, and none returns an image: a capture stays behind
-`GET /events/{id}/capture` and a user session.
+No reading tool writes anything, and none returns an image: a capture stays
+behind `GET /events/{id}/capture` and a user session. The catalog cannot be
+edited through any tool, a person cannot be enrolled or renamed, and nothing can
+be deleted.
+
+The three camera tools are the exception, and are gated differently from the
+rest. `camera:control` is never inherited: a token with no scopes carries
+whatever its owner carries for reading, but control has to appear on the token
+by name, so credentials issued before this existed cannot use it.
+`CAMERA_CONTROL_ENABLED` removes the tools from a deployment entirely.
+
+They record a request rather than opening a device. An open interface polls the
+state and honours it; when none is open the reply comes back with `pending`
+true and a note saying nothing was listening, rather than reporting a camera
+that never started.
+
+### Switching the protocol off
+
+`MCP_ENABLED` decides whether the mounts exist at all, and is read at startup.
+Once running, the protocol is opened and closed from `GET` and
+`PUT /health/mcp`, which is what the footer switch in the interface calls. A
+closed protocol keeps both transports mounted and answers every call with a
+`503` and a `detail` message, so a connected agent gets an answer rather than a
+hole. The state is held in the process, so a deployment running several workers
+switches it per worker.
 
 ## Users
 

@@ -5,8 +5,10 @@
   [ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md),
   [ADR-0016](../adr/ADR-0016-read-only-protocol-server.md),
   [ADR-0017](../adr/ADR-0017-scoped-tokens-for-machine-clients.md),
+  [ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md),
   [SEC-0008](../sec/SEC-0008-webhook-signing.md),
   [SEC-0009](../sec/SEC-0009-integration-tokens.md),
+  [SEC-0010](../sec/SEC-0010-remote-camera-activation.md),
   [API Reference, Webhooks](../infrastructure/api.md#webhooks)
 
 ## What it does
@@ -71,8 +73,13 @@ anything.
 ## The MCP tab
 
 **A token** is issued with a name and a set of scopes, chosen from
-`events:read`, `objects:read` and `events:manage`, with `events:read` selected
-to begin with. The value is shown once, in the same reveal panel with the same
+`events:read`, `objects:read`, `events:manage` and `camera:control`, with
+`events:read` selected to begin with. The first three read or manage records.
+The fourth is different in kind: it lets an agent ask the camera to start, which
+is a decision about a room rather than a query, so it is never implied by the
+others and has to be ticked deliberately. Issue it on a token of its own rather
+than on the one pasted into every integration; the reasoning is in
+[SEC-0010](../sec/SEC-0010-remote-camera-activation.md). The value is shown once, in the same reveal panel with the same
 warning, and afterwards the list shows only the first ten characters. Grant the
 narrowest set that works: the reasoning, and what a leaked token reaches, is in
 [SEC-0009](../sec/SEC-0009-integration-tokens.md).
@@ -95,9 +102,13 @@ tools. The last one exists so the connection can be proved before an agent is
 configured against it, which turns "the agent cannot see my camera" into two
 commands rather than a debugging session.
 
-**The tools** are listed at the bottom of the tab with one line each, and the
-page ends by saying that none of them writes. What that boundary is for is
-[ADR-0016](../adr/ADR-0016-read-only-protocol-server.md).
+**The tools** are listed at the bottom of the tab with one line each, reading
+tools first and the three camera tools after them, marked with the scope they
+need. The page ends by saying what the boundary is: the reading tools cannot
+change any record, and the camera tools can only ask for a camera to start or
+stop, never open one. What that boundary is for is
+[ADR-0016](../adr/ADR-0016-read-only-protocol-server.md) and
+[ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md).
 
 ## How it is implemented
 
@@ -149,7 +160,15 @@ after.
   recovered even by the person who issued it.
 - **A token's scopes cannot be changed after issue.** The update endpoint takes
   only the active flag. Narrowing or widening a token means issuing a new one
-  and revoking the old.
+  and revoking the old. A token issued before `camera:control` existed therefore
+  cannot acquire it, which is intended rather than incidental.
+- **`camera:control` is never inherited.** A token with no scopes carries
+  whatever its owner carries for reading; the camera tools refuse it unless the
+  scope is on the token by name.
+- **Scopes cannot exceed the issuer.** A user who does not hold a permission
+  cannot put it on a token. After a new permission is added to the system, an
+  existing session has to sign in again before it can grant it, because the
+  check reads the permissions in the current token.
 - **A client disabled by repeated failures reappears as off.** Twenty
   consecutive failures switch a subscription off on the server
   ([ADR-0015](../adr/ADR-0015-signed-webhook-delivery.md)). The toggle shows
