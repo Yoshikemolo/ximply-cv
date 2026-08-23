@@ -141,6 +141,16 @@ class MqttPublisher:
         return self._connected
 
     @property
+    def queued(self) -> int:
+        """
+        How many messages are waiting to be published.
+
+        Returns:
+            The current queue depth, or zero when nothing has been queued yet.
+        """
+        return self._queue.qsize() if self._queue is not None else 0
+
+    @property
     def dropped(self) -> int:
         """
         How many messages were discarded because the queue was full.
@@ -169,7 +179,7 @@ class MqttPublisher:
         """
         if not settings.mqtt_enabled or self._task is not None:
             return
-        self._queue = asyncio.Queue(maxsize=settings.mqtt_queue_size)
+        self._ensure_queue()
         self._task = asyncio.create_task(self._run(), name="mqtt-publisher")
         logger.info(
             f"Broker publishing enabled: {settings.mqtt_host}:{settings.mqtt_port}"
@@ -195,6 +205,21 @@ class MqttPublisher:
             logger.warning(f"Broker publisher stopped with an error: {e}")
         self._connected = False
 
+    def _ensure_queue(self) -> asyncio.Queue:
+        """
+        The outbound queue, created on first use.
+
+        Built lazily so queueing can be exercised without a broker and without
+        a running task: what is queued and what is dropped is the behaviour
+        worth pinning, and neither needs a connection.
+
+        Returns:
+            The bounded outbound queue.
+        """
+        if self._queue is None:
+            self._queue = asyncio.Queue(maxsize=settings.mqtt_queue_size)
+        return self._queue
+
     def enqueue(self, message: Message) -> None:
         """
         Hand one message to the publisher without waiting for it.
@@ -206,9 +231,9 @@ class MqttPublisher:
         Args:
             message: What to publish.
         """
-        queue = self._queue
-        if queue is None:
+        if not settings.mqtt_enabled:
             return
+        queue = self._ensure_queue()
         while True:
             try:
                 queue.put_nowait(message)
@@ -234,7 +259,7 @@ class MqttPublisher:
         Returns:
             How many messages were queued.
         """
-        if not settings.mqtt_enabled or self._queue is None or not events:
+        if not settings.mqtt_enabled or not events:
             return 0
 
         prefix = settings.mqtt_topic_prefix
