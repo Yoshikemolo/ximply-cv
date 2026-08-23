@@ -810,6 +810,22 @@ Ownership is enforced by filtering on the owner rather than by a separate check,
 so a request for another user's entry is a `404` rather than a `403`. This is
 deliberate: a `403` would confirm the entry exists.
 
+## The Postman collection
+
+`postman/ximply-vision.postman_collection.json` covers every operation here. It
+is generated rather than maintained, from the document the server publishes:
+
+```bash
+curl -s http://localhost:8000/api/v1/openapi.json -o openapi.json
+python postman/generate.py openapi.json
+```
+
+Editing the collection by hand is how it drifted before, to describing half the
+routes and sending a JSON body to one that reads query parameters. Example
+bodies worth keeping go in `EXAMPLES` inside `postman/generate.py`, and
+descriptions the summary does not cover go in `NOTES` beside them; anything
+written into the collection itself is discarded by the next run.
+
 ## Elsewhere
 
 - [Features](../features/README.md)

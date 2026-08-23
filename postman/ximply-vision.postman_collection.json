@@ -19,6 +19,41 @@
       "key": "refreshToken",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "event_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "file_path",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "image_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "object_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subscription_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "auth": {
@@ -40,10 +75,60 @@
           "request": {
             "method": "GET",
             "header": [],
+            "description": "Check application health status.",
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Acceleration Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Report whether inference is running on dedicated hardware.",
+            "url": {
+              "raw": "{{baseUrl}}/health/acceleration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "acceleration"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Acceleration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Move one inference backend between the processor and the accelerator. The models affected are dropped and rebuild on the next frame.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"backend\": \"string\",\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/health/acceleration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "acceleration"
+              ]
             }
           }
         },
@@ -52,40 +137,39 @@
           "request": {
             "method": "GET",
             "header": [],
+            "description": "Kubernetes liveness probe endpoint.",
             "url": {
               "raw": "{{baseUrl}}/health/live",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "live"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
             }
           }
         },
         {
-          "name": "Readiness Probe",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/health/ready",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "ready"]
-            }
-          }
-        },
-        {
-          "name": "MCP Status",
+          "name": "Mcp Status",
           "request": {
             "method": "GET",
             "header": [],
             "description": "Whether the Model Context Protocol is built into this deployment ('available', set by MCP_ENABLED and read at startup) and whether it is currently open ('enabled', the runtime switch behind the footer control). Public.",
             "url": {
               "raw": "{{baseUrl}}/health/mcp",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "mcp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "mcp"
+              ]
             }
           }
         },
         {
-          "name": "Set MCP State",
+          "name": "Set Mcp",
           "request": {
             "method": "PUT",
             "header": [
@@ -101,8 +185,31 @@
             },
             "url": {
               "raw": "{{baseUrl}}/health/mcp",
-              "host": ["{{baseUrl}}"],
-              "path": ["health", "mcp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "mcp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Kubernetes readiness probe endpoint.",
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
             }
           }
         }
@@ -112,69 +219,8 @@
       "name": "Authentication",
       "item": [
         {
-          "name": "Register",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    pm.test('User created successfully', function() {",
-                  "        var jsonData = pm.response.json();",
-                  "        pm.expect(jsonData.id).to.exist;",
-                  "    });",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePass123\",\n  \"fullName\": \"Test User\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
-            }
-          }
-        },
-        {
           "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
-                  "    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
-                  "    pm.test('Login successful', function() {",
-                  "        pm.expect(jsonData.accessToken).to.exist;",
-                  "    });",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [
               {
@@ -182,64 +228,20 @@
                 "value": "application/json"
               }
             ],
+            "description": "Authenticate user and return JWT tokens.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"SecurePass123\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
-            }
-          }
-        },
-        {
-          "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/refresh",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "refresh"]
-            }
-          }
-        },
-        {
-          "name": "Get Current User",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -248,57 +250,39 @@
           "request": {
             "method": "POST",
             "header": [],
+            "description": "Logout current user.",
             "url": {
               "raw": "{{baseUrl}}/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "logout"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Objects",
-      "item": [
-        {
-          "name": "List Objects",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/objects?page=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects"],
-              "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "pageSize",
-                  "value": "20"
-                },
-                {
-                  "key": "search",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "categoryId",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "status",
-                  "value": "",
-                  "disabled": true
-                }
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
               ]
             }
           }
         },
         {
-          "name": "Create Object",
+          "name": "Get Current User Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Get current authenticated user information.",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
           "request": {
             "method": "POST",
             "header": [
@@ -307,149 +291,46 @@
                 "value": "application/json"
               }
             ],
+            "description": "Refresh access token using refresh token.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Sample Object\",\n  \"description\": \"A sample object for testing\",\n  \"reference\": \"OBJ001\",\n  \"weight\": 1.5,\n  \"weightUnit\": \"kg\",\n  \"dimensions\": {\n    \"width\": 10,\n    \"height\": 20,\n    \"depth\": 5,\n    \"unit\": \"cm\"\n  },\n  \"price\": 29.99,\n  \"currency\": \"EUR\",\n  \"color\": \"Blue\",\n  \"materials\": [\"plastic\", \"metal\"]\n}"
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/objects",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects"]
-            }
-          }
-        },
-        {
-          "name": "Get Object",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/objects/:objectId",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                }
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
               ]
             }
           }
         },
         {
-          "name": "Update Object",
+          "name": "Register",
           "request": {
-            "method": "PUT",
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
               }
             ],
+            "description": "Register a new user account.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Object Name\",\n  \"description\": \"Updated description\",\n  \"status\": \"active\"\n}"
+              "raw": "{\n  \"email\": \"operator@example.invalid\",\n  \"password\": \"replace-me\",\n  \"fullName\": \"Operator\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/objects/:objectId",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Delete Object",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/objects/:objectId",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Upload Object Image",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": ""
-                },
-                {
-                  "key": "is_primary",
-                  "value": "false",
-                  "type": "text"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/objects/:objectId/images",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId", "images"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "List Object Images",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/objects/:objectId/images",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId", "images"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Delete Object Image",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/objects/:objectId/images/:imageId",
-              "host": ["{{baseUrl}}"],
-              "path": ["objects", ":objectId", "images", ":imageId"],
-              "variable": [
-                {
-                  "key": "objectId",
-                  "value": ""
-                },
-                {
-                  "key": "imageId",
-                  "value": ""
-                }
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
               ]
             }
           }
@@ -460,97 +341,26 @@
       "name": "Detection",
       "item": [
         {
-          "name": "Start Detection",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"cameraId\": \"default\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/detection/start",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "start"]
-            }
-          }
-        },
-        {
-          "name": "Stop Detection",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/detection/stop",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "stop"]
-            }
-          }
-        },
-        {
-          "name": "Get Detection Status",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/detection/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "status"]
-            }
-          }
-        },
-        {
-          "name": "Get Detection Config",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/detection/config",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "config"]
-            }
-          }
-        },
-        {
-          "name": "Update Detection Config",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"confidenceThreshold\": 0.5,\n  \"iouThreshold\": 0.45\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/detection/config",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "config"]
-            }
-          }
-        },
-        {
           "name": "Get Camera State",
           "request": {
             "method": "GET",
             "header": [],
             "description": "The state a camera is wanted in, and whether it is actually running. 'running' is decided by frames arriving for detection, never by what was asked for, so 'pending' true means the request was recorded and no view is open to honour it. Needs detection:view.",
             "url": {
-              "raw": "{{baseUrl}}/detection/camera?camera_id=default",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "camera"],
+              "raw": "{{baseUrl}}/detection/camera",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "camera"
+              ],
               "query": [
                 {
                   "key": "camera_id",
-                  "value": "default"
+                  "value": "default",
+                  "description": "",
+                  "disabled": true
                 }
               ]
             }
@@ -573,8 +383,1099 @@
             },
             "url": {
               "raw": "{{baseUrl}}/detection/camera",
-              "host": ["{{baseUrl}}"],
-              "path": ["detection", "camera"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "camera"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Capture Detection",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Capture a detected object and add it to the catalog.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image\": \"data:image/jpeg;base64,REPLACE_WITH_A_BASE64_FRAME\",\n  \"bbox\": {\n    \"x\": 100,\n    \"y\": 80,\n    \"width\": 220,\n    \"height\": 180\n  },\n  \"name\": \"Stapler\",\n  \"description\": \"Captured from the live view\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/detection/capture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "capture"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Load Catalog Features",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Load catalog object features for custom object recognition.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/catalog/load",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "catalog",
+                "load"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Detection Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Get detection configuration settings.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "config"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Detection Config",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "description": "Update detection configuration.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "config"
+              ],
+              "query": [
+                {
+                  "key": "confidence_threshold",
+                  "value": "0.0",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "iou_threshold",
+                  "value": "0.0",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Describe Scene",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Write a short description of what the camera is looking at.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image\": \"data:image/jpeg;base64,REPLACE_WITH_A_BASE64_FRAME\",\n  \"detections\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/detection/describe",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "describe"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Description Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Report whether the description model is loaded and usable.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/describe/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "describe",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detect Objects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Detect objects in a single image.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image\": \"data:image/jpeg;base64,REPLACE_WITH_A_BASE64_FRAME\",\n  \"confidenceThreshold\": 0.5,\n  \"iouThreshold\": 0.45,\n  \"hidePersonDetections\": false,\n  \"showOnlyCustomObjects\": false,\n  \"includeSkeletons\": true,\n  \"includeFaceMesh\": true,\n  \"detectionModel\": \"yolo\",\n  \"cameraId\": \"default\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/detection/detect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "detect"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start Detection",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Start detection on a specific camera.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "start"
+              ],
+              "query": [
+                {
+                  "key": "camera_id",
+                  "value": "default",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Detection Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Get current detection session status.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stop Detection",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Stop the current detection session.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/stop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "stop"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stream Detections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Stream real-time object detections via Server-Sent Events.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "stream"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Object Features",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Refresh features for a specific catalog object.",
+            "url": {
+              "raw": "{{baseUrl}}/detection/catalog/refresh/:object_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "detection",
+                "catalog",
+                "refresh",
+                ":object_id"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Objects",
+      "item": [
+        {
+          "name": "List Objects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "List catalog objects with pagination and filters.",
+            "url": {
+              "raw": "{{baseUrl}}/objects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page_size",
+                  "value": "20",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "category_id",
+                  "value": "{{objectId}}",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Object",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Create a new catalog object.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Stapler\",\n  \"description\": \"Black, office\",\n  \"reference\": \"SKU-0001\",\n  \"weight\": 0.4\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/objects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete All Objects",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Delete all catalog objects for the current user and clear feature cache.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                "all"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Merge Objects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Merge multiple objects into one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceId\": \"{{object_id}}\",\n  \"targetId\": \"{{object_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/objects/merge",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                "merge"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Proxy endpoint to serve files from MinIO storage.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/files/:file_path",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                "files",
+                ":file_path"
+              ],
+              "variable": [
+                {
+                  "key": "file_path",
+                  "value": "{{file_path}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Object",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Delete a catalog object and its images.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Object",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Get a single catalog object by ID.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Object",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Update a catalog object.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"reference\": \"string\",\n  \"status\": \"string\",\n  \"categoryId\": \"{{objectId}}\",\n  \"weight\": 0.0,\n  \"weightUnit\": \"string\",\n  \"dimensions\": {\n    \"width\": null,\n    \"height\": null,\n    \"depth\": null,\n    \"unit\": null\n  },\n  \"price\": 0.0,\n  \"currency\": \"string\",\n  \"color\": \"string\",\n  \"materials\": [\n    \"string\"\n  ],\n  \"extraData\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Object Images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "List all images for an object.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id",
+                "images"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload Object Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Upload an image for an object.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id",
+                "images"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rename Object",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Rename a catalog object or a person.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Stapler\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id/name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id",
+                "name"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Object Image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Delete an object image.",
+            "url": {
+              "raw": "{{baseUrl}}/objects/:object_id/images/:image_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "objects",
+                ":object_id",
+                "images",
+                ":image_id"
+              ],
+              "variable": [
+                {
+                  "key": "object_id",
+                  "value": "{{object_id}}"
+                },
+                {
+                  "key": "image_id",
+                  "value": "{{image_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Events newest first. 'since' is the polling contract: ask for everything after the last event already seen. It compares against occurredAt, which is the moment of the observation.",
+            "url": {
+              "raw": "{{baseUrl}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "page_size",
+                  "value": "50",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "since",
+                  "value": "2026-01-01T00:00:00Z",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subject_id",
+                  "value": "{{objectId}}",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export Otlp",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Export events in the OTLP logs envelope.",
+            "url": {
+              "raw": "{{baseUrl}}/events/otlp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "otlp"
+              ],
+              "query": [
+                {
+                  "key": "since",
+                  "value": "2026-01-01T00:00:00Z",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "500",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Prune Events",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Deletes everything older than the cutoff. Nothing prunes events on its own, so a deployment with a retention obligation calls this on a schedule of its own.",
+            "url": {
+              "raw": "{{baseUrl}}/events/prune",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "prune"
+              ],
+              "query": [
+                {
+                  "key": "older_than_days",
+                  "value": "0",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Event Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The event types this instance can raise, for building a subscription.",
+            "url": {
+              "raw": "{{baseUrl}}/events/types",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "types"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "One event by id.",
+            "url": {
+              "raw": "{{baseUrl}}/events/:event_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                ":event_id"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "{{event_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Event Capture",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The frame that produced an event. Behind the read permission, unlike the catalog image proxy, because it is a photograph of whoever was in front of the camera.",
+            "url": {
+              "raw": "{{baseUrl}}/events/:event_id/capture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                ":event_id",
+                "capture"
+              ],
+              "variable": [
+                {
+                  "key": "event_id",
+                  "value": "{{event_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "List Webhooks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Every subscription belonging to the authenticated owner.",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Register a client and generate its secret.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Door notifier\",\n  \"url\": \"https://example.invalid/hooks/ximply\",\n  \"eventTypes\": [\n    \"person.enrolled\",\n    \"person.recognised\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delivery Headers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The headers a delivery carries, so a receiver can be written against them without reading this source.",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/headers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "headers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Remove a subscription.",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/:subscription_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                ":subscription_id"
+              ],
+              "variable": [
+                {
+                  "key": "subscription_id",
+                  "value": "{{subscription_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Webhook",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Change a subscription, including switching it on or off.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Door notifier\",\n  \"eventTypes\": [\n    \"person.recognised\"\n  ],\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/:subscription_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                ":subscription_id"
+              ],
+              "variable": [
+                {
+                  "key": "subscription_id",
+                  "value": "{{subscription_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rotate Webhook Secret",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Replace the secret and return the new one.",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/:subscription_id/rotate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                ":subscription_id",
+                "rotate"
+              ],
+              "variable": [
+                {
+                  "key": "subscription_id",
+                  "value": "{{subscription_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Test Webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Send a signed test delivery, so a receiver can be verified before it matters.",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/:subscription_id/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                ":subscription_id",
+                "test"
+              ],
+              "variable": [
+                {
+                  "key": "subscription_id",
+                  "value": "{{subscription_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integration tokens",
+      "item": [
+        {
+          "name": "List Tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Every token issued by the authenticated owner. Values are not included.",
+            "url": {
+              "raw": "{{baseUrl}}/integration-tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integration-tokens"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "The value is shown in this response and never again. Scopes may not exceed what the issuing user holds. camera:control has to be named here to be usable: it is never inherited from an empty scope list.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reading agent\",\n  \"scopes\": [\n    \"events:read\",\n    \"objects:read\"\n  ],\n  \"expiresInDays\": 90\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/integration-tokens",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integration-tokens"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Token",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Revoke a token permanently.",
+            "url": {
+              "raw": "{{baseUrl}}/integration-tokens/:token_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integration-tokens",
+                ":token_id"
+              ],
+              "variable": [
+                {
+                  "key": "token_id",
+                  "value": "{{token_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Token",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "description": "Switch a token on or off without deleting it.",
+            "url": {
+              "raw": "{{baseUrl}}/integration-tokens/:token_id?is_active=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "integration-tokens",
+                ":token_id"
+              ],
+              "query": [
+                {
+                  "key": "is_active",
+                  "value": "true",
+                  "description": "",
+                  "disabled": false
+                }
+              ],
+              "variable": [
+                {
+                  "key": "token_id",
+                  "value": "{{token_id}}"
+                }
+              ]
             }
           }
         }
@@ -588,27 +1489,38 @@
           "request": {
             "method": "GET",
             "header": [],
+            "description": "List all users with pagination.",
             "url": {
-              "raw": "{{baseUrl}}/users?page=1&pageSize=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"],
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
               "query": [
                 {
                   "key": "page",
-                  "value": "1"
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
                 },
                 {
-                  "key": "pageSize",
-                  "value": "20"
+                  "key": "page_size",
+                  "value": "20",
+                  "description": "",
+                  "disabled": true
                 },
                 {
                   "key": "search",
                   "value": "",
+                  "description": "",
                   "disabled": true
                 },
                 {
                   "key": "status",
                   "value": "",
+                  "description": "",
                   "disabled": true
                 }
               ]
@@ -625,14 +1537,43 @@
                 "value": "application/json"
               }
             ],
+            "description": "Create a new user.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"newuser@example.com\",\n  \"password\": \"SecurePass123\",\n  \"fullName\": \"New User\",\n  \"roleIds\": []\n}"
+              "raw": "{\n  \"email\": \"operator@example.invalid\",\n  \"password\": \"replace-me\",\n  \"fullName\": \"Operator\",\n  \"roles\": [\n    \"operator\"\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "description": "Delete a user.",
+            "url": {
+              "raw": "{{baseUrl}}/users/:user_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
+              "variable": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
             }
           }
         },
@@ -641,14 +1582,20 @@
           "request": {
             "method": "GET",
             "header": [],
+            "description": "Get a user by ID.",
             "url": {
-              "raw": "{{baseUrl}}/users/:userId",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", ":userId"],
+              "raw": "{{baseUrl}}/users/:user_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
               "variable": [
                 {
-                  "key": "userId",
-                  "value": ""
+                  "key": "user_id",
+                  "value": "{{user_id}}"
                 }
               ]
             }
@@ -664,36 +1611,24 @@
                 "value": "application/json"
               }
             ],
+            "description": "Update a user.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Updated Name\",\n  \"status\": \"active\",\n  \"roleIds\": []\n}"
+              "raw": "{\n  \"email\": \"string\",\n  \"fullName\": \"string\",\n  \"status\": \"string\",\n  \"roleIds\": [\n    \"{{objectId}}\"\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/users/:userId",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", ":userId"],
+              "raw": "{{baseUrl}}/users/:user_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":user_id"
+              ],
               "variable": [
                 {
-                  "key": "userId",
-                  "value": ""
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Delete User",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users/:userId",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", ":userId"],
-              "variable": [
-                {
-                  "key": "userId",
-                  "value": ""
+                  "key": "user_id",
+                  "value": "{{user_id}}"
                 }
               ]
             }
