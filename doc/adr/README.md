@@ -29,6 +29,8 @@ Security decisions are recorded separately, in [doc/sec](../sec/README.md).
 | [ADR-0019](ADR-0019-confirm-a-person-before-enrolling-them.md) | Confirm an unknown person before enrolling them |
 | [ADR-0020](ADR-0020-an-event-carries-the-time-it-was-observed.md) | An event carries the time it was observed |
 | [ADR-0021](ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md) | An agent may switch the camera, but never opens it |
+| [ADR-0022](ADR-0022-carry-the-live-stream-on-a-broker-and-a-socket.md) | Carry the live stream on a broker and on a socket |
+| [ADR-0023](ADR-0023-a-live-frame-is-never-stored-and-never-implied.md) | A live frame is never stored, and never implied |
 
 ## Elsewhere
 
