@@ -77,11 +77,27 @@ truth per record, set where the record is built.
 The column keeps its `server_default` for anything writing outside this path,
 but the path always supplies a value.
 
+### No two records share a microsecond
+
+The nanosecond fields carry the clock as it was read. The column readers sort by
+holds microseconds, and the records raised by one frame are built a few
+microseconds apart at most, so two of them can land in the same one. That would
+leave them unorderable against each other, which is the defect this column was
+fixed to remove.
+
+`_distinct_stamp()` therefore remembers the last microsecond it handed out and
+pushes a collision forward by one. The nudge is the smallest amount the column
+can represent, it preserves order, and it applies only where the alternative is
+a tie that carries no information at all.
+
 ## Consequences
 
 - Events raised by one frame now hold distinct, increasing timestamps in the
   order they were created, so `list_events` returns arrival before scene change
   rather than an arbitrary order within a shared value.
+- Uniqueness is guaranteed within one process. Two workers stamping in the same
+  microsecond still produce a tie, which is the same limit the rest of the
+  in-memory state carries and is not worth a shared sequence to remove.
 - The age reported by `get_current_scene` is the age of the observation, not the
   age of a transaction.
 - Rows written before this decision keep their transaction-start timestamps. A

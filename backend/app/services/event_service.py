@@ -50,6 +50,41 @@ SEVERITY_INFO_TEXT = "INFO"
 # the two consistent instead of rounding them apart.
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+# The last microsecond handed out, so no two records can share one.
+_last_stamp_us = 0
+_stamp_lock = threading.Lock()
+
+
+def _distinct_stamp(now_ns: int) -> datetime:
+    """
+    The storable timestamp for a record, never equal to the one before it.
+
+    The column readers sort by holds microseconds, and the records raised by one
+    frame are built a few microseconds apart at most. Two of them landing in the
+    same microsecond would leave them unorderable against each other, which is
+    the defect this column was fixed to remove, so a collision is pushed forward
+    by the smallest amount the column can represent.
+
+    The nanosecond fields the specification requires are not touched. They carry
+    the clock as it was read; this is the projection of it that has to be unique
+    to be useful.
+
+    Args:
+        now_ns: Nanoseconds since the epoch, as read from the clock.
+
+    Returns:
+        datetime: The instant to store, at microsecond resolution.
+    """
+    global _last_stamp_us
+
+    micros = now_ns // 1000
+    with _stamp_lock:
+        if micros <= _last_stamp_us:
+            micros = _last_stamp_us + 1
+        _last_stamp_us = micros
+
+    return _EPOCH + timedelta(microseconds=micros)
+
 
 def _resource() -> dict:
     """
@@ -157,7 +192,7 @@ class EventService:
         the observation.
         """
         now_ns = time.time_ns()
-        occurred_at = _EPOCH + timedelta(microseconds=now_ns // 1000)
+        occurred_at = _distinct_stamp(now_ns)
         body = {**body, "occurredAt": occurred_at.isoformat()}
 
         attributes = {
