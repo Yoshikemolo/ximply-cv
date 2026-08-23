@@ -33,6 +33,52 @@ export interface IntegrationToken {
   token?: string;
 }
 
+/** What the broker is doing, and where a subscriber reaches it. */
+export interface StreamBroker {
+  enabled: boolean;
+  connected: boolean;
+  host: string;
+  port: number;
+  instance: string;
+  publishesCaptures: boolean;
+  publishesFrames: boolean;
+  published: number;
+  dropped: number;
+  /** Topic templates keyed by what they carry, as the server names them. */
+  topics: Record<string, string>;
+}
+
+/** One subscribable HTTP endpoint, described by the server. */
+export interface StreamEndpoint {
+  path: string;
+  mediaType: string;
+  scope: string;
+  /** Frames only: whether the deployment allows watching a camera at all. */
+  enabled?: boolean;
+  maxFps?: number;
+  maxSide?: number;
+}
+
+/**
+ * What can be subscribed to, and how.
+ *
+ * The page builds its topic table and its examples from this rather than
+ * hard coding them, so a topic added to the backend appears with no change
+ * here.
+ */
+export interface StreamInfo {
+  enabled: boolean;
+  owner: string;
+  broker: StreamBroker;
+  endpoints: {
+    events: StreamEndpoint;
+    camera: StreamEndpoint;
+  };
+  keepaliveSeconds: number;
+  subscribers: number;
+  dropped: number;
+}
+
 /** One recorded event, shaped as an OpenTelemetry log record. */
 export interface VisionEvent {
   id: string;
@@ -119,6 +165,13 @@ export class IntegrationsService {
 
   deleteToken(id: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.base}/integration-tokens/${id}`);
+  }
+
+  // Streaming
+
+  /** The broker state, the topic templates and the endpoint paths. */
+  getStreamInfo(): Observable<StreamInfo> {
+    return this.http.get<StreamInfo>(`${this.base}/stream/info`);
   }
 
   // Events

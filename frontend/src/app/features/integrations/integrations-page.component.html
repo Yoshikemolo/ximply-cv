@@ -34,6 +34,17 @@
       {{ 'integrations.mcp.title' | translate }}
       <span class="side-tab__count">{{ tokens().length }}</span>
     </button>
+    <button
+      type="button"
+      class="side-tab"
+      role="tab"
+      [class.side-tab--active]="tab() === 'streaming'"
+      [attr.aria-selected]="tab() === 'streaming'"
+      (click)="selectTab('streaming')"
+    >
+      {{ 'integrations.streaming.title' | translate }}
+      <span class="side-tab__count">{{ streamTopics().length }}</span>
+    </button>
   </div>
 
   @if (tab() === 'webhooks') {
@@ -349,6 +360,144 @@
         </li>
       </ul>
       <p class="panel__hint">{{ 'integrations.mcp.boundary' | translate }}</p>
+    </section>
+  }
+
+  @if (tab() === 'streaming') {
+    <section class="panel">
+      <div class="panel__head">
+        <div>
+          <h2>{{ 'integrations.streaming.title' | translate }}</h2>
+          <p class="panel__hint">{{ 'integrations.streaming.hint' | translate }}</p>
+        </div>
+        <span class="state" [class.state--on]="streamingActive()">
+          <span class="state__dot"></span>
+          {{ (streamingActive() ? 'integrations.active' : 'integrations.inactive') | translate }}
+        </span>
+      </div>
+
+      <h3 class="panel__section">{{ 'integrations.streaming.status' | translate }}</h3>
+
+      @if (streamInfo(); as info) {
+        <div class="stream-status">
+          <div class="stream-status__row">
+            <span class="stream-status__label">
+              {{ 'integrations.streaming.broker' | translate }}
+            </span>
+            @if (info.broker.enabled) {
+              <span class="state" [class.state--on]="info.broker.connected">
+                <span class="state__dot"></span>
+                {{
+                  (info.broker.connected
+                    ? 'integrations.streaming.connected'
+                    : 'integrations.streaming.disconnected'
+                  ) | translate
+                }}
+              </span>
+              <span class="chip">{{ info.broker.host }}:{{ info.broker.port }}</span>
+              <span class="chip">{{ info.broker.instance }}</span>
+              <span class="chip">
+                {{ 'integrations.streaming.published' | translate: { count: info.broker.published } }}
+              </span>
+              <span class="chip" [class.chip--bad]="info.broker.dropped > 0">
+                {{ 'integrations.streaming.dropped' | translate: { count: info.broker.dropped } }}
+              </span>
+            } @else {
+              <span class="chip">{{ 'integrations.streaming.brokerOff' | translate }}</span>
+            }
+          </div>
+
+          <div class="stream-status__row">
+            <span class="stream-status__label">
+              {{ 'integrations.streaming.httpStream' | translate }}
+            </span>
+            <span class="chip">
+              {{ 'integrations.streaming.subscribers' | translate: { count: info.subscribers } }}
+            </span>
+            <span class="chip" [class.chip--bad]="info.dropped > 0">
+              {{ 'integrations.streaming.dropped' | translate: { count: info.dropped } }}
+            </span>
+            @if (info.endpoints.camera.enabled) {
+              <span class="chip">
+                {{
+                  'integrations.streaming.cameraLimits'
+                    | translate
+                      : {
+                          fps: info.endpoints.camera.maxFps,
+                          side: info.endpoints.camera.maxSide
+                        }
+                }}
+              </span>
+            } @else {
+              <span class="chip">{{ 'integrations.streaming.cameraOff' | translate }}</span>
+            }
+          </div>
+        </div>
+
+        @if (!info.broker.enabled) {
+          <p class="panel__hint">{{ 'integrations.streaming.brokerOffHint' | translate }}</p>
+        }
+
+        <h3 class="panel__section">{{ 'integrations.streaming.topics' | translate }}</h3>
+
+        @if (streamTopics().length === 0) {
+          <p class="empty">{{ 'integrations.streaming.httpOnly' | translate }}</p>
+        } @else {
+          <table class="topics">
+            <thead>
+              <tr>
+                <th>{{ 'integrations.streaming.topic' | translate }}</th>
+                <th>{{ 'integrations.streaming.payload' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of streamTopics(); track entry.name) {
+                <tr>
+                  <td><code>{{ entry.template }}</code></td>
+                  <td>{{ entry.name }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          <p class="panel__hint">{{ 'integrations.streaming.httpOnly' | translate }}</p>
+        }
+      } @else {
+        <p class="empty">{{ 'integrations.streaming.unavailable' | translate }}</p>
+      }
+
+      <h3 class="panel__section">{{ 'integrations.streaming.address' | translate }}</h3>
+      <p class="panel__hint">{{ 'integrations.streaming.addressHint' | translate }}</p>
+      <div class="form">
+        <input type="url" [ngModel]="baseUrl()" (ngModelChange)="baseUrl.set($event)" />
+      </div>
+
+      <h3 class="panel__section">{{ 'integrations.streaming.examples' | translate }}</h3>
+      <p class="panel__hint">{{ 'integrations.streaming.examplesHint' | translate }}</p>
+
+      <div class="side-tabs example-tabs" role="tablist">
+        @for (example of streamSnippets(); track example.id) {
+          <button
+            type="button"
+            class="side-tab"
+            role="tab"
+            [class.side-tab--active]="selectedStreamExample() === example.id"
+            [attr.aria-selected]="selectedStreamExample() === example.id"
+            (click)="selectedStreamExample.set(example.id)"
+          >{{ example.label }}</button>
+        }
+      </div>
+
+      @if (currentStreamSnippet(); as snippet) {
+        <app-code-snippet
+          [code]="snippet.code"
+          [language]="snippet.language"
+          [caption]="snippet.caption"
+        />
+      }
+
+      <p class="panel__hint streaming__closing">
+        {{ 'integrations.streaming.scopeHint' | translate }}
+      </p>
     </section>
   }
 </div>

@@ -438,3 +438,315 @@ curl -X POST ${baseUrl}/mcp/ \
     },
   ];
 }
+
+/**
+ * Build the streaming client examples.
+ *
+ * The browser examples read the stream with fetch and a reader rather than with
+ * EventSource. EventSource sends no Authorization header and the endpoint
+ * refuses a token in the query string on purpose, so there is no other way in.
+ *
+ * They also normalise the line endings before framing. The server separates
+ * messages with a carriage return and a line feed, and a reader that looks for
+ * two line feeds alone finds nothing at all.
+ *
+ * @param baseUrl - Where this instance is reachable from the client's machine.
+ * @param token - The integration token to show, when one has just been issued.
+ */
+export function streamExamples(baseUrl: string, token: string): Example[] {
+  const shown = token || 'YOUR_INTEGRATION_TOKEN';
+
+  return [
+    {
+      id: 'shell',
+      label: 'Shell',
+      language: 'bash',
+      caption: 'Nothing to write',
+      code: `# Every record on the broker, the status topic included. Host and port are in
+# the table above; add -u and -P when the broker asks for an account.
+mosquitto_sub -h localhost -p 1883 -t 'ximply/#' -v
+
+# The same events over HTTP, with no broker deployed at all. -N holds the
+# connection open, so each record prints as it is raised.
+curl -N -H "Authorization: Bearer ${shown}" \\
+  ${baseUrl}/api/v1/stream/events
+
+# Watch a camera. The stream is multipart JPEG, which ffplay reads directly.
+# The header needs its own line ending, hence the quoting.
+ffplay -headers $'Authorization: Bearer ${shown}\\r\\n' \\
+  ${baseUrl}/api/v1/stream/camera/default`,
+    },
+    {
+      id: 'javascript',
+      label: 'JavaScript',
+      language: 'javascript',
+      caption: 'stream.js',
+      code: `// EventSource cannot be used here: it sends no Authorization header, and the
+// endpoint refuses a token in the query string on purpose.
+const BASE_URL = "${baseUrl}";
+const TOKEN = "${shown}";
+
+async function streamEvents(onEvent, signal) {
+  const response = await fetch(\`\${BASE_URL}/api/v1/stream/events\`, {
+    headers: { Authorization: \`Bearer \${TOKEN}\`, Accept: "text/event-stream" },
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(\`Stream refused: \${response.status}\`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    // The server ends every line with a carriage return and a line feed. A
+    // reader that frames on two line feeds alone never finds a message.
+    buffer += decoder.decode(value, { stream: true }).replace(/\\r\\n/g, "\\n");
+
+    let end = buffer.indexOf("\\n\\n");
+    while (end !== -1) {
+      handleMessage(buffer.slice(0, end), onEvent);
+      buffer = buffer.slice(end + 2);
+      end = buffer.indexOf("\\n\\n");
+    }
+  }
+}
+
+function handleMessage(message, onEvent) {
+  let type = "message";
+  const data = [];
+
+  for (const line of message.split("\\n")) {
+    // A line starting with a colon is the keepalive comment, sent so an idle
+    // connection survives a proxy. There is nothing in it.
+    if (line.startsWith(":")) continue;
+    if (line.startsWith("event:")) type = line.slice(6).trim();
+    else if (line.startsWith("data:")) data.push(line.slice(5).trim());
+  }
+
+  if (data.length > 0) {
+    onEvent(type, JSON.parse(data.join("\\n")));
+  }
+}
+
+const controller = new AbortController();
+streamEvents((type, event) => {
+  console.log(type, event.body);
+}, controller.signal);
+// controller.abort() closes it. The server notices and ends the generator.`,
+    },
+    {
+      id: 'react',
+      label: 'React',
+      language: 'javascript',
+      caption: 'useVisionEvents.jsx',
+      code: `import { useEffect, useState } from "react";
+
+const BASE_URL = "${baseUrl}";
+const TOKEN = "${shown}";
+
+// Events. The abort controller is the cleanup: without it a remounted
+// component leaves the previous connection open on the server.
+export function useVisionEvents() {
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    (async () => {
+      const response = await fetch(\`\${BASE_URL}/api/v1/stream/events\`, {
+        headers: { Authorization: \`Bearer \${TOKEN}\` },
+        signal: controller.signal,
+      });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        // Line endings are normalised before framing: the server writes a
+        // carriage return and a line feed, not a bare line feed.
+        buffer += decoder.decode(value, { stream: true }).replace(/\\r\\n/g, "\\n");
+
+        let end = buffer.indexOf("\\n\\n");
+        while (end !== -1) {
+          const lines = buffer.slice(0, end).split("\\n");
+          buffer = buffer.slice(end + 2);
+          end = buffer.indexOf("\\n\\n");
+
+          const data = lines
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trim());
+          if (data.length > 0) {
+            setEvents((seen) => [JSON.parse(data.join("\\n")), ...seen]);
+          }
+        }
+      }
+    })().catch((error) => {
+      if (error.name !== "AbortError") console.error(error);
+    });
+
+    return () => controller.abort();
+  }, []);
+
+  return events;
+}
+
+// The camera. An img tag cannot be pointed at the stream, because it cannot
+// send the header the credential travels in. Read the multipart body instead
+// and hand each part to the img as a blob URL, revoking the one before it.
+export function useCameraFrame(cameraId = "default") {
+  const [src, setSrc] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let current = null;
+
+    (async () => {
+      const response = await fetch(
+        \`\${BASE_URL}/api/v1/stream/camera/\${cameraId}\`,
+        {
+          headers: { Authorization: \`Bearer \${TOKEN}\` },
+          signal: controller.signal,
+        }
+      );
+      const reader = response.body.getReader();
+      let buffer = new Uint8Array();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const merged = new Uint8Array(buffer.length + value.length);
+        merged.set(buffer);
+        merged.set(value, buffer.length);
+        buffer = merged;
+
+        // Each part is a JPEG between its start and end markers.
+        const start = indexOfMarker(buffer, 0xff, 0xd8);
+        const end = indexOfMarker(buffer, 0xff, 0xd9);
+        if (start !== -1 && end > start) {
+          const frame = buffer.slice(start, end + 2);
+          buffer = buffer.slice(end + 2);
+          if (current) URL.revokeObjectURL(current);
+          current = URL.createObjectURL(
+            new Blob([frame], { type: "image/jpeg" })
+          );
+          setSrc(current);
+        }
+      }
+    })().catch((error) => {
+      if (error.name !== "AbortError") console.error(error);
+    });
+
+    return () => {
+      controller.abort();
+      if (current) URL.revokeObjectURL(current);
+    };
+  }, [cameraId]);
+
+  return src;
+}
+
+function indexOfMarker(bytes, first, second) {
+  for (let i = 0; i < bytes.length - 1; i += 1) {
+    if (bytes[i] === first && bytes[i + 1] === second) return i;
+  }
+  return -1;
+}
+
+// Then in a component: <img src={useCameraFrame()} alt="" />`,
+    },
+    {
+      id: 'angular',
+      label: 'Angular',
+      language: 'typescript',
+      caption: 'vision-stream.service.ts',
+      code: `import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+
+const BASE_URL = '${baseUrl}';
+const TOKEN = '${shown}';
+
+/** One event, as the stream delivers it. */
+export interface StreamedEvent {
+  id: string;
+  eventName: string;
+  body: Record<string, unknown>;
+  attributes: Record<string, unknown>;
+  occurredAt: string | null;
+}
+
+@Injectable({ providedIn: 'root' })
+export class VisionStreamService {
+  /** The events received so far, newest first. */
+  readonly events = signal<StreamedEvent[]>([]);
+
+  /** Whether the connection is currently open. */
+  readonly connected = signal(false);
+
+  private readonly controller = new AbortController();
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.controller.abort());
+    void this.listen();
+  }
+
+  private async listen(): Promise<void> {
+    const response = await fetch(\`\${BASE_URL}/api/v1/stream/events\`, {
+      headers: { Authorization: \`Bearer \${TOKEN}\` },
+      signal: this.controller.signal,
+    });
+    if (!response.body) {
+      return;
+    }
+    this.connected.set(true);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        // The server writes a carriage return and a line feed. Normalising
+        // here is what makes the blank line separator findable.
+        buffer += decoder.decode(value, { stream: true }).replace(/\\r\\n/g, '\\n');
+
+        let end = buffer.indexOf('\\n\\n');
+        while (end !== -1) {
+          this.accept(buffer.slice(0, end));
+          buffer = buffer.slice(end + 2);
+          end = buffer.indexOf('\\n\\n');
+        }
+      }
+    } finally {
+      this.connected.set(false);
+    }
+  }
+
+  private accept(message: string): void {
+    const data = message
+      .split('\\n')
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim());
+
+    if (data.length === 0) {
+      return;
+    }
+    const event = JSON.parse(data.join('\\n')) as StreamedEvent;
+    this.events.update((seen) => [event, ...seen]);
+  }
+}`,
+    },
+  ];
+}

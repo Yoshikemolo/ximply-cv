@@ -6,19 +6,26 @@ import { CodeSnippetComponent } from '@shared/components/code-snippet/code-snipp
 import {
   IntegrationToken,
   IntegrationsService,
+  StreamInfo,
   WebhookSubscription,
 } from '@core/services/integrations.service';
-import { Example, mcpExamples, webhookExamples } from './integration-examples';
+import {
+  Example,
+  mcpExamples,
+  streamExamples,
+  webhookExamples,
+} from './integration-examples';
 
 /** Which integration the page is showing. */
-type IntegrationTab = 'webhooks' | 'mcp';
+type IntegrationTab = 'webhooks' | 'mcp' | 'streaming';
 
 /**
  * Integrations: outward connections from this instance.
  *
- * Two of them, presented as tabs because they are alternatives rather than
- * steps: a webhook pushes events to a receiver, and the protocol server lets an
- * agent pull them. Most deployments want one or the other.
+ * Three of them, presented as tabs because they are alternatives rather than
+ * steps: a webhook pushes events to a receiver, the protocol server lets an
+ * agent pull them, and the streams let a broker or a terminal subscribe. Most
+ * deployments want one of the three.
  *
  * A secret and a token are shown exactly once, when they are issued. That is
  * not an inconvenience to work around: a credential the interface can display
@@ -42,6 +49,9 @@ export class IntegrationsPageComponent implements OnInit {
   readonly eventTypes = signal<string[]>([]);
   readonly eventFamilies = signal<string[]>([]);
 
+  /** What the server says can be subscribed to. Null when streaming is off. */
+  readonly streamInfo = signal<StreamInfo | null>(null);
+
   readonly isLoading = signal(true);
   readonly message = signal<string | null>(null);
   readonly errorMessage = signal<string | null>(null);
@@ -58,17 +68,19 @@ export class IntegrationsPageComponent implements OnInit {
   /**
    * What a token can be granted.
    *
-   * The first three read or manage records. `camera:control` is different in
-   * kind: it switches a camera on, which is a decision about a room rather
-   * than a query, so it is never implied by the others and has to be ticked
-   * deliberately. A token without it can read everything the camera saw and
-   * still not turn it on.
+   * The first three read or manage records. The last two are different in
+   * kind: one switches a camera on and the other watches what it sees, and
+   * both are decisions about a room rather than queries, so neither is ever
+   * implied by the others and each has to be ticked deliberately. A token
+   * without them can read everything the camera saw and still not turn it on
+   * or look through it.
    */
   readonly availableScopes = [
     'events:read',
     'objects:read',
     'events:manage',
     'camera:control',
+    'camera:view',
   ];
 
   /**
@@ -82,9 +94,10 @@ export class IntegrationsPageComponent implements OnInit {
 
   readonly selectedWebhookExample = signal('node');
   readonly selectedMcpExample = signal('claude');
+  readonly selectedStreamExample = signal('shell');
 
   /**
-   * Where an agent should reach this instance.
+   * Where an agent or a subscriber should reach this instance.
    *
    * Defaults to the origin the browser is already using, which is right when
    * the agent runs on this machine and wrong when it does not. Editable for
@@ -108,11 +121,41 @@ export class IntegrationsPageComponent implements OnInit {
     this.mcpSnippets().find((e) => e.id === this.selectedMcpExample()),
   );
 
+  readonly streamSnippets = computed<Example[]>(() =>
+    streamExamples(this.baseUrl().replace(/\/+$/, ''), this.revealedToken()),
+  );
+
+  readonly currentStreamSnippet = computed<Example | undefined>(() =>
+    this.streamSnippets().find((e) => e.id === this.selectedStreamExample()),
+  );
+
+  /**
+   * The topic table, in the order the server lists it.
+   *
+   * Read from the response rather than hard coded, so a topic added to the
+   * backend appears here with no change to this file.
+   */
+  readonly streamTopics = computed<Array<{ name: string; template: string }>>(() => {
+    const topics = this.streamInfo()?.broker.topics ?? {};
+    return Object.entries(topics).map(([name, template]) => ({ name, template }));
+  });
+
   /** Whether any subscription is switched on, which is what the toggle reflects. */
   readonly webhooksActive = computed(() => this.webhooks().some((w) => w.isActive));
 
   /** Whether any token is usable, which is what the protocol toggle reflects. */
   readonly mcpActive = computed(() => this.tokens().some((t) => t.isActive));
+
+  /**
+   * Whether anything can be subscribed to.
+   *
+   * The HTTP stream works without a broker, so the tab reads active when
+   * either is available rather than only when the broker is up.
+   */
+  readonly streamingActive = computed(() => {
+    const info = this.streamInfo();
+    return !!info && (info.broker.connected || info.enabled);
+  });
 
   private defaultBaseUrl(): string {
     // The API is reached through the same origin in this deployment, so the
@@ -138,6 +181,11 @@ export class IntegrationsPageComponent implements OnInit {
     this.service.listTokens().subscribe({
       next: (items) => this.tokens.set(items),
       error: () => undefined,
+    });
+
+    this.service.getStreamInfo().subscribe({
+      next: (info) => this.streamInfo.set(info),
+      error: () => this.streamInfo.set(null),
     });
 
     this.service.listEventTypes().subscribe({

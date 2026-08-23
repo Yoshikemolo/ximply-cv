@@ -567,6 +567,32 @@
       "toolCameraControl": "pedir que una camara arranque o pare. Una vista abierta lo obedece; si no hay ninguna, no pasa nada.",
       "boundary": "Ninguna herramienta cambia el catalogo, da de alta o renombra a una persona, borra nada ni devuelve una imagen guardada. Las herramientas de camara registran una peticion; la camara solo la abre la vista en un navegador."
     },
+    "streaming": {
+      "title": "Streaming",
+      "hint": "Permite que un broker o un terminal se suscriba a esta instancia según pasan las cosas, en vez de esperar a que llamen a un endpoint tuyo. Los registros son los mismos que entrega un webhook.",
+      "status": "Estado",
+      "broker": "Broker",
+      "connected": "Conectado",
+      "disconnected": "Desconectado",
+      "brokerOff": "Sin broker",
+      "brokerOffHint": "Este despliegue no publica en ningún broker. Los endpoints HTTP de abajo funcionan sin él, y encender un broker es reiniciar, no un interruptor de esta página.",
+      "published": "{{count}} publicados",
+      "dropped": "{{count}} descartados",
+      "subscribers": "{{count}} suscriptores",
+      "httpStream": "Stream HTTP",
+      "httpOnly": "Los endpoints HTTP llevan los mismos registros sin desplegar ningún broker: curl lee los eventos y cualquier reproductor lee la cámara.",
+      "cameraLimits": "Frames hasta {{fps}} fps, {{side}} px",
+      "cameraOff": "Frames en directo desactivados",
+      "topics": "Topics",
+      "topic": "Topic",
+      "payload": "Payload",
+      "address": "Dirección",
+      "addressHint": "Dónde debe alcanzar el suscriptor a esta instancia. Por defecto es la dirección que usa tu navegador, que no sirve si el suscriptor se ejecuta en otra máquina.",
+      "examples": "Suscribirse",
+      "examplesHint": "En el shell no hay que escribir nada. Los ejemplos de navegador usan fetch con un reader, porque EventSource no puede enviar la cabecera Authorization que exigen estos endpoints.",
+      "scopeHint": "Los dos endpoints leen la credencial de la cabecera Authorization y de ningún otro sitio, así que un token en la query string se rechaza y no puedes apuntar una etiqueta img a una cámara. Verla necesita camera:view escrito en el token por su nombre.",
+      "unavailable": "Este despliegue tiene el streaming desactivado, así que no hay nada a lo que suscribirse."
+    },
     "errors": {
       "failed": "La petición ha fallado."
     }

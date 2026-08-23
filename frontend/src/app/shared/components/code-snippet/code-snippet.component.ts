@@ -16,6 +16,7 @@ import javascript from 'highlight.js/lib/languages/javascript';
 import json from 'highlight.js/lib/languages/json';
 import python from 'highlight.js/lib/languages/python';
 import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
 
 // Registered once for the whole application. Only the languages actually shown
 // are imported: the full library is several hundred kilobytes of grammars for
@@ -33,6 +34,8 @@ function registerLanguages(): void {
   hljs.registerLanguage('json', json);
   hljs.registerLanguage('python', python);
   hljs.registerLanguage('typescript', typescript);
+  // JSX inside a JavaScript example is highlighted through the xml grammar.
+  hljs.registerLanguage('xml', xml);
   registered = true;
 }
 

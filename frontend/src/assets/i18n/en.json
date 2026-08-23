@@ -567,6 +567,32 @@
       "toolCameraControl": "ask a camera to start or stop. An open view honours it; nothing happens when none is open.",
       "boundary": "No tool changes the catalog, enrols or renames a person, deletes anything, or returns a stored image. The camera tools record a request; the camera itself is only ever opened by the view running in a browser."
     },
+    "streaming": {
+      "title": "Streaming",
+      "hint": "Lets a broker or a terminal subscribe to this instance as things happen, rather than waiting for an endpoint of yours to be called. The records are the ones a webhook delivers.",
+      "status": "Status",
+      "broker": "Broker",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "brokerOff": "No broker",
+      "brokerOffHint": "This deployment publishes to no broker. The HTTP endpoints below work without one, and turning a broker on is a restart rather than a switch on this page.",
+      "published": "{{count}} published",
+      "dropped": "{{count}} dropped",
+      "subscribers": "{{count}} subscribers",
+      "httpStream": "HTTP stream",
+      "httpOnly": "The HTTP endpoints carry the same records with no broker deployed: curl reads the events and any player reads the camera.",
+      "cameraLimits": "Frames up to {{fps}} fps, {{side}} px",
+      "cameraOff": "Live frames off",
+      "topics": "Topics",
+      "topic": "Topic",
+      "payload": "Payload",
+      "address": "Address",
+      "addressHint": "Where the subscriber should reach this instance. The default is the address your browser is using, which is wrong when the subscriber runs elsewhere.",
+      "examples": "Subscribing",
+      "examplesHint": "The shell needs nothing written. The browser examples use fetch with a reader, because EventSource cannot send the Authorization header these endpoints require.",
+      "scopeHint": "Both endpoints read the credential from the Authorization header and nowhere else, so a token in a query string is refused and an img tag cannot be pointed at a camera. Watching one needs camera:view written on the token by name.",
+      "unavailable": "Streaming is switched off on this deployment, so there is nothing to subscribe to."
+    },
     "errors": {
       "failed": "The request failed."
     }
