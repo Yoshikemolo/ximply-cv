@@ -343,24 +343,3 @@ async def _prune_embeddings(db: AsyncSession, person_id: UUID) -> None:
         rows = list(result.scalars().all())
         for row in rows[cap:]:
             await db.delete(row)
-
-
-async def should_enrol(sighting: PersonSighting) -> bool:
-    """
-    Whether an unmatched sighting is good enough to become a new person.
-
-    Enrolling on a poor sighting creates duplicate people that never match
-    again, so a sighting without a face embedding is only accepted when the
-    body descriptor came from a reasonably large crop.
-
-    Args:
-        sighting: The unmatched sighting.
-
-    Returns:
-        bool: True when the sighting should create a person.
-    """
-    if not settings.person_auto_enroll:
-        return False
-    if sighting.face_vector is not None:
-        return True
-    return sighting.body_vector is not None and sighting.body_quality >= 0.5

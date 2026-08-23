@@ -19,9 +19,25 @@ A sighting matches a known person when the weighted combination of both
 similarities clears the configured thresholds. When nothing matches and
 auto enrolment is on, a new person is created with the next free sequential
 name, "Person 1", "Person 2", and so on.
+
+Creating a person is treated as far more expensive than failing to recognise
+one. A missed recognition costs one frame; a person invented from a bad crop
+stays in the catalog for good, and every later sighting of the same face has a
+second entry to be split across. Enrolment is therefore gated three ways:
+
+- The sighting must be good enough to be worth remembering. A face too small or
+  too uncertain to identify anybody is also too poor to define somebody new.
+- It must not be a near miss. A similarity just under the matching threshold is
+  the signature of a known person seen badly, not of a stranger, so the band
+  below the threshold enrols nobody.
+- It must persist. An unknown fingerprint has to come back over several frames
+  before it earns an entry, which is what separates a person who walked in from
+  a reflection, a face on a screen or a duplicate box on somebody already
+  identified.
 """
 
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
@@ -92,6 +108,77 @@ class PersonMatch:
     face_similarity: float = 0.0
     body_similarity: float = 0.0
     matched_on: str = ""
+
+
+@dataclass
+class PersonEvaluation:
+    """
+    What the gallery had to say about a sighting.
+
+    The accepted match is only half the answer. The other half is how close the
+    best candidate came without being accepted, because that is what separates a
+    stranger from a known person seen badly, and only the second of those should
+    ever create a catalog entry.
+    """
+
+    match: Optional[PersonMatch] = None
+    best_face_similarity: float = 0.0
+    best_body_similarity: float = 0.0
+
+    @property
+    def matched(self) -> bool:
+        """Whether a known person was accepted for this sighting."""
+        return self.match is not None
+
+    @property
+    def near_miss(self) -> bool:
+        """
+        Whether somebody known came close without clearing the threshold.
+
+        A face sitting just under the bar is almost always that person in worse
+        light, at a sharper angle or half out of frame. Enrolling on it mints a
+        duplicate of somebody who is already in the catalog.
+        """
+        if self.matched:
+            return False
+        margin = settings.person_enrol_margin
+        return (
+            self.best_face_similarity >= settings.person_face_threshold - margin
+            or self.best_body_similarity >= settings.person_body_threshold - margin
+        )
+
+
+@dataclass
+class PendingPerson:
+    """
+    An unknown fingerprint that has not yet earned a place in the catalog.
+
+    Held in memory only. Losing these on a restart costs nothing: a person who
+    is really there is seen again on the next frame and starts building evidence
+    over again.
+    """
+
+    face_vectors: List[np.ndarray] = field(default_factory=list)
+    body_vectors: List[np.ndarray] = field(default_factory=list)
+    sightings: int = 0
+    last_seen: float = 0.0
+
+    def best_similarity(self, kind: str, query: np.ndarray) -> float:
+        """Highest cosine similarity against the samples collected so far."""
+        vectors = self.face_vectors if kind == FACE else self.body_vectors
+        if not vectors:
+            return 0.0
+        stacked = np.vstack(vectors)
+        return float(np.max(stacked @ query))
+
+    def absorb(self, sighting: "PersonSighting", now: float) -> None:
+        """Fold one more sighting of this unknown fingerprint into the evidence."""
+        if sighting.face_vector is not None:
+            self.face_vectors.append(sighting.face_vector)
+        if sighting.body_vector is not None:
+            self.body_vectors.append(sighting.body_vector)
+        self.sightings += 1
+        self.last_seen = now
 
 
 @dataclass
@@ -382,6 +469,7 @@ class PersonRecognitionService:
         self.face_embedder = FaceEmbedder()
         self.body_embedder = BodyEmbedder()
         self._gallery: Dict[UUID, GalleryEntry] = {}
+        self._pending: List[PendingPerson] = []
         self._lock = threading.Lock()
 
     @property
@@ -419,9 +507,17 @@ class PersonRecognitionService:
         }
 
     def clear_gallery(self) -> None:
-        """Drop every known person from memory."""
+        """
+        Drop every known person from memory.
+
+        Candidates waiting to be enrolled go with them. They were only unknown
+        relative to the gallery being replaced, and keeping them would let a
+        reload turn a face that is about to be reloaded into a duplicate of
+        itself.
+        """
         with self._lock:
             self._gallery.clear()
+            self._pending.clear()
         logger.info("Person gallery cleared")
 
     def remove_person(self, person_id: UUID) -> bool:
@@ -556,29 +652,34 @@ class PersonRecognitionService:
 
         return sighting
 
-    def match(self, sighting: PersonSighting) -> Optional[PersonMatch]:
+    def evaluate(self, sighting: PersonSighting) -> PersonEvaluation:
         """
-        Find the known person that best explains a sighting.
+        Weigh a sighting against everybody known.
 
         The face similarity carries most of the weight because it is the part
         that survives a change of clothes. A strong face match alone is enough,
         and so is a strong body match when no face is visible, which is what
         keeps recognition working behind a mask or from behind.
 
+        The highest similarity found is reported whether or not it was accepted,
+        so a caller can tell a stranger from a known person seen badly.
+
         Args:
             sighting: The sighting to identify.
 
         Returns:
-            PersonMatch when a person clears the thresholds, None otherwise.
+            PersonEvaluation: The accepted match, if any, and the best scores.
         """
+        evaluation = PersonEvaluation()
+
         if not sighting.has_any_embedding:
-            return None
+            return evaluation
 
         with self._lock:
             entries = list(self._gallery.values())
 
         if not entries:
-            return None
+            return evaluation
 
         face_threshold = settings.person_face_threshold
         body_threshold = settings.person_body_threshold
@@ -596,6 +697,13 @@ class PersonRecognitionService:
                 entry.best_similarity(BODY, sighting.body_vector)
                 if sighting.body_vector is not None
                 else 0.0
+            )
+
+            evaluation.best_face_similarity = max(
+                evaluation.best_face_similarity, face_similarity
+            )
+            evaluation.best_body_similarity = max(
+                evaluation.best_body_similarity, body_similarity
             )
 
             face_hit = face_similarity >= face_threshold
@@ -630,7 +738,144 @@ class PersonRecognitionService:
                 f"(face={best.face_similarity:.2f}, body={best.body_similarity:.2f})"
             )
 
-        return best
+        evaluation.match = best
+        return evaluation
+
+    def match(self, sighting: PersonSighting) -> Optional[PersonMatch]:
+        """
+        The known person that best explains a sighting, or None.
+
+        Args:
+            sighting: The sighting to identify.
+
+        Returns:
+            PersonMatch when a person clears the thresholds, None otherwise.
+        """
+        return self.evaluate(sighting).match
+
+    def should_enrol(
+        self,
+        sighting: PersonSighting,
+        evaluation: PersonEvaluation,
+    ) -> bool:
+        """
+        Whether an unmatched sighting has earned a place in the catalog.
+
+        Every gate here exists because failing it produced a person who was
+        never seen again:
+
+        - A sighting nobody could be identified from cannot define anybody. A
+          face below the quality floor, or a body crop too small to describe,
+          is evidence of a shape, not of an identity.
+        - A near miss is a known person seen badly. Enrolling on one splits
+          somebody who is already in the catalog into two entries, and every
+          later sighting has to choose between them.
+        - A fingerprint seen once and never again was a reflection, a face on a
+          screen, a passer-by in a doorway or a second box on somebody already
+          identified. Waiting for it to come back costs a few frames of being
+          called nobody, and costs nothing at all when the person is really
+          there, because they are still there on the next frame.
+
+        Args:
+            sighting: The unmatched sighting.
+            evaluation: What the gallery said about it.
+
+        Returns:
+            bool: True when a person should be created from this sighting.
+        """
+        if not settings.person_auto_enroll:
+            return False
+        if evaluation.matched:
+            return False
+
+        if not self._worth_enrolling(sighting):
+            return False
+
+        if evaluation.near_miss:
+            logger.debug(
+                "Not enrolling a near miss "
+                f"(face={evaluation.best_face_similarity:.2f}, "
+                f"body={evaluation.best_body_similarity:.2f})"
+            )
+            return False
+
+        return self._confirm_candidate(sighting)
+
+    @staticmethod
+    def _worth_enrolling(sighting: PersonSighting) -> bool:
+        """
+        Whether a sighting is good enough to define a new person.
+
+        A face is only accepted when the detector was confident about it: the
+        size floor in the embedder keeps out faces too small to describe, and
+        this keeps out the ones it was guessing at. Without a face, the body
+        descriptor has to come from a crop with enough pixels to mean anything.
+        """
+        if sighting.face_vector is not None:
+            return sighting.face_quality >= settings.person_min_enrol_face_quality
+        return (
+            sighting.body_vector is not None
+            and sighting.body_quality >= settings.person_min_enrol_body_quality
+        )
+
+    def _confirm_candidate(self, sighting: PersonSighting) -> bool:
+        """
+        Count how often this unknown fingerprint has come back.
+
+        Returns True once it has been seen enough times inside the window, and
+        the candidate is dropped at that point: it is about to become a real
+        person, and holding both would let the next sighting match the pending
+        copy instead of the catalog entry.
+
+        Args:
+            sighting: The unmatched sighting.
+
+        Returns:
+            bool: True when the candidate has been confirmed.
+        """
+        required = settings.person_enrol_confirmations
+        window = settings.person_enrol_window_seconds
+        face_threshold = settings.person_face_threshold
+        body_threshold = settings.person_body_threshold
+        now = time.time()
+
+        with self._lock:
+            # A candidate that stopped coming back was never a person.
+            self._pending = [p for p in self._pending if now - p.last_seen <= window]
+
+            for candidate in self._pending:
+                face_similarity = (
+                    candidate.best_similarity(FACE, sighting.face_vector)
+                    if sighting.face_vector is not None
+                    else 0.0
+                )
+                body_similarity = (
+                    candidate.best_similarity(BODY, sighting.body_vector)
+                    if sighting.body_vector is not None
+                    else 0.0
+                )
+                if face_similarity < face_threshold and body_similarity < body_threshold:
+                    continue
+
+                candidate.absorb(sighting, now)
+                if candidate.sightings >= required:
+                    self._pending.remove(candidate)
+                    return True
+
+                logger.debug(
+                    f"Unknown person seen {candidate.sightings} of {required} times"
+                )
+                return False
+
+            candidate = PendingPerson()
+            candidate.absorb(sighting, now)
+            # A single sighting is enough only when confirmation is switched
+            # off, and then there is nothing left to remember about it.
+            if candidate.sightings >= required:
+                return True
+            self._pending.append(candidate)
+
+        return False
 
     def next_person_name(self, taken_names: List[str]) -> str:
         """

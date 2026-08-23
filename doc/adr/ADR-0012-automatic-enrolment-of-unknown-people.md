@@ -1,7 +1,11 @@
 # ADR-0012: Enrol an unknown person automatically
 
-- **Status**: Accepted
-- **Related**: [ADR-0002](ADR-0002-people-as-catalog-entries.md),
+- **Status**: Accepted. Amended by
+  [ADR-0019](ADR-0019-confirm-a-person-before-enrolling-them.md), which keeps
+  automatic enrolment and raises the evidence it takes. The last paragraph of
+  the decision below is the part it replaces.
+- **Related**: [ADR-0019](ADR-0019-confirm-a-person-before-enrolling-them.md),
+  [ADR-0002](ADR-0002-people-as-catalog-entries.md),
   [ADR-0003](ADR-0003-dual-embedding-person-reidentification.md),
   [SEC-0004](../sec/SEC-0004-biometric-data.md),
   [SEC-0005](../sec/SEC-0005-consent-and-lawful-basis.md)

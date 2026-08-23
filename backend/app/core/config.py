@@ -115,6 +115,24 @@ class Settings(BaseSettings):
     person_category_name: str = "People"
     person_name_prefix: str = "Person"
 
+    # What it takes to create a person, as opposed to recognising one. Missing a
+    # recognition costs one frame; a person invented from a bad crop stays in
+    # the catalog and splits every later sighting of that face in two, so the
+    # bar for creating one is deliberately higher than the bar for matching.
+    #
+    # How far under the matching threshold still counts as somebody known seen
+    # badly rather than a stranger. Nobody is enrolled inside this band.
+    person_enrol_margin: float = 0.08
+    # How certain the face detector must be before a face defines a new person.
+    # Recognition still runs on weaker faces; only enrolment is held back.
+    person_min_enrol_face_quality: float = 0.65
+    # How much of the crop a body descriptor needs when there is no face at all.
+    person_min_enrol_body_quality: float = 0.5
+    # How many times an unknown fingerprint must come back before it earns a
+    # catalog entry, and how long it has to do it in. One disables the wait.
+    person_enrol_confirmations: int = 3
+    person_enrol_window_seconds: float = 10.0
+
     # Events
     # Emitted on a transition, never per frame: detection runs several times a
     # second and a per frame stream would drown any subscriber.

@@ -46,10 +46,13 @@ from app.services.person_catalog import (
     enrol_person,
     get_or_create_people_category,
     load_gallery,
-    should_enrol,
     store_sighting,
 )
-from app.services.person_recognition_service import get_person_recognition_service
+from app.services.person_recognition_service import (
+    PersonEvaluation,
+    PersonSighting,
+    get_person_recognition_service,
+)
 from app.services.pose_service import get_pose_service
 from app.services.segmentation_service import get_segmentation_service
 from app.services.description_service import get_description_service
@@ -123,6 +126,40 @@ def _calculate_overlap_ratio(box1: BoundingBox, box2: BoundingBox) -> float:
         return 0.0
 
     return intersection / area2
+
+
+def _covers_identified_person(
+    detection: DetectionResult,
+    identified: List[DetectionResult],
+    iou_threshold: float = 0.3,
+    overlap_threshold: float = 0.5,
+) -> bool:
+    """
+    Whether a box lands on somebody already identified in this frame.
+
+    People are identified before duplicate boxes are resolved, so one human can
+    arrive as two boxes: the whole figure and, say, the head and shoulders. One
+    of them matches, the other has too little of the person in it to match
+    anything, and treated on its own it looks exactly like a stranger. The
+    thresholds are the ones deduplication would apply to the same pair.
+
+    Args:
+        detection: The unmatched box.
+        identified: Boxes in this frame that already carry an identity.
+        iou_threshold: Overlap at which two boxes describe the same figure.
+        overlap_threshold: How much of the box must sit inside another one.
+
+    Returns:
+        bool: True when the box belongs to somebody already recognised.
+    """
+    for other in identified:
+        if other is detection:
+            continue
+        if _calculate_iou(detection.bbox, other.bbox) >= iou_threshold:
+            return True
+        if _calculate_overlap_ratio(other.bbox, detection.bbox) >= overlap_threshold:
+            return True
+    return False
 
 
 def _filter_person_detections(
@@ -554,6 +591,12 @@ async def _identify_people(
 
     changed = False
 
+    # Recognition is resolved for every box before any enrolment is considered.
+    # This runs before deduplication, so the same person can arrive as two
+    # overlapping boxes, and whether one of them belongs to somebody already
+    # identified is only knowable once all the matching is done.
+    unmatched: List[Tuple[DetectionResult, PersonSighting, PersonEvaluation]] = []
+
     for detection in person_detections:
         try:
             sighting = service.build_sighting(
@@ -568,30 +611,52 @@ async def _identify_people(
             if not sighting.has_any_embedding:
                 continue
 
-            match = service.match(sighting)
+            evaluation = service.evaluate(sighting)
+            match = evaluation.match
 
-            if match is not None:
-                detection.object_id = str(match.person_id)
-                detection.object_name = match.person_name
-                detection.match_confidence = float(match.similarity)
+            if match is None:
+                unmatched.append((detection, sighting, evaluation))
+                continue
 
-                # Remembering a confirmed sighting is what lets the fingerprint
-                # follow a person as they put on a cap or take off a mask.
-                person = await db.get(ObjectEntity, match.person_id)
-                if person is not None:
-                    await store_sighting(db, person, service, sighting)
-                    changed = True
-            elif await should_enrol(sighting):
-                person = await enrol_person(db, owner_id, service, sighting)
-                detection.object_id = str(person.id)
-                detection.object_name = person.name
-                # A brand new person is certain by construction: they are
-                # whoever this sighting is, nobody else.
-                detection.match_confidence = 1.0
+            detection.object_id = str(match.person_id)
+            detection.object_name = match.person_name
+            detection.match_confidence = float(match.similarity)
+
+            # Remembering a confirmed sighting is what lets the fingerprint
+            # follow a person as they put on a cap or take off a mask.
+            person = await db.get(ObjectEntity, match.person_id)
+            if person is not None:
+                await store_sighting(db, person, service, sighting)
                 changed = True
 
         except Exception as e:
             logger.debug(f"Person identification failed for one box: {e}")
+            continue
+
+    identified = [d for d in person_detections if d.object_id is not None]
+
+    for detection, sighting, evaluation in unmatched:
+        try:
+            if _covers_identified_person(detection, identified):
+                # A second box on somebody already recognised in this frame. The
+                # crop is a piece of a known person, so enrolling from it would
+                # file part of them under a new name.
+                continue
+
+            if not service.should_enrol(sighting, evaluation):
+                continue
+
+            person = await enrol_person(db, owner_id, service, sighting)
+            detection.object_id = str(person.id)
+            detection.object_name = person.name
+            # A brand new person is certain by construction: they are
+            # whoever this sighting is, nobody else.
+            detection.match_confidence = 1.0
+            identified.append(detection)
+            changed = True
+
+        except Exception as e:
+            logger.debug(f"Person enrolment failed for one box: {e}")
             continue
 
     if changed:
