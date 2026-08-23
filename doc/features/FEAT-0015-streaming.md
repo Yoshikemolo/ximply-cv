@@ -22,8 +22,14 @@ Two ways in, carrying the same records:
   `GET /stream/camera/{id}` is a multipart JPEG stream, so `curl -N` and
   `ffplay` are enough and no broker has to be deployed.
 
-Both are off unless a deployment turns them on, and the frames are off
-separately from the events.
+The event stream over HTTP is on in a fresh deployment. It carries the records
+the same credential could already read from `GET /events`, so holding a
+connection open for them exposes nothing new; `STREAM_ENABLED` is there to turn
+it off rather than to turn it on.
+
+The broker and the live frames are the opposite. Each is off until a deployment
+asks for it, and each is asked for separately, because one carries a record of
+the room and the other carries the room.
 
 ## The broker
 
