@@ -38,6 +38,7 @@ FOLDERS = [
     ("Objects", "Objects"),
     ("Events", "Events"),
     ("Webhooks", "Webhooks"),
+    ("Streaming", "Streaming"),
     ("Integrations", "Integration tokens"),
     ("Users", "Users (Admin)"),
 ]
@@ -49,6 +50,25 @@ NOTES = {
         "'running' is decided by frames arriving for detection, never by what "
         "was asked for, so 'pending' true means the request was recorded and no "
         "view is open to honour it. Needs detection:view."
+    ),
+    ("GET", "/stream/info"): (
+        "What can be subscribed to: whether the broker is connected, its "
+        "topics, the streaming endpoints and the scope each one needs. The "
+        "interface builds its topic table and its examples from this. Needs "
+        "events:read, and accepts an integration token as well as a session."
+    ),
+    ("GET", "/stream/events"): (
+        "Holds the connection open and writes one server sent event per "
+        "record, the same log record a webhook delivery carries. Postman will "
+        "sit on this request until you cancel it, which is the point. A "
+        "comment keepalive is written every STREAM_KEEPALIVE_SECONDS. Needs "
+        "events:read."
+    ),
+    ("GET", "/stream/camera/{camera_id}"): (
+        "Watch a camera live, as multipart JPEG. Needs camera:view written on "
+        "the token by name: an empty scope list never implies it. Answers 404 "
+        "when CAMERA_VIEW_ENABLED is false, and carries nothing at all while "
+        "no interface is sending frames."
     ),
     ("PUT", "/detection/camera"): (
         "Ask a camera to start or stop. The camera belongs to the browser, so "

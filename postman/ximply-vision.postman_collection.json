@@ -54,6 +54,11 @@
       "key": "user_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "camera_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "auth": {
@@ -1370,6 +1375,72 @@
                 {
                   "key": "subscription_id",
                   "value": "{{subscription_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Streaming",
+      "item": [
+        {
+          "name": "Stream Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Holds the connection open and writes one server sent event per record, the same log record a webhook delivery carries. Postman will sit on this request until you cancel it, which is the point. A comment keepalive is written every STREAM_KEEPALIVE_SECONDS. Needs events:read.",
+            "url": {
+              "raw": "{{baseUrl}}/stream/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stream",
+                "events"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stream Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "What can be subscribed to: whether the broker is connected, its topics, the streaming endpoints and the scope each one needs. The interface builds its topic table and its examples from this. Needs events:read, and accepts an integration token as well as a session.",
+            "url": {
+              "raw": "{{baseUrl}}/stream/info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stream",
+                "info"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stream Camera",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Watch a camera live, as multipart JPEG. Needs camera:view written on the token by name: an empty scope list never implies it. Answers 404 when CAMERA_VIEW_ENABLED is false, and carries nothing at all while no interface is sending frames.",
+            "url": {
+              "raw": "{{baseUrl}}/stream/camera/:camera_id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stream",
+                "camera",
+                ":camera_id"
+              ],
+              "variable": [
+                {
+                  "key": "camera_id",
+                  "value": "{{camera_id}}"
                 }
               ]
             }
