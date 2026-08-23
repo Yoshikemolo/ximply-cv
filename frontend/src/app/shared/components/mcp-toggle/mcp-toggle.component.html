@@ -1,0 +1,31 @@
+@if (isAvailable()) {
+  <button
+    type="button"
+    class="mcp-toggle"
+    [class.mcp-toggle--on]="isEnabled()"
+    [class.mcp-toggle--pending]="pending()"
+    [disabled]="!canConfigure() || pending()"
+    [attr.aria-pressed]="isEnabled()"
+    [title]="
+      (canConfigure()
+        ? isEnabled()
+          ? 'mcpToggle.hintClose'
+          : 'mcpToggle.hintOpen'
+        : 'mcpToggle.hintReadOnly'
+      ) | translate
+    "
+    (click)="toggle()"
+  >
+    <span class="mcp-toggle__dot" aria-hidden="true"></span>
+    <span class="mcp-toggle__label">{{ 'mcpToggle.label' | translate }}</span>
+    <span class="mcp-toggle__state">
+      {{ (isEnabled() ? 'mcpToggle.on' : 'mcpToggle.off') | translate }}
+    </span>
+  </button>
+
+  @if (errorMessage(); as message) {
+    <span class="mcp-toggle__error" role="alert">
+      {{ message | translate }}
+    </span>
+  }
+}

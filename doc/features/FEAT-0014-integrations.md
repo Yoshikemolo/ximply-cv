@@ -110,6 +110,23 @@ stop, never open one. What that boundary is for is
 [ADR-0016](../adr/ADR-0016-read-only-protocol-server.md) and
 [ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md).
 
+## The switch in the footer
+
+The protocol is opened and closed from a switch in the application footer,
+present on every page, behind the same `events:manage` that gates this page. A
+lit dot means agents can connect; grey means the door is shut and every call is
+refused with a `503` while both transports stay mounted.
+
+It is in the footer rather than on this page on purpose. Wanting the camera to
+stop being reachable is not something that happens while administering
+integrations, and a control that can only be reached by navigating to the right
+tab is a control that is not there when it is needed. A deployment built without
+the protocol shows nothing at all, since there is no switch to offer.
+
+Whoever lacks `events:manage` still sees the state. Knowing whether the camera
+is reachable is not the same as deciding it, and the first matters to anyone
+looking at the screen.
+
 ## How it is implemented
 
 One standalone component, `IntegrationsPageComponent`, over one service,
@@ -176,6 +193,9 @@ after.
 - **The test result is a message, not a status.** It reports the HTTP code the
   endpoint answered, or the transport error, in the banner at the top of the
   page.
+- **The footer switch is per process.** The state is held in memory, like the
+  acceleration preference, so a deployment running several workers throws it per
+  worker. `MCP_ENABLED` is the deployment-wide answer and is read at startup.
 - **This page does not show events.** There is still no screen that lists what
   was observed; events are read over the API, or through an agent. The tabs
   here are about who receives them.

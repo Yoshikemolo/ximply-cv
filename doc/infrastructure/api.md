@@ -665,8 +665,8 @@ Administration. See
 ## Health
 
 Reading these needs no authentication, because they describe the server rather
-than any user data. Changing where inference runs does, and is the one route
-here that is not public.
+than any user data. Changing something does, and those are the two routes here
+that are not public.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -675,6 +675,37 @@ here that is not public.
 | GET | `/health/ready` | No | Readiness probe, checks the database |
 | GET | `/health/acceleration` | No | What each backend can use and is using |
 | PUT | `/health/acceleration` | `detection:configure` | Move one backend between the processor and the accelerator |
+| GET | `/health/mcp` | No | Whether the protocol is built in and currently open |
+| PUT | `/health/mcp` | `events:manage` | Open or close the protocol |
+
+### Protocol switch
+
+```json
+{
+  "available": true,
+  "enabled": true,
+  "path": "/mcp",
+  "ssePath": "/mcp/sse"
+}
+```
+
+`available` is whether the deployment was started with `MCP_ENABLED`, which is
+read once at startup and cannot be changed from here. `enabled` is the switch on
+the wall, thrown while the application runs:
+
+```http
+PUT /api/v1/health/mcp
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "enabled": false }
+```
+
+The reply is the status above. Closing the protocol cuts off every connected
+agent, not just the caller's, which is why it sits behind `events:manage` like
+the rest of the integration configuration. A deployment started without the
+protocol answers `409`: there is nothing to open, and saying so is better than
+reporting a state it cannot reach.
 
 ### Acceleration
 

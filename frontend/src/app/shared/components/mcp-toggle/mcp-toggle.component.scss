@@ -1,0 +1,75 @@
+@use '../../../../styles/variables' as *;
+
+// Sized to sit in the footer's single row of small muted text without changing
+// its height, which is why the padding is tighter than a normal control.
+.mcp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background-color: var(--bg-primary);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-family: $font-family-mono;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--text-secondary);
+    border-color: var(--border-strong);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  // Someone without the permission still reads the state, so the disabled form
+  // is dimmed only enough to say it is not a control for them.
+  &:disabled {
+    cursor: default;
+    opacity: 0.75;
+  }
+
+  &--pending {
+    cursor: progress;
+  }
+
+  // The dot carries the answer: lit means agents can connect. The label beside
+  // it repeats that in words, because colour alone is not an answer for anyone
+  // who cannot distinguish these two.
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--text-tertiary);
+    transition: background-color 0.15s, box-shadow 0.15s;
+  }
+
+  &--on &__dot {
+    background-color: var(--color-success, #3fb950);
+    box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.18);
+  }
+
+  &__label {
+    letter-spacing: 0.04em;
+  }
+
+  &__state {
+    color: var(--text-secondary);
+  }
+
+  &--on &__state {
+    color: var(--color-success, #3fb950);
+  }
+}
+
+.mcp-toggle__error {
+  margin-left: 6px;
+  color: var(--color-danger, #e5484d);
+  font-size: 11px;
+}

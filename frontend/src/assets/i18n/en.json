@@ -570,5 +570,14 @@
     "errors": {
       "failed": "The request failed."
     }
+  },
+  "mcpToggle": {
+    "label": "MCP",
+    "on": "open",
+    "off": "closed",
+    "hintOpen": "Open the Model Context Protocol so agents can connect",
+    "hintClose": "Close the Model Context Protocol and cut off connected agents",
+    "hintReadOnly": "Whether agents can reach this camera over the Model Context Protocol",
+    "failed": "The protocol could not be switched"
   }
 }

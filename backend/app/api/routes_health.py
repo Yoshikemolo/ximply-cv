@@ -187,3 +187,69 @@ def _reload_for(backend: str) -> None:
             get_pose_service().reload_models()
     except Exception as e:
         logger.warning(f"Could not rebuild models after changing {backend}: {e}")
+
+
+@router.get("/mcp")
+async def mcp_status() -> dict:
+    """
+    Report whether the Model Context Protocol is answering.
+
+    Public, like the acceleration status it sits beside, because it describes
+    the server rather than any user data and the interface shows it in the
+    footer on every page.
+
+    Returns:
+        dict: Whether the protocol is built into this deployment, whether it is
+            currently open, and the paths it is served on.
+    """
+    from app.services import mcp_server
+
+    return mcp_server.describe()
+
+
+class McpPreference(BaseModel):
+    """A request to open or close the protocol."""
+
+    enabled: bool
+
+
+@router.put("/mcp")
+async def set_mcp(
+    preference: McpPreference,
+    current_user: TokenData = Depends(require_permissions([Permission.EVENTS_MANAGE])),
+) -> dict:
+    """
+    Open or close the Model Context Protocol while the application runs.
+
+    Not public, unlike the status it changes: closing it cuts off every
+    connected agent, not just the caller's, so it sits behind the same
+    permission as the rest of the integration configuration.
+
+    A deployment that was started with the protocol switched off has nothing to
+    open, and says so rather than reporting a state it cannot reach.
+
+    Args:
+        preference: Whether the protocol should answer requests.
+
+    Returns:
+        dict: The protocol status after the change.
+
+    Raises:
+        HTTPException: When the protocol is not built into this deployment.
+    """
+    from app.services import mcp_server
+
+    if not settings.mcp_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This deployment was started without the protocol. It is enabled "
+                "with MCP_ENABLED, which is read at startup."
+            ),
+        )
+
+    mcp_server.set_enabled(preference.enabled)
+    logger.info(
+        f"Protocol {'opened' if preference.enabled else 'closed'} by {current_user.sub}"
+    )
+    return mcp_server.describe()

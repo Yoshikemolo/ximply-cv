@@ -154,12 +154,31 @@ if settings.mcp_enabled:
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.responses import JSONResponse
 
-        from app.services.mcp_server import authenticate, current_token, get_mcp_server
+        from app.services.mcp_server import (
+            authenticate,
+            current_token,
+            get_mcp_server,
+            is_enabled,
+        )
 
         class IntegrationTokenMiddleware(BaseHTTPMiddleware):
             """Resolves the integration token for one protocol request."""
 
             async def dispatch(self, request, call_next):
+                # The runtime switch is read per request rather than at mount
+                # time, which is what lets it be thrown while the application
+                # runs. A closed protocol says so instead of leaving a hole.
+                if not is_enabled():
+                    return JSONResponse(
+                        status_code=503,
+                        content={
+                            "detail": (
+                                "The Model Context Protocol is switched off on "
+                                "this instance."
+                            )
+                        },
+                    )
+
                 token = await authenticate(request.headers.get("authorization"))
                 if token is None:
                     return JSONResponse(

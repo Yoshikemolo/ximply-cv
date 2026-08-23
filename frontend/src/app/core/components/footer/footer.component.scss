@@ -31,10 +31,16 @@
     font-family: $font-family-mono;
   }
 
-  // Pushes the social links to the far edge without needing space-between,
-  // which would spread the first three items apart from each other.
+  // A pair of these, one either side of the protocol switch, does two jobs at
+  // once: the social links are pushed to the far edge, and the switch is
+  // centred in whatever room is left between the version and them. Equal
+  // growth is what centres it, so both have to stay identical.
+  //
+  // space-between would not do this. It would spread the attribution and the
+  // version apart from each other as well, which is not what they are.
   &__spacer {
     flex: 1;
+    min-width: 0;
   }
 
   &__link {

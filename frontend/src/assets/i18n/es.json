@@ -570,5 +570,14 @@
     "errors": {
       "failed": "La petición ha fallado."
     }
+  },
+  "mcpToggle": {
+    "label": "MCP",
+    "on": "abierto",
+    "off": "cerrado",
+    "hintOpen": "Abrir el Model Context Protocol para que los agentes puedan conectarse",
+    "hintClose": "Cerrar el Model Context Protocol y desconectar a los agentes conectados",
+    "hintReadOnly": "Si los agentes pueden alcanzar esta camara por el Model Context Protocol",
+    "failed": "No se pudo cambiar el estado del protocolo"
   }
 }

@@ -62,6 +62,50 @@ class NotAuthorised(Exception):
     """Raised when a tool is called without the permission it needs."""
 
 
+# Whether the protocol is currently answering. Distinct from settings.mcp_enabled,
+# which decides whether it is built and mounted at all: this is the switch on the
+# wall, thrown while the application runs and starting from whatever the setting
+# said. Held in memory, like the acceleration preference and for the same reason,
+# which means a deployment running several workers throws it per worker.
+_runtime_enabled: bool = settings.mcp_enabled
+
+
+def is_enabled() -> bool:
+    """Whether the protocol is currently accepting requests."""
+    return _runtime_enabled
+
+
+def set_enabled(enabled: bool) -> bool:
+    """
+    Open or close the protocol without restarting anything.
+
+    Closing it leaves the endpoints mounted and refuses them, rather than
+    unmounting: a connected agent gets a clear answer instead of a hole where
+    the server used to be, and reopening costs nothing.
+
+    Args:
+        enabled: True to answer requests, False to refuse them.
+
+    Returns:
+        bool: The state after the change.
+    """
+    global _runtime_enabled
+    if _runtime_enabled != enabled:
+        _runtime_enabled = enabled
+        logger.info(f"Model Context Protocol {'opened' if enabled else 'closed'}")
+    return _runtime_enabled
+
+
+def describe() -> Dict[str, Any]:
+    """Report the state of the protocol for the status endpoint."""
+    return {
+        "available": settings.mcp_enabled,
+        "enabled": _runtime_enabled,
+        "path": settings.mcp_path,
+        "ssePath": settings.mcp_sse_path,
+    }
+
+
 def _require(permission: Permission) -> IntegrationTokenEntity:
     """
     Check the caller may exercise a permission, and return their token.

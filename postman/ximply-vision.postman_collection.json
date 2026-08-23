@@ -70,6 +70,41 @@
               "path": ["health", "ready"]
             }
           }
+        },
+        {
+          "name": "MCP Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Whether the Model Context Protocol is built into this deployment ('available', set by MCP_ENABLED and read at startup) and whether it is currently open ('enabled', the runtime switch behind the footer control). Public.",
+            "url": {
+              "raw": "{{baseUrl}}/health/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "mcp"]
+            }
+          }
+        },
+        {
+          "name": "Set MCP State",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Open or close the protocol without restarting. A closed protocol keeps both transports mounted and answers 503, so a connected agent gets an answer rather than a hole. Needs events:manage. A deployment started without the protocol answers 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/health/mcp",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "mcp"]
+            }
+          }
         }
       ]
     },
