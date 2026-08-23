@@ -328,4 +328,14 @@ export interface CameraState {
   requestedBy: string | null;
   requestedAt: string | null;
   lastFrameAt: string | null;
+  /**
+   * How many subscribers are watching this camera live.
+   *
+   * Shown on the video itself, so that being watched from somewhere else is
+   * visible to whoever is in the room. It counts connections to the stream
+   * endpoint on the worker that answered; a viewer reading frames off the
+   * broker cannot be counted at all, which is written down as a gap in
+   * SEC-0011.
+   */
+  viewers: number;
 }

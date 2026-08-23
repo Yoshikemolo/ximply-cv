@@ -617,6 +617,7 @@ export function useCameraFrame(cameraId = "default") {
         }
       );
       const reader = response.body.getReader();
+      const decoder = new TextDecoder();
       let buffer = new Uint8Array();
 
       while (true) {
@@ -628,12 +629,25 @@ export function useCameraFrame(cameraId = "default") {
         merged.set(value, buffer.length);
         buffer = merged;
 
-        // Each part is a JPEG between its start and end markers.
-        const start = indexOfMarker(buffer, 0xff, 0xd8);
-        const end = indexOfMarker(buffer, 0xff, 0xd9);
-        if (start !== -1 && end > start) {
-          const frame = buffer.slice(start, end + 2);
-          buffer = buffer.slice(end + 2);
+        // Each part is framed by its own headers, and the server writes a
+        // Content-Length on every one. Trusting that is what makes this
+        // correct: scanning for the end-of-image marker instead would cut a
+        // frame short the moment a JPEG carried an embedded thumbnail.
+        while (true) {
+          const headerEnd = indexOfHeaderEnd(buffer);
+          if (headerEnd === -1) break;
+
+          const headers = decoder.decode(buffer.slice(0, headerEnd));
+          const match = headers.match(/Content-Length:\\s*(\\d+)/i);
+          if (!match) break;
+
+          const length = Number(match[1]);
+          const start = headerEnd + 4;
+          if (buffer.length < start + length) break;
+
+          const frame = buffer.slice(start, start + length);
+          buffer = buffer.slice(start + length);
+
           if (current) URL.revokeObjectURL(current);
           current = URL.createObjectURL(
             new Blob([frame], { type: "image/jpeg" })
@@ -654,9 +668,17 @@ export function useCameraFrame(cameraId = "default") {
   return src;
 }
 
-function indexOfMarker(bytes, first, second) {
-  for (let i = 0; i < bytes.length - 1; i += 1) {
-    if (bytes[i] === first && bytes[i + 1] === second) return i;
+// The blank line between a part's headers and its bytes.
+function indexOfHeaderEnd(bytes) {
+  for (let i = 0; i < bytes.length - 3; i += 1) {
+    if (
+      bytes[i] === 13 &&
+      bytes[i + 1] === 10 &&
+      bytes[i + 2] === 13 &&
+      bytes[i + 3] === 10
+    ) {
+      return i;
+    }
   }
   return -1;
 }

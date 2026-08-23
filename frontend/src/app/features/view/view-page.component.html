@@ -44,6 +44,12 @@
             <div class="detection-count">
               {{ filteredDetections().length }} {{ 'view.detections.count' | translate }}
             </div>
+            @if (watchers() > 0) {
+              <div class="watchers" role="status">
+                <span class="icon-mask icon-mask--eye icon-mask--sm watchers__icon"></span>
+                {{ 'view.watchers' | translate: { count: watchers() } }}
+              </div>
+            }
           </div>
         }
       </div>

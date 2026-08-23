@@ -99,6 +99,11 @@ export class ViewPageComponent implements OnInit, OnDestroy {
   confidenceThreshold = signal(0.6);
   fps = signal(0);
 
+  // How many subscribers are watching this camera live, read from the camera
+  // state on every poll. Zero hides the indicator entirely: a chip that is
+  // always on the video is a chip nobody reads.
+  watchers = signal(0);
+
   // Toggle to show only custom (matched) objects
   showOnlyCustomObjects = signal(false);
   isRefreshingFeatures = signal(false);
@@ -338,6 +343,12 @@ export class ViewPageComponent implements OnInit, OnDestroy {
     this.cameraRequestInterval = setInterval(() => {
       this.detectionService.getCameraState().subscribe({
         next: (state) => {
+          // Recorded before anything else, because the count has to keep
+          // arriving whether or not the request disagrees with what is
+          // happening here. It is the only sign a person in the room gets
+          // that somebody elsewhere is watching.
+          this.watchers.set(state.viewers ?? 0);
+
           if (state.desiredOn === this.isStreaming()) {
             return;
           }

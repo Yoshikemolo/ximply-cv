@@ -151,6 +151,25 @@
     font-size: 0.875rem;
     font-family: monospace;
   }
+
+  // Deliberately the loudest thing on the video. Somebody in the room being
+  // watched from elsewhere is the one fact here that is not about detection,
+  // and it is the only notice this design offers them.
+  .watchers {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(220, 38, 38, 0.9);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .watchers__icon {
+    background-color: currentColor;
+  }
 }
 
 .controls-section {

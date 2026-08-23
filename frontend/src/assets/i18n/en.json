@@ -52,6 +52,7 @@
     "startCamera": "Start Camera",
     "stopCamera": "Stop Camera",
     "noStream": "Camera is not active",
+    "watchers": "{{count}} watching this camera",
     "noCamera": "No camera detected",
     "permissionDenied": "Camera permission denied",
     "detecting": "Detecting objects...",
