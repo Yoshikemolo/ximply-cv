@@ -41,6 +41,14 @@ arrival raises one of the three recognition types, a departure raises
 grace period, and the sorted set of names present is compared as a signature to
 decide a `scene.changed`, with a floor between two of those.
 
+The floor delays an announcement rather than cancelling one. The remembered
+signature advances only when the event is actually raised, so a change blocked
+by the floor is still waiting to be found and the next frame past it raises the
+scene as it stands by then. Advancing the signature in both cases, which is what
+the service used to do, marked a change as told while nothing was told, and
+since the scene then stayed as it was the transition was lost for good; see
+[ADR-0020](../adr/ADR-0020-an-event-carries-the-time-it-was-observed.md).
+
 An unrecognised class raises nothing on its own. A bottle nobody taught the
 catalog appears in the `present` list of a scene change and nowhere else, and
 because it never raised an arrival it never raises a departure either.
@@ -151,6 +159,13 @@ administrator role. The full request and response shapes are in the
   filtered by owner, so another user's capture is a `404`.
 - **`since` is the polling contract.** Ask for everything after the last event
   already seen. It compares against `occurredAt`, and results are newest first.
+- **`occurredAt` is the moment of the observation.** Every timestamp on a record
+  comes from one instant taken where the record is built, so events raised by
+  one frame are distinct and ordered. Records written before
+  [ADR-0020](../adr/ADR-0020-an-event-carries-the-time-it-was-observed.md) hold
+  the start of the transaction that wrote them, which every event in that
+  transaction shared, so old rows can cluster on identical values and cannot be
+  ordered against each other.
 - **Retention is manual.** Nothing prunes events on its own.
   `DELETE /events/prune` deletes everything older than the cutoff, defaulting to
   `EVENTS_RETENTION_DAYS`, and a deployment with a retention obligation has to

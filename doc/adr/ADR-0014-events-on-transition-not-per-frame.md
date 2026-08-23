@@ -1,6 +1,9 @@
 # ADR-0014: An event marks a transition, never a frame
 
-- **Status**: Accepted
+- **Status**: Accepted. Amended by
+  [ADR-0020](ADR-0020-an-event-carries-the-time-it-was-observed.md), which
+  settles what happens to a transition the scene floor arrived too early for:
+  it is delayed, never dropped.
 - **Related**: [ADR-0013](ADR-0013-events-as-opentelemetry-records.md),
   [ADR-0015](ADR-0015-signed-webhook-delivery.md),
   [FEAT-0001](../features/FEAT-0001-live-detection.md),

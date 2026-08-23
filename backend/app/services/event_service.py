@@ -23,7 +23,7 @@ of knowing what happened while the service was down.
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 from uuid import UUID
@@ -44,6 +44,11 @@ SCOPE_VERSION = "1.0.0"
 # An observation is informational. The band is 9 to 12; 9 is its floor.
 SEVERITY_INFO = 9
 SEVERITY_INFO_TEXT = "INFO"
+
+# Nanoseconds are the unit the specification requires, and a timestamp column
+# holds microseconds. Converting through this rather than through a float keeps
+# the two consistent instead of rounding them apart.
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
 def _resource() -> dict:
@@ -142,8 +147,18 @@ class EventService:
         Attributes are flat and dotted, as the semantic conventions require, and
         are the form anything downstream reads. The domain columns carry the
         same values only so the database can index them.
+
+        Every timestamp on the record comes from one instant, taken here. The
+        column is filled explicitly rather than left to the database default,
+        because that default is now(), which in PostgreSQL is the start of the
+        transaction: every event raised by one frame would share it, leaving
+        them unorderable, and it would sit before the moment being recorded.
+        Readers sort and age events by this column, so it has to be the time of
+        the observation.
         """
         now_ns = time.time_ns()
+        occurred_at = _EPOCH + timedelta(microseconds=now_ns // 1000)
+        body = {**body, "occurredAt": occurred_at.isoformat()}
 
         attributes = {
             "event.name": event_type,
@@ -180,6 +195,7 @@ class EventService:
             confidence=confidence,
             camera_id=camera_id,
             capture_path=capture_path,
+            occurred_at=occurred_at,
         )
         db.add(event)
         return event
@@ -335,7 +351,6 @@ class EventService:
                         "confidence": round(subject["confidence"], 4),
                     },
                     "camera": camera_id,
-                    "occurredAt": datetime.now(timezone.utc).isoformat(),
                 },
             )
             events.append(event)
@@ -367,15 +382,22 @@ class EventService:
                         "class": subject["label"],
                     },
                     "camera": camera_id,
-                    "occurredAt": datetime.now(timezone.utc).isoformat(),
                 },
             )
             events.append(event)
 
+        # The floor between scene events delays an announcement, it never
+        # cancels one. The remembered signature therefore advances only when the
+        # event is actually raised: advancing it here as well would mark the
+        # change as told while nothing was told, and since the scene then stays
+        # as it is, no later frame would differ from it and the transition would
+        # be lost for good. That is what leaves a reader looking at an empty
+        # room while somebody stands in front of the camera.
         signature = "|".join(sorted(subject["name"] for subject in current.values()))
-        if signature != state.signature and (
-            now - state.last_scene_event >= settings.events_scene_min_interval
-        ):
+        scene_differs = signature != state.signature
+        within_floor = now - state.last_scene_event < settings.events_scene_min_interval
+
+        if scene_differs and not within_floor:
             event = await self._record(
                 db,
                 owner_id=owner_id,
@@ -394,11 +416,11 @@ class EventService:
                     ],
                     "description": description,
                     "camera": camera_id,
-                    "occurredAt": datetime.now(timezone.utc).isoformat(),
                 },
             )
             events.append(event)
             state.last_scene_event = now
+            state.signature = signature
             if capture_event_id is None:
                 capture_event_id = event.id
 
@@ -415,7 +437,6 @@ class EventService:
                         }
 
         state.present = present
-        state.signature = signature
         for identity, subject in current.items():
             state.last_seen[identity] = now
             state.subjects[identity] = subject
