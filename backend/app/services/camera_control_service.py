@@ -60,6 +60,11 @@ class CameraState:
     requested_by: Optional[str] = None
     requested_at: Optional[datetime] = None
     last_frame_at: Optional[datetime] = None
+    # How many subscribers are watching this camera live, over HTTP. Counted
+    # rather than identified, and the broker cannot be counted at all; see
+    # ADR-0023 for why the number is on the screen at all, and SEC-0011 for
+    # what it does not cover.
+    viewers: int = 0
 
     @property
     def pending(self) -> bool:
@@ -83,6 +88,7 @@ class CameraState:
             "requestedBy": self.requested_by,
             "requestedAt": self.requested_at.isoformat() if self.requested_at else None,
             "lastFrameAt": self.last_frame_at.isoformat() if self.last_frame_at else None,
+            "viewers": self.viewers,
         }
 
 
@@ -115,10 +121,37 @@ async def _row(
     return result.scalar_one_or_none()
 
 
-def _state_of(row: Optional[CameraControlEntity], camera_id: str) -> CameraState:
+def _viewers(owner_id: UUID, camera_id: str) -> int:
+    """
+    How many subscribers are watching this camera live.
+
+    Read from the stream hub rather than stored, because it is a fact about
+    open connections on this worker and nothing else. Never raises: a state
+    read must not fail because the stream is unavailable.
+
+    Args:
+        owner_id: Owner of the camera.
+        camera_id: Which camera.
+
+    Returns:
+        The number of live viewers, or zero when the count cannot be taken.
+    """
+    try:
+        from app.services.stream_service import get_stream_hub
+
+        return get_stream_hub().frame_viewers(owner_id, camera_id)
+    except Exception:
+        return 0
+
+
+def _state_of(
+    row: Optional[CameraControlEntity], camera_id: str, viewers: int = 0
+) -> CameraState:
     """Turn a stored row, or its absence, into a state."""
     if row is None:
-        return CameraState(camera_id=camera_id, desired_on=False, running=False)
+        return CameraState(
+            camera_id=camera_id, desired_on=False, running=False, viewers=viewers
+        )
     return CameraState(
         camera_id=row.camera_id,
         desired_on=bool(row.desired_on),
@@ -126,6 +159,7 @@ def _state_of(row: Optional[CameraControlEntity], camera_id: str) -> CameraState
         requested_by=row.requested_by,
         requested_at=row.requested_at,
         last_frame_at=row.last_frame_at,
+        viewers=viewers,
     )
 
 
@@ -146,7 +180,10 @@ async def get_state(
         CameraState: The current state. A camera nobody has ever touched reads
         as off rather than as missing, because that is what it is.
     """
-    return _state_of(await _row(db, owner_id, camera_id or DEFAULT_CAMERA), camera_id)
+    camera_id = camera_id or DEFAULT_CAMERA
+    return _state_of(
+        await _row(db, owner_id, camera_id), camera_id, _viewers(owner_id, camera_id)
+    )
 
 
 async def request_state(
@@ -192,11 +229,20 @@ async def request_state(
 
     await db.flush()
 
+    if not on:
+        # A camera asked to stop must not leave its last frame readable.
+        try:
+            from app.services.stream_service import get_stream_hub
+
+            get_stream_hub().forget_camera(owner_id, camera_id)
+        except Exception:
+            pass
+
     logger.info(
         f"Camera {camera_id} requested {'on' if on else 'off'}"
         f"{f' by {requested_by}' if requested_by else ''}"
     )
-    return _state_of(row, camera_id)
+    return _state_of(row, camera_id, _viewers(owner_id, camera_id))
 
 
 async def note_frame(

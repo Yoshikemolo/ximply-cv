@@ -90,15 +90,21 @@ equivalent. A subscriber trusts the broker, and anything with write access to
 the broker can publish a message that looks exactly like an observation this
 instance made.
 
-**Broker credentials are configuration.** They sit in the environment and in the
-password file the broker reads, with the same handling and the same weaknesses
-as everything in [SEC-0006](SEC-0006-default-credentials-and-secrets.md). There
-is no rotation mechanism and no per-message authentication to fall back on.
+**The shipped broker accepts anonymous connections.** It is bound to the
+loopback address, and that binding is the only thing standing between it and
+anyone on the network. The configuration carries a commented password file and
+ACL file for that reason, and both have to be filled in before the port is
+opened. Credentials, once set, sit in the environment with the same handling
+and the same weaknesses as everything in
+[SEC-0006](SEC-0006-default-credentials-and-secrets.md): no rotation, and no
+per-message authentication to fall back on.
 
-**Images pass through a process this application does not control.** A broker
-may log, persist a queue to disk, or hold messages for a slow subscriber. The
-rule that no frame is written down is a rule about this application, not about
-the broker it publishes to.
+**Images pass through a process this application does not control.** The
+shipped configuration turns persistence off, so the broker holds messages in
+memory and writes none of them to disk, and that is a setting rather than a
+guarantee. A broker configured elsewhere, or replaced with a managed one, may
+log messages or persist a queue. The rule that no frame is written down is a
+rule about this application, not about the broker it publishes to.
 
 **A viewer is counted, not identified.** The camera state says how many
 subscribers are watching. It does not say which token, and the broker side

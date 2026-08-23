@@ -43,6 +43,9 @@ class Permission(str, Enum):
     # Switching a camera on is not the same kind of act as reading what it saw,
     # and is kept separate so it can be granted on its own or withheld.
     CAMERA_CONTROL = "camera:control"
+    # Watching a camera live is a third kind of act again: it neither reads a
+    # record nor changes one, it looks at a room. See ADR-0023.
+    CAMERA_VIEW = "camera:view"
 
     # Event and integration permissions
     EVENTS_READ = "events:read"

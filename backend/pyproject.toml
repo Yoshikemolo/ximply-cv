@@ -41,6 +41,7 @@ dependencies = [
     "sse-starlette>=2.0.0",
     "httpx>=0.26.0",  # Webhook delivery
     "mcp>=1.0.0",  # Model Context Protocol server
+    "aiomqtt>=2.0.0",  # Broker publishing
 
     # UUID7 support
     "uuid7>=0.1.0",

@@ -173,6 +173,43 @@ class Settings(BaseSettings):
     mcp_path: str = "/mcp"
     mcp_sse_path: str = "/mcp/sse"
 
+    # Streaming
+    # A subscriber connects to this instance instead of running a server of its
+    # own. See ADR-0022; the queues are bounded and drop the oldest entry,
+    # because a slow subscriber must degrade itself and nothing else.
+    stream_enabled: bool = True
+    stream_keepalive_seconds: float = 15.0
+    stream_queue_size: int = 256
+
+    # Watching a camera live. Off by default and granted by name: it looks at a
+    # room rather than at a record, which is the whole subject of ADR-0023.
+    camera_view_enabled: bool = False
+    # Independent of what detection runs at. A viewer cannot make the camera
+    # capture faster and cannot pull a larger image than the browser sends.
+    stream_camera_max_fps: float = 4.0
+    stream_camera_max_side: int = 640
+    stream_camera_quality: int = 70
+
+    # Broker
+    # Publishing happens on a background task off the detection path: a broker
+    # publish has no per-subscriber outcome worth waiting for, unlike a webhook.
+    mqtt_enabled: bool = False
+    mqtt_host: str = "mosquitto"
+    mqtt_port: int = 1883
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    mqtt_client_id: str = "ximply-vision"
+    # Several deployments can share one broker without colliding on topics.
+    mqtt_instance: str = "default"
+    mqtt_topic_prefix: str = "ximply"
+    mqtt_publish_captures: bool = True
+    # Frames on the broker are opt in on their own. A broker does not tell a
+    # publisher who is subscribed, so once this is on the frames flow whether
+    # anyone is listening or not, which is the gap SEC-0011 records.
+    mqtt_publish_frames: bool = False
+    mqtt_keepalive: int = 60
+    mqtt_queue_size: int = 512
+
     # Scene description
     # Runs locally on whatever accelerator the machine has, so no frame ever
     # leaves the host. Loaded lazily: a stack that never asks for a description

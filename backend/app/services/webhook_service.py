@@ -104,13 +104,16 @@ def verify(secret: str, timestamp: str, body: bytes, signature: str, tolerance: 
     return hmac.compare_digest(expected, signature)
 
 
-def _delivery_payload(event: EventEntity) -> dict:
+def delivery_payload(event: EventEntity) -> dict:
     """
     The JSON a subscriber receives.
 
     The whole log record, not just its body, so a receiver that already handles
     OpenTelemetry data can consume a delivery without a translation step, and
     one that does not can read the body and ignore the rest.
+
+    Shared with the broker and the HTTP stream (ADR-0022): one builder means
+    the record cannot drift between the transports that carry it.
     """
     return {
         "id": str(event.id),
@@ -235,7 +238,7 @@ class WebhookService:
                     continue
 
                 status, error = await self._deliver_one(
-                    subscription, event.id, event.event_name, _delivery_payload(event)
+                    subscription, event.id, event.event_name, delivery_payload(event)
                 )
 
                 subscription.last_delivery_at = datetime.now(timezone.utc)

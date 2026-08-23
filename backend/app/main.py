@@ -21,6 +21,7 @@ from app.api.routes_events import (
 )
 from app.api.routes_health import router as health_router
 from app.api.routes_objects import router as objects_router
+from app.api.routes_stream import router as stream_router
 from app.api.routes_users import router as users_router
 from app.core.config import settings
 from app.core.database import close_db, init_db, seed_initial_data
@@ -81,9 +82,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             mcp_context = None
             logger.warning(f"Could not start the protocol session manager: {e}")
 
+    # The broker publisher owns a long lived connection and a queue, so it
+    # belongs in the lifespan for the same reason the protocol does. It never
+    # raises: a broker that cannot be reached is a disconnected publisher, not
+    # a failed startup.
+    from app.services.mqtt_service import get_mqtt_publisher
+
+    publisher = get_mqtt_publisher()
+    try:
+        await publisher.start()
+    except Exception as e:
+        logger.warning(f"Broker publisher did not start: {e}")
+
     logger.info("Application startup complete")
 
     yield
+
+    try:
+        await publisher.stop()
+    except Exception as e:
+        logger.warning(f"Broker publisher did not stop cleanly: {e}")
 
     if mcp_context is not None:
         try:
@@ -225,6 +243,7 @@ app.include_router(webhooks_router, prefix=settings.api_prefix)
 app.include_router(integration_tokens_router, prefix=settings.api_prefix)
 app.include_router(objects_router, prefix=settings.api_prefix)
 app.include_router(detection_router, prefix=settings.api_prefix)
+app.include_router(stream_router, prefix=settings.api_prefix)
 app.include_router(users_router, prefix=settings.api_prefix)
 
 

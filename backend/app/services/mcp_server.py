@@ -33,6 +33,7 @@ token carries its own scopes, so an agent can be given the ability to read
 events without the ability to read the catalog.
 """
 
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -412,6 +413,66 @@ def build_server():
                 "running yet. It starts when one is open on this account."
             )
         return result
+
+    @server.tool(
+        name="get_camera_frame",
+        description=(
+            "The most recent frame from a camera, as a JPEG encoded in base64. "
+            "Shows the room rather than reporting on it, so it needs camera:view "
+            "written on the token by name; an empty scope list never implies it. "
+            "Returns nothing when no interface is sending frames."
+        ),
+    )
+    async def get_camera_frame(
+        camera_id: str = camera_control.DEFAULT_CAMERA,
+    ) -> Dict[str, Any]:
+        if not settings.camera_view_enabled:
+            raise NotAuthorised("Live camera viewing is switched off in this deployment")
+
+        token = _require_explicit(Permission.CAMERA_VIEW)
+
+        from app.services.stream_service import get_stream_hub
+
+        frame = get_stream_hub().latest_frame(token.owner_id, camera_id)
+        if frame is None:
+            async with async_session_factory() as db:
+                state = await camera_control.get_state(db, token.owner_id, camera_id)
+            result = state.to_dict()
+            result["note"] = (
+                "No frame is available. The camera belongs to the interface, so "
+                "there is nothing to see unless one is open and sending."
+            )
+            return result
+
+        return {
+            "cameraId": camera_id,
+            "mediaType": "image/jpeg",
+            "bytes": len(frame),
+            "base64": base64.b64encode(frame).decode("ascii"),
+        }
+
+    @server.tool(
+        name="get_stream_info",
+        description=(
+            "Where to subscribe to this instance: the broker address and topics "
+            "when one is configured, and the streaming endpoints with the scope "
+            "each of them needs. Requires events:read."
+        ),
+    )
+    async def get_stream_info() -> Dict[str, Any]:
+        _require(Permission.EVENTS_READ)
+
+        from app.services.mqtt_service import get_mqtt_publisher
+
+        return {
+            "streamEnabled": settings.stream_enabled,
+            "cameraViewEnabled": settings.camera_view_enabled,
+            "broker": get_mqtt_publisher().describe(),
+            "endpoints": {
+                "events": f"{settings.api_prefix}/stream/events",
+                "camera": f"{settings.api_prefix}/stream/camera/{{cameraId}}",
+            },
+        }
 
     @server.tool(
         name="get_status",

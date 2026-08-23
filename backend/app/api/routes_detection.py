@@ -58,7 +58,9 @@ from app.services.pose_service import get_pose_service
 from app.services.segmentation_service import get_segmentation_service
 from app.services.description_service import get_description_service
 from app.services.event_service import get_event_service
-from app.services.webhook_service import get_webhook_service
+from app.services.mqtt_service import get_mqtt_publisher
+from app.services.stream_service import get_stream_hub
+from app.services.webhook_service import delivery_payload, get_webhook_service
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/detection", tags=["Detection"])
@@ -991,6 +993,18 @@ async def detect_objects(
                 db, UUID(current_user.sub), request.cameraId or camera_control.DEFAULT_CAMERA
             )
 
+        # Hand the frame to whoever is watching. Returns without encoding when
+        # nobody is, so a camera nobody has subscribed to costs nothing here.
+        if settings.camera_view_enabled:
+            try:
+                get_stream_hub().offer_frame(
+                    UUID(current_user.sub),
+                    request.cameraId or camera_control.DEFAULT_CAMERA,
+                    image_array,
+                )
+            except Exception as e:
+                logger.debug(f"Frame could not be offered to the stream: {e}")
+
         # Raise events for whatever changed since the last frame, and deliver
         # them. Emission is on a transition, not per frame; see the event
         # service for why that is the only workable rule here.
@@ -1014,6 +1028,14 @@ async def detect_objects(
                     db, UUID(current_user.sub), raised
                 )
                 await db.commit()
+                # The stream and the broker are handed the same records and
+                # neither awaits a network: the hub fills queues in memory and
+                # the publisher queues for its own task. See ADR-0022.
+                owner_id = UUID(current_user.sub)
+                hub = get_stream_hub()
+                for event in raised:
+                    hub.publish_event(owner_id, delivery_payload(event))
+                get_mqtt_publisher().dispatch(owner_id, raised)
         except Exception as e:
             await db.rollback()
             logger.warning(f"Event emission failed: {e}")
