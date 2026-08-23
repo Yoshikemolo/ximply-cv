@@ -14,6 +14,9 @@
 Related reading:
 
 - [Hardware acceleration](../features/FEAT-0011-hardware-acceleration.md)
+- [Streaming](../features/FEAT-0015-streaming.md), and
+  [SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md) before running a
+  broker or enabling live frames
 - [Security decisions](../sec/README.md), and in particular what must change
   before exposing the stack
 - [System architecture](../infrastructure/architecture.md)
@@ -87,6 +90,9 @@ Configuration:
       address rather than every interface
       ([SEC-0007](../sec/SEC-0007-container-hardening.md))
 - [ ] Backup strategy defined, covering the database and the object store
+- [ ] `CAMERA_VIEW_ENABLED` and `MQTT_ENABLED` left off unless something needs
+      them, and the broker port bound to the loopback address if one runs
+      ([SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md))
 
 Before any member of the public is recorded:
 
@@ -259,6 +265,88 @@ are warm ([ADR-0011](../adr/ADR-0011-cache-model-weights-in-volumes.md)).
 Deleting a volume forces a re-download, which is the intended way to pick up new
 weights. The first request that needs a model pays its download, so the first
 detection and the first description of a fresh deployment are slow.
+
+## Streaming
+
+Something can subscribe to this instance instead of running a server for it to
+call: an event stream and a live camera stream over HTTP, and the same records
+on an MQTT broker. What each transport is for is in
+[FEAT-0015](../features/FEAT-0015-streaming.md) and
+[ADR-0022](../adr/ADR-0022-carry-the-live-stream-on-a-broker-and-a-socket.md);
+the endpoints themselves are in
+[the API reference](../infrastructure/api.md#streaming).
+
+Live frames and the broker are off in a fresh deployment and are turned on
+separately, so a deployment can carry event records live without carrying the
+room with them.
+
+### The stream
+
+| Variable | Default | Sets |
+| --- | --- | --- |
+| `STREAM_ENABLED` | `true` | Whether the stream routes serve at all. Read at startup |
+| `STREAM_KEEPALIVE_SECONDS` | `15` | Seconds between comment lines on an idle event stream, so a proxy does not close it |
+| `STREAM_QUEUE_SIZE` | `256` | Records held for one subscriber before the oldest is dropped |
+| `CAMERA_VIEW_ENABLED` | `false` | Whether a live frame can be reached at all, by any credential |
+| `STREAM_CAMERA_MAX_FPS` | `4.0` | Frames a second sent to a viewer, independently of what detection runs at |
+| `STREAM_CAMERA_MAX_SIDE` | `640` | Longest side of a streamed frame, in pixels |
+| `STREAM_CAMERA_QUALITY` | `70` | JPEG quality of a streamed frame |
+
+Watching a camera also needs `camera:view` written on the token by name. The
+three camera settings bound what a viewer costs and what it can see: a
+subscriber cannot make the camera capture faster and cannot pull a larger image
+than the browser is already sending.
+
+### The broker
+
+| Variable | Default | Sets |
+| --- | --- | --- |
+| `MQTT_ENABLED` | `false` | Whether the publisher starts and connects. Read at startup |
+| `MQTT_HOST` | `mosquitto` | Broker host, which is the Compose service name by default |
+| `MQTT_PORT` | `1883` | Broker port |
+| `MQTT_USERNAME` | empty | Broker user, if the broker requires one |
+| `MQTT_PASSWORD` | empty | Broker password |
+| `MQTT_CLIENT_ID` | `ximply-vision` | Client id this instance connects with |
+| `MQTT_INSTANCE` | `default` | The instance segment of every topic, so several deployments share one broker |
+| `MQTT_TOPIC_PREFIX` | `ximply` | The first segment of every topic |
+| `MQTT_PUBLISH_CAPTURES` | `true` | Whether event captures are published as well as the records |
+| `MQTT_PUBLISH_FRAMES` | `false` | Whether live camera frames are published. Needs `CAMERA_VIEW_ENABLED` as well |
+| `MQTT_KEEPALIVE` | `60` | Seconds between keepalives on the broker connection |
+| `MQTT_QUEUE_SIZE` | `512` | Records held for the broker before the oldest is dropped |
+
+`MQTT_ENABLED` is read at startup, so turning the broker on or off is a restart
+rather than a switch in the interface.
+
+### Running the broker
+
+The broker service sits behind a Compose profile, so it is not started unless it
+is asked for:
+
+```bash
+docker compose --profile broker up -d
+```
+
+Set `MQTT_ENABLED=true` in `.env` and restart the backend, then check that a
+subscriber sees traffic:
+
+```bash
+mosquitto_sub -h localhost -p 1883 -v -t 'ximply/default/#'
+```
+
+Publish the broker port to the loopback address rather than to every interface,
+as with every other port here
+([SEC-0007](../sec/SEC-0007-container-hardening.md)):
+
+```yaml
+ports:
+  - "127.0.0.1:1883:1883"
+```
+
+The shipped broker configuration assumes one account on one host: it has no TLS
+and no per-owner topic ACL, and the owner id in the topic tree is a shape to
+write those rules into rather than a rule this application enforces. Before that
+port is reachable from anywhere else, work through what must be in place first
+in [SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md).
 
 ## Scaling
 

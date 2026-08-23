@@ -78,6 +78,16 @@ failing is switched off rather than retried forever. A subscription can ask for 
 type or a whole family. The same events can be read back over the API, including an OTLP
 export at `/api/v1/events/otlp`.
 
+**Streams what it is seeing.** A webhook needs the receiver to be a server. This
+does not: something connects to the instance instead. `/api/v1/stream/events` is
+server sent events over the same records, so `curl -N` and a token are enough to
+watch arrivals as they happen, and `/api/v1/stream/camera/{id}` is a multipart
+JPEG stream that `ffplay` and any player already read. The same records are
+also published to an MQTT broker, where `mosquitto_sub` reads them without any
+code being written. Live frames and the broker are off until a deployment turns
+them on, and watching a camera needs a scope written on the token by name:
+looking at a room is a different act from reading a record of one.
+
 **Answers an agent's questions.** A webhook tells a system what happened; it cannot be
 asked anything. So the same observations are also served over a Model Context Protocol
 server, mounted at `/mcp`, where an assistant can ask what happened this morning, who is
@@ -115,12 +125,19 @@ the built in webcam, a USB camera, or a capture device.
 - **Events and webhooks**: arrivals, departures and scene changes recorded as
   OpenTelemetry log records, readable over the API and delivered to signed webhook
   subscriptions.
+- **Streaming**: an event stream and a live camera stream held open over HTTP,
+  and the same records published to an MQTT broker, for a subscriber that would
+  rather connect than run a receiver. See
+  [FEAT-0015](doc/features/FEAT-0015-streaming.md).
 - **Integrations**: a page for connecting this instance to other systems. Register a
   webhook client, filter which events it receives, send it a signed test delivery,
   rotate its secret and watch its delivery health; or issue a scoped token for an agent
   and copy the configuration for the client you use. Ready to paste receivers for
   Node.js, NestJS, Python, Java Spring and .NET 9 come with it, each verifying the
-  signature before trusting the body.
+  signature before trusting the body. A streaming tab does the same for the
+  stream: whether the broker is connected, the topic tree it publishes on, and
+  `mosquitto_sub`, `curl` and `ffplay` commands built from the address the
+  browser is using, alongside Angular, React and plain JavaScript clients.
 - **i18n and theming**: English and Spanish, dark and light themes.
 
 ## Requirements
@@ -234,6 +251,23 @@ the switches decide how an accelerator is used, not whether there is one. The
 backend needs no flag either way: it probes the hardware at startup and falls
 back to the CPU on its own.
 
+### Streaming and the broker
+
+The event stream needs no configuration: hold a connection open on
+`/api/v1/stream/events` with a token and read events as they are raised. Live
+camera frames and the MQTT broker are switched on separately, because they carry
+the room rather than a record of it. The broker sits behind a Compose profile:
+
+```bash
+docker compose --profile broker up -d
+```
+
+Then set `MQTT_ENABLED=true` in `.env`, and `CAMERA_VIEW_ENABLED=true` if a
+client should be able to watch a camera, and restart the backend. The shipped
+broker has no TLS and no per-account topic rules, so its port belongs on the
+loopback address; what else has to be in place is in
+[SEC-0011](doc/sec/SEC-0011-broker-and-live-frame-exposure.md).
+
 ### Production mode
 
 Resource limits, log rotation and no debug. This override has no fallback defaults, so a
@@ -307,7 +341,7 @@ they are cheapest.
 | Object storage  | MinIO                                                     |
 | Frontend        | Angular 19 standalone components, Signals, SCSS           |
 | Auth            | JWT with refresh rotation and RBAC                        |
-| Infrastructure  | Docker Compose, Nginx, CUDA when present                  |
+| Infrastructure  | Docker Compose, Nginx, Mosquitto when the broker is on, CUDA when present |
 
 ## Project structure
 
@@ -340,7 +374,12 @@ manages it in [FEAT-0014](doc/features/FEAT-0014-integrations.md), the decisions
 it in [ADR-0013](doc/adr/ADR-0013-events-as-opentelemetry-records.md) through
 [ADR-0017](doc/adr/ADR-0017-scoped-tokens-for-machine-clients.md), and the credential
 handling in [SEC-0008](doc/sec/SEC-0008-webhook-signing.md) and
-[SEC-0009](doc/sec/SEC-0009-integration-tokens.md).
+[SEC-0009](doc/sec/SEC-0009-integration-tokens.md). Streaming is
+[FEAT-0015](doc/features/FEAT-0015-streaming.md), the decisions behind it are
+[ADR-0022](doc/adr/ADR-0022-carry-the-live-stream-on-a-broker-and-a-socket.md),
+[ADR-0023](doc/adr/ADR-0023-a-live-frame-is-never-stored-and-never-implied.md),
+and what running a broker and showing a live room expose is
+[SEC-0011](doc/sec/SEC-0011-broker-and-live-frame-exposure.md).
 
 All API endpoints are versioned under `/api/v1/`, apart from the protocol mounts at
 `/mcp` and `/mcp/sse`, which the protocol places at the root.
@@ -364,8 +403,6 @@ images and the downloaded weights.
 
 ## Planned
 
-- **An event stream**, for clients that would rather hold a connection open than receive
-  callbacks or poll the event list
 - **A screen for events**, so what was observed can be browsed without an API client
 
 ## Contributing

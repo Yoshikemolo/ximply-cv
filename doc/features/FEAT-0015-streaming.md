@@ -189,9 +189,13 @@ stored.
   requests raised.
 - **`MQTT_ENABLED` is read at startup.** There is no runtime switch for the
   broker the way there is for the protocol; turning it on is a restart.
-- **Captures are published only when `MQTT_PUBLISH_CAPTURES` is on.** A
-  deployment that wants event records on the broker without images gets that by
-  leaving it off, and `CAMERA_VIEW_ENABLED` off separately keeps live frames out
-  of both transports.
+- **Images on the broker are opt in twice over.** `MQTT_PUBLISH_CAPTURES` sends
+  the stored capture belonging to an event; `MQTT_PUBLISH_FRAMES` sends the live
+  frames, and needs `CAMERA_VIEW_ENABLED` as well. A deployment that wants event
+  records on the broker and no pictures gets that by leaving both off.
+- **Frames on the broker publish to nobody in particular.** Every other path
+  here encodes only when somebody is subscribed. The broker cannot report its
+  subscribers, so this one sends regardless once it is switched on, which is why
+  it is a setting of its own rather than part of `CAMERA_VIEW_ENABLED`.
 - **A token issued before this cannot watch.** Scopes are fixed at issue, so
   watching means issuing a new token with `camera:view` ticked.

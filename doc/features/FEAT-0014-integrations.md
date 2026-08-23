@@ -112,10 +112,11 @@ configured against it, which turns "the agent cannot see my camera" into two
 commands rather than a debugging session.
 
 **The tools** are listed at the bottom of the tab with one line each, reading
-tools first and the three camera tools after them, marked with the scope they
-need. The page ends by saying what the boundary is: the reading tools cannot
-change any record, and the camera tools can only ask for a camera to start or
-stop, never open one. What that boundary is for is
+tools first and the camera tools after them, marked with the scope they need.
+The page ends by saying what the boundary is: the reading tools cannot change
+any record, the camera tools can only ask for a camera to start or stop and
+never open one, and the one tool that answers with an image answers with a live
+frame rather than anything the instance kept. What that boundary is for is
 [ADR-0016](../adr/ADR-0016-read-only-protocol-server.md) and
 [ADR-0021](../adr/ADR-0021-an-agent-may-switch-the-camera-but-never-opens-it.md).
 

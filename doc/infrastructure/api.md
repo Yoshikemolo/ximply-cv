@@ -196,6 +196,7 @@ Authorization: Bearer <token>
   "desiredOn": true,
   "running": true,
   "pending": false,
+  "viewers": 0,
   "requestedBy": "token:night watch",
   "requestedAt": "2026-08-23T00:31:33.604528Z",
   "lastFrameAt": "2026-08-23T00:34:07.513067Z"
@@ -205,7 +206,9 @@ Authorization: Bearer <token>
 `desiredOn` is what was asked for. `running` is what is happening, decided by
 frames arriving for detection within `CAMERA_LIVE_GRACE_SECONDS`, never by
 anything asserting it. `pending` is the pair that matters: asked for and not
-running, which means no interface is open to honour it.
+running, which means no interface is open to honour it. `viewers` is how many
+subscribers are reading this camera's live frames over HTTP
+([Streaming](#streaming)), counted when the state is read rather than stored.
 
 Reading needs `detection:view`. Writing needs `camera:control`:
 
@@ -572,6 +575,201 @@ thing this route changes: a token's scopes are fixed when it is issued.
 resolve again. Both take effect on the next call the client makes, because a
 token is looked up in the database every time it is presented.
 
+## Streaming
+
+A subscriber connects to this instance instead of running a server for it to
+call. The records are the ones a webhook delivers, on two transports the
+subscriber chooses between: a broker, or a connection held open over HTTP. See
+[FEAT-0015](../features/FEAT-0015-streaming.md),
+[ADR-0022](../adr/ADR-0022-carry-the-live-stream-on-a-broker-and-a-socket.md),
+[ADR-0023](../adr/ADR-0023-a-live-frame-is-never-stored-and-never-implied.md)
+and [SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md).
+
+| Method | Path | Permission | Purpose |
+| --- | --- | --- | --- |
+| GET | `/stream/info` | `events:read` | What is available: broker state, endpoints, topics and scopes |
+| GET | `/stream/events` | `events:read` | Every event as it is raised, as server sent events |
+| GET | `/stream/camera/{cameraId}` | `camera:view`, by name | The live frames of one camera, as multipart JPEG |
+
+`STREAM_ENABLED` decides whether these routes serve at all and is read at
+startup. Frames need `CAMERA_VIEW_ENABLED` as well, and the broker needs
+`MQTT_ENABLED`. The three are separate settings because a deployment that wants
+event records carried live usually does not want the room carried with them.
+
+### The credential
+
+A user session and an integration token both authenticate these routes, which is
+the first time a token reaches a route outside the protocol mounts. The scope
+rules are the ones the protocol applies: `events:read` is carried by an empty
+scope list, and `camera:view` has to be written on the token by name
+([ADR-0023](../adr/ADR-0023-a-live-frame-is-never-stored-and-never-implied.md)).
+
+The credential travels in `Authorization` and is not accepted anywhere else. A
+token in the query string would make an `img` tag work, at the cost of putting a
+live credential into browser history, proxy logs and referrer headers
+([SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md)). That also rules
+out `EventSource`, which cannot send a header, so a browser client reads the
+event stream with `fetch` and a `ReadableStream`.
+
+### What is available
+
+```http
+GET /api/v1/stream/info
+Authorization: Bearer xvt_8Kd2Qa...
+```
+
+```json
+{
+  "enabled": true,
+  "owner": "06946e01-4492-7889-8000-aeaa0655f533",
+  "broker": {
+    "enabled": true,
+    "connected": true,
+    "host": "mosquitto",
+    "port": 1883,
+    "instance": "default",
+    "publishesCaptures": true,
+    "publishesFrames": false,
+    "published": 412,
+    "dropped": 0,
+    "topics": {
+      "events": "ximply/default/events/{owner}/{type}",
+      "captures": "ximply/default/captures/{owner}/{event}",
+      "camera": "ximply/default/camera/{owner}/{camera}/frame",
+      "status": "ximply/default/status"
+    }
+  },
+  "endpoints": {
+    "events": {
+      "path": "/api/v1/stream/events",
+      "mediaType": "text/event-stream",
+      "scope": "events:read"
+    },
+    "camera": {
+      "path": "/api/v1/stream/camera/{cameraId}",
+      "mediaType": "multipart/x-mixed-replace; boundary=ximplyframe",
+      "scope": "camera:view",
+      "enabled": false,
+      "maxFps": 4.0,
+      "maxSide": 640
+    }
+  },
+  "keepaliveSeconds": 15.0,
+  "subscribers": 0,
+  "dropped": 0
+}
+```
+
+The topic templates come back with the instance already substituted, so what is
+shown is what will run. The streaming tab of the integrations page renders its
+table and its examples from this response rather than hard coding them, which is
+why a topic added to the backend appears there with no frontend change.
+
+`dropped` counts what a full queue discarded since the process started, once at
+the top level for the HTTP fan-out and once under `broker` for the outbound
+queue. It is the one number that says a subscriber is losing data. `subscribers`
+is how many connections are reading this account's events on this worker.
+
+`enabled` under `endpoints.camera` is `CAMERA_VIEW_ENABLED`, so a client can
+tell a deployment that will refuse frames from one that will serve them before
+it opens a connection.
+
+### The event stream
+
+`GET /stream/events` holds the connection open and writes one message per event.
+The SSE `event` field carries the event type, so a browser can use
+`addEventListener` per type, and `data` is the same full OpenTelemetry log
+record a webhook delivery carries, built by the same function:
+
+```
+event: person.recognised
+data: {"id": "0699...", "eventName": "person.recognised", "attributes": { ... }}
+
+: keepalive
+```
+
+A comment line is written every `STREAM_KEEPALIVE_SECONDS` so an idle connection
+survives a proxy. The generator checks whether the client is still connected on
+every iteration and ends when it is not, because an endless generator and a
+shutdown that waits for open connections leave the port bound.
+
+```bash
+curl -N -H "Authorization: Bearer xvt_8Kd2Qa..." \
+  http://localhost:8000/api/v1/stream/events
+```
+
+Nothing is replayed. A subscriber that connects late receives what happens next;
+what happened before is in `GET /events` and is still delivered by webhook.
+
+### Watching a camera
+
+`GET /stream/camera/{cameraId}` answers `multipart/x-mixed-replace` with one
+JPEG per part, the format every player already reads. Frames
+are downscaled to `STREAM_CAMERA_MAX_SIDE`, encoded at `STREAM_CAMERA_QUALITY`
+and rate limited to `STREAM_CAMERA_MAX_FPS`, independently of what detection
+runs at: a viewer cannot make the camera capture faster and cannot pull a larger
+image than the browser is already sending.
+
+```bash
+ffplay -headers "Authorization: Bearer xvt_8Kd2Qa..." \
+  http://localhost:8000/api/v1/stream/camera/default
+```
+
+- `403` when the token does not list `camera:view`. The empty scope list that
+  means "whatever the owner holds" does not carry it, so a token issued before
+  this existed cannot watch.
+- `404` when `CAMERA_VIEW_ENABLED` is false, because the capability is absent
+  from the deployment rather than refused to this caller.
+
+No frame is stored, and none is encoded at all while nobody is subscribed. The
+camera state reports how many subscribers are watching, so being watched shows
+on the screen in the room; see [Camera control](#camera-control).
+
+### The broker
+
+With `MQTT_ENABLED` on, the same records are published to MQTT. The topic tree
+is fixed, and the owner id is in the path so a broker ACL can be written per
+account:
+
+| Topic | Payload | QoS | Retained |
+| --- | --- | --- | --- |
+| `ximply/<instance>/events/<owner>/<type>` | The log record, as JSON | 1 | No |
+| `ximply/<instance>/captures/<owner>/<event>` | The capture, as JPEG | 0 | No |
+| `ximply/<instance>/camera/<owner>/<camera>/frame` | The live frame, as JPEG | 0 | No |
+| `ximply/<instance>/status` | `online` or `offline` | 1 | Yes |
+
+`<instance>` is `MQTT_INSTANCE`, so several deployments share one broker without
+colliding, and the first segment is `MQTT_TOPIC_PREFIX`. Events are QoS 1
+because a subscriber that misses an arrival has missed what it subscribed for;
+images are QoS 0 because a frame that arrives late is worth nothing. Nothing
+carrying an observation is retained. The status topic is the exception and is
+registered as a last will, so a subscriber can tell "nothing is happening" from
+"nothing is running" without asking.
+
+```bash
+mosquitto_sub -h localhost -p 1883 -v -t 'ximply/default/events/#'
+```
+
+Add `-u` and `-P` when the broker requires an account.
+
+Publishing never delays a frame. Records are handed to a bounded queue of
+`MQTT_QUEUE_SIZE` and written by one background task, which drops the oldest
+entry and counts it when the broker is unreachable; detection does not wait and
+does not fail. Captures are published only when `MQTT_PUBLISH_CAPTURES` is on,
+and live frames only when `MQTT_PUBLISH_FRAMES` is on as well as
+`CAMERA_VIEW_ENABLED`. Frames on the broker are opt in on their own because a
+broker does not tell a publisher who is subscribed, so once they are on they
+flow whether or not anybody is listening; that is the one path here that
+publishes without knowing
+([SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md)).
+`MQTT_ENABLED` is read at startup, so there is no runtime switch for the broker
+the way there is for the protocol.
+
+The broker is a second process with its own accounts and its own log, and the
+shipped configuration writes no per-owner ACL. What that costs, and what has to
+be done before the port leaves the machine, is
+[SEC-0011](../sec/SEC-0011-broker-and-live-frame-exposure.md).
+
 ## Model Context Protocol
 
 An agent can read what the camera observed instead of waiting to be told, and
@@ -616,6 +814,8 @@ header, which subsequent calls send back.
 | `get_camera` | Whether a camera is wanted on and whether it is running | `events:read` |
 | `start_camera` | Asks for a camera to run. Optional `camera_id` | `camera:control`, by name |
 | `stop_camera` | Asks for a camera to stop. Optional `camera_id` | `camera:control`, by name |
+| `get_camera_frame` | The most recent frame of a camera, as base64 JPEG. Optional `camera_id` | `camera:view`, by name |
+| `get_stream_info` | Where to subscribe: the broker address and topics, and the streaming endpoints | `events:read` |
 
 `list_events` returns records in the same shape a webhook delivery carries, and
 `export_events_otlp` produces exactly what `GET /events/otlp` produces, from
@@ -623,16 +823,23 @@ the same function. Every tool is filtered by the owner of the token that called
 it, and a tool whose scope the token does not carry is refused rather than
 answered.
 
-No reading tool writes anything, and none returns an image: a capture stays
-behind `GET /events/{id}/capture` and a user session. The catalog cannot be
-edited through any tool, a person cannot be enrolled or renamed, and nothing can
-be deleted.
+No reading tool writes anything. The catalog cannot be edited through any tool,
+a person cannot be enrolled or renamed, and nothing can be deleted. A stored
+capture stays behind `GET /events/{id}/capture` and a user session: no tool
+returns one.
 
-The three camera tools are the exception, and are gated differently from the
-rest. `camera:control` is never inherited: a token with no scopes carries
-whatever its owner carries for reading, but control has to appear on the token
-by name, so credentials issued before this existed cannot use it.
-`CAMERA_CONTROL_ENABLED` removes the tools from a deployment entirely.
+The four camera tools are the exception, and are gated differently from the
+rest. Neither `camera:control` nor `camera:view` is ever inherited: a token with
+no scopes carries whatever its owner carries for reading, but each of these has
+to appear on the token by name, so credentials issued before they existed cannot
+use them. `CAMERA_CONTROL_ENABLED` and `CAMERA_VIEW_ENABLED` remove the
+corresponding tools from a deployment entirely.
+
+`get_camera_frame` is the one tool that answers with an image, and it is a live
+frame rather than a stored one. It shows a room instead of reporting on it,
+which is why it is held to the standard in
+[ADR-0023](../adr/ADR-0023-a-live-frame-is-never-stored-and-never-implied.md)
+rather than the one the reading tools follow.
 
 They record a request rather than opening a device. An open interface polls the
 state and honours it; when none is open the reply comes back with `pending`
