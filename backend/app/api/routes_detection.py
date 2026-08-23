@@ -12,7 +12,7 @@ from typing import AsyncGenerator, List, Optional, Tuple
 from uuid import UUID
 
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Body
 from fastapi.responses import StreamingResponse
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -359,6 +359,7 @@ class CaptureDetectionRequest(BaseModel):
 
 async def generate_detection_events(
     user_id: str,
+    request: Request,
 ) -> AsyncGenerator[dict, None]:
     """
     Generate SSE events for real-time detection streaming.
@@ -366,8 +367,15 @@ async def generate_detection_events(
     This is a placeholder that would be connected to the actual
     detection service in production.
 
+    The loop checks whether the client is still there rather than running until
+    something cancels it. An endless generator holds the connection open, and a
+    graceful shutdown waits for open connections: between them, a restart hangs
+    with the port bound to a server that never finishes stopping. That is not
+    hypothetical, it is what a hot reload did here twice.
+
     Args:
         user_id: User ID for the stream.
+        request: The connection, asked each round whether it is still open.
 
     Yields:
         dict: SSE event data.
@@ -378,7 +386,7 @@ async def generate_detection_events(
     # 2. Run detection model on frames
     # 3. Yield detection results
 
-    while True:
+    while not await request.is_disconnected():
         # Simulate detection results (replace with actual detection)
         detection = DetectionResponse(
             detections=[
@@ -403,9 +411,12 @@ async def generate_detection_events(
 
         await asyncio.sleep(1.0 / settings.camera_frame_rate)
 
+    logger.info(f"Detection stream closed for user: {user_id}")
+
 
 @router.get("/stream")
 async def stream_detections(
+    request: Request,
     current_user: TokenData = Depends(require_permissions([Permission.DETECTION_VIEW])),
 ) -> EventSourceResponse:
     """
@@ -423,7 +434,7 @@ async def stream_detections(
     logger.info(f"Detection stream started for user: {current_user.sub}")
 
     return EventSourceResponse(
-        generate_detection_events(current_user.sub),
+        generate_detection_events(current_user.sub, request),
         media_type="text/event-stream",
     )
 
