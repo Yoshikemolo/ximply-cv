@@ -18,6 +18,7 @@ Architecture decisions are recorded separately, in [doc/adr](../adr/README.md).
 | [SEC-0008](SEC-0008-webhook-signing.md) | Webhook signing |
 | [SEC-0009](SEC-0009-integration-tokens.md) | Integration tokens |
 | [SEC-0010](SEC-0010-remote-camera-activation.md) | Remote camera activation |
+| [SEC-0011](SEC-0011-broker-and-live-frame-exposure.md) | Broker and live frame exposure |
 
 ## Before exposing this beyond localhost
 
@@ -38,6 +39,10 @@ The short version of what the records above require:
 6. Issue integration tokens with their scopes named, and serve the protocol
    mounts over `https`, since the token travels in a header on every request
    ([SEC-0009](SEC-0009-integration-tokens.md#known-gaps)).
+7. Leave the broker and the live frame stream switched off unless something
+   needs them, and give the broker per-user accounts and topic ACLs before a
+   second account exists on the instance
+   ([SEC-0011](SEC-0011-broker-and-live-frame-exposure.md#known-gaps)).
 
 ## Elsewhere
 
